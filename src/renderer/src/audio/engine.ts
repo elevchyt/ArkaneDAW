@@ -7,6 +7,7 @@
 import type { Channel, FxSlot, MixerTrack, Project } from '../store/types'
 import type { ScheduledEvent } from '../plugins/sdk/types'
 import { createPluginNode, type PluginHostNode } from './plugin-node'
+import { getPlugin } from '../plugins/registry'
 
 export const faderToGain = (v: number, ref = 0.8): number => (v <= 0 ? 0 : Math.pow(v / ref, 1.6))
 export const gainToDb = (g: number): number => (g <= 0.00001 ? -Infinity : 20 * Math.log10(g))
@@ -361,6 +362,22 @@ export class AudioEngine {
         }
       }
     }
+    this.pushTempo(project.tempo)
+  }
+
+  /**
+   * Plugins that declare a hidden 'tempo' param (tempo-synced delays, LFOs) get the project tempo.
+   * Sent only when it changes per node.
+   */
+  private tempoSent = new WeakMap<PluginHostNode, number>()
+  private pushTempo(tempo: number): void {
+    const send = (n: PluginHostNode | null) => {
+      if (!n || this.tempoSent.get(n) === tempo) return
+      this.tempoSent.set(n, tempo)
+      if (getPlugin(n.pluginId)?.manifest.params.some((p) => p.id === 'tempo' && p.hidden)) n.setParam('tempo', tempo)
+    }
+    for (const c of this.channels.values()) send(c.instrument)
+    for (const m of this.mixer) for (let i = 0; i < m.slots.length; i++) send(m.getSlotPlugin(i))
   }
 
   // ── note I/O ────────────────────────────────────────────────────────────────
