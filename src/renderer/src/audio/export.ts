@@ -32,7 +32,7 @@ export async function renderProject(opts: RenderOptions = {}): Promise<AudioBuff
   engine.sync(p)
   // Wait for all plugin nodes (wasm compile, sample decode) before scheduling.
   await Promise.all([...engine.channels.values()].map((c) => c.instrument?.ready))
-  await Promise.all(engine.mixer.flatMap((m) => m.slots.map((s) => s?.plugin.ready)))
+  await Promise.all(engine.mixer.flatMap((m) => m?.slots.map((s) => s?.plugin.ready) ?? []))
   const start = 0.05
   const at = (tick: number) => start + tick / tps
   const hits = mode === 'song' ? songHits(p, 0, lenTicks) : patternHits(p, pattern, 0, 0, lenTicks)
@@ -54,12 +54,12 @@ export async function renderProject(opts: RenderOptions = {}): Promise<AudioBuff
       const src = ctx.createBufferSource()
       src.buffer = buf
       const strip = clip.channelId ? engine.channels.get(clip.channelId) : null
-      src.connect(strip ? strip.input : engine.mixer[0].input)
+      src.connect(strip ? strip.input : engine.mixer[0]!.input)
       src.start(at(clip.start), clip.offset / tps, clip.length / tps)
     }
   }
   // Port messages are async: make sure every plugin has its events before the (fast) offline render runs.
-  const nodes = [...engine.channels.values()].map((c) => c.instrument).concat(engine.mixer.flatMap((m) => m.slots.map((s) => s?.plugin ?? null)))
+  const nodes = [...engine.channels.values()].map((c) => c.instrument).concat(engine.mixer.flatMap((m) => m?.slots.map((s) => s?.plugin ?? null) ?? []))
   await Promise.all(nodes.map((n) => n?.flush?.()))
   const out = await ctx.startRendering()
   engine.dispose()

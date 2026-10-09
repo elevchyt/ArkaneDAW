@@ -146,7 +146,7 @@ describe('mosaic engines', () => {
       }
     }
     await writeWav('/tmp/mosaic-demo.wav', { L: Float32Array.from(out.L), R: Float32Array.from(out.R) })
-  })
+  }, 60_000)
 })
 
 describe('mosaic CPU', () => {

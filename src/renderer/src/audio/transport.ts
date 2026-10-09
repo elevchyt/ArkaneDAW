@@ -28,6 +28,7 @@ export function initAudio(): Promise<AudioEngine> {
   if (!initPromise) {
     initPromise = ensureAudio().then((ctx) => {
       engine = new AudioEngine(ctx)
+      if (import.meta.env.DEV) (globalThis as unknown as { __arkaneEngine?: AudioEngine }).__arkaneEngine = engine
       engine.sync(getProject())
       useProject.subscribe((s) => engine!.sync(s.project))
       startFrameLoop()
@@ -208,7 +209,7 @@ class Scheduler {
     const src = ctx.createBufferSource()
     src.buffer = buf
     const strip = clip.channelId ? e.channels.get(clip.channelId) : null
-    src.connect(strip ? strip.input : e.mixer[0].input)
+    src.connect(strip ? strip.input : e.mixer[0]!.input)
     const tps = this.tps()
     const offsetSec = (clip.offset + intoTicks) / tps
     const durSec = (clip.length - intoTicks) / tps

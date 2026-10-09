@@ -598,7 +598,7 @@ function writeBack(node: VstHostNode, data: VstStateData): void {
     return
   }
   eng.mixer.forEach((m, track) =>
-    m.slots.forEach((s, slot) => {
+    m?.slots.forEach((s, slot) => {
       if (s?.plugin !== node) return
       editProject('Plugin state', (d) => sync(d.mixer[track]?.slots[slot]?.plugin), { undoable: false })
     })
@@ -612,7 +612,7 @@ function liveTwin(state: PluginInstanceState): VstHostNode | null {
   for (const strip of eng.channels.values())
     if (strip.state.plugin === state && strip.instrument instanceof VstHostNode) return strip.instrument
   for (const m of eng.mixer)
-    for (const s of m.slots) if (s && s.state.plugin === state && s.plugin instanceof VstHostNode) return s.plugin
+    if (m) for (const s of m.slots) if (s && s.state.plugin === state && s.plugin instanceof VstHostNode) return s.plugin
   return null
 }
 

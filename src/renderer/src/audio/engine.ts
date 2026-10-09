@@ -197,7 +197,12 @@ export class MixerStrip {
     }
   }
 
-  setSends(targets: Map<number, number>, strips: MixerStrip[], destination: AudioNode | null): void {
+  clearSends(): void {
+    for (const g of this.sends.values()) g.disconnect()
+    this.sends.clear()
+  }
+
+  setSends(targets: Map<number, number>, strips: (MixerStrip | null)[], destination: AudioNode | null): void {
     for (const [target, g] of this.sends) {
       if (!targets.has(target)) {
         g.disconnect()
@@ -272,7 +277,11 @@ export class ChannelStrip {
     if (prev.pitch !== ch.pitch) this.instrument?.schedule([{ kind: 'bend', time: 0, semitones: ch.pitch / 100 }])
   }
 
-  route(strips: MixerStrip[], destination: AudioNode): void {
+  invalidateRoute(): void {
+    this.target = -2
+  }
+
+  route(strips: (MixerStrip | null)[], destination: AudioNode): void {
     const t = this.state.mixerTrack
     if (t === this.target) return
     this.pan.disconnect()
@@ -301,7 +310,8 @@ function diff(a: Record<string, number>, b: Record<string, number>): Record<stri
  */
 export class AudioEngine {
   readonly channels = new Map<string, ChannelStrip>()
-  readonly mixer: MixerStrip[] = []
+  readonly mixer: (MixerStrip | null)[] = []
+  private usedTracks: Set<number> | null = null
   readonly masterOut: GainNode
   readonly output: AudioNode
   private project: Project | null = null
@@ -323,23 +333,42 @@ export class AudioEngine {
     if (prev === project) return
     const ctx = this.ctx
 
-    // Mixer
-    if (!prev || prev.mixer !== project.mixer) {
-      while (this.mixer.length < project.mixer.length) this.mixer.push(new MixerStrip(ctx, this.mixer.length))
+    // Mixer. Only tracks that can carry audio get nodes (an idle FL project has 125 empty inserts and
+    // building all of them overloads the audio thread).
+    if (!prev || prev.mixer !== project.mixer || prev.channels !== project.channels) {
+      const used = usedMixerTracks(project)
+      const prevUsed = this.usedTracks
+      const structural = !prevUsed || used.size !== prevUsed.size || [...used].some((i) => !prevUsed.has(i))
+      this.usedTracks = used
+      while (this.mixer.length < project.mixer.length) this.mixer.push(null)
+      for (let i = 0; i < this.mixer.length; i++) {
+        const want = used.has(i) && i < project.mixer.length
+        if (want && !this.mixer[i]) this.mixer[i] = new MixerStrip(ctx, i)
+        else if (!want && this.mixer[i]) {
+          this.mixer[i]!.dispose()
+          this.mixer[i] = null
+        }
+      }
       const soloed = project.mixer.filter((t) => t.solo).map((t) => t.index)
       const audible = soloed.length ? soloAudible(project.mixer, soloed) : null
       const soloDirty = !prev || soloChanged(prev, project)
       project.mixer.forEach((t, i) => {
-        if (prev && prev.mixer[i] === t && !soloDirty) return
-        this.mixer[i].apply(t, audible ? !audible.has(i) : false)
+        const strip = this.mixer[i]
+        if (!strip) return
+        if (prev && prev.mixer[i] === t && !soloDirty && strip.state) return
+        strip.apply(t, audible ? !audible.has(i) : false)
       })
       project.mixer.forEach((t, i) => {
-        if (prev && prev.mixer[i]?.sends === t.sends && this.mixer[i].sends.size) return
+        const strip = this.mixer[i]
+        if (!strip) return
+        if (!structural && prev && prev.mixer[i]?.sends === t.sends && strip.sends.size) return
+        if (structural) strip.clearSends()
         const targets = new Map<number, number>()
         if (i === 0) targets.set(-1, 1)
-        else for (const s of t.sends) if (s.target !== i) targets.set(s.target, s.level)
-        this.mixer[i].setSends(targets, this.mixer, this.masterOut)
+        else for (const sd of t.sends) if (sd.target !== i && this.mixer[sd.target]) targets.set(sd.target, sd.level)
+        strip.setSends(targets, this.mixer, this.masterOut)
       })
+      if (structural) for (const c of this.channels.values()) c.invalidateRoute()
     }
     this.masterOut.gain.value = faderToGain(project.masterVolume)
 
@@ -355,6 +384,7 @@ export class AudioEngine {
         } else if (strip.state !== ch) strip.apply(ch)
         strip.route(this.mixer, this.mixer[0]?.input ?? this.masterOut)
       }
+      for (const strip of this.channels.values()) strip.route(this.mixer, this.mixer[0]?.input ?? this.masterOut)
       for (const [id, strip] of this.channels) {
         if (!seen.has(id)) {
           strip.dispose()
@@ -377,7 +407,7 @@ export class AudioEngine {
       if (getPlugin(n.pluginId)?.manifest.params.some((p) => p.id === 'tempo' && p.hidden)) n.setParam('tempo', tempo)
     }
     for (const c of this.channels.values()) send(c.instrument)
-    for (const m of this.mixer) for (let i = 0; i < m.slots.length; i++) send(m.getSlotPlugin(i))
+    for (const m of this.mixer) if (m) for (let i = 0; i < m.slots.length; i++) send(m.getSlotPlugin(i))
   }
 
   // ── note I/O ────────────────────────────────────────────────────────────────
@@ -407,7 +437,7 @@ export class AudioEngine {
       ch.instrument?.clearScheduled()
       ch.instrument?.panic(hard)
     }
-    if (hard) for (const m of this.mixer) for (const s of m.slots) s?.plugin.panic(true)
+    if (hard) for (const m of this.mixer) if (m) for (const s of m.slots) s?.plugin.panic(true)
   }
 
   stopScheduled(): void {
@@ -427,7 +457,7 @@ export class AudioEngine {
 
   dispose(): void {
     for (const c of this.channels.values()) c.dispose()
-    for (const m of this.mixer) m.dispose()
+    for (const m of this.mixer) m?.dispose()
     this.masterOut.disconnect()
   }
 }
@@ -459,4 +489,20 @@ function soloAudible(mixer: MixerTrack[], soloed: number[]): Set<number> {
 function soloChanged(a: Project, b: Project): boolean {
   for (let i = 0; i < b.mixer.length; i++) if (a.mixer[i]?.solo !== b.mixer[i].solo) return true
   return false
+}
+
+/** Mixer tracks that need audio nodes: master, channel targets, tracks with FX or armed, plus everything downstream. */
+export function usedMixerTracks(p: Project): Set<number> {
+  const used = new Set<number>([0])
+  for (const c of p.channels) if (c.mixerTrack >= 0 && c.mixerTrack < p.mixer.length) used.add(c.mixerTrack)
+  for (const t of p.mixer) if (t.armed || t.slots.some(Boolean)) used.add(t.index)
+  const stack = [...used]
+  while (stack.length) {
+    const i = stack.pop()!
+    for (const sd of p.mixer[i]?.sends ?? []) if (!used.has(sd.target)) {
+      used.add(sd.target)
+      stack.push(sd.target)
+    }
+  }
+  return used
 }
