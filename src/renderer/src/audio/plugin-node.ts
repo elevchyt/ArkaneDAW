@@ -22,6 +22,8 @@ export interface PluginHostNode {
   post(msg: unknown): void
   onMessage(cb: (msg: unknown) => void): () => void
   setBypass(bypass: boolean): void
+  /** Resolves once every message sent so far has reached the audio thread (needed before offline renders). */
+  flush?(): Promise<void>
   dispose(): void
 }
 
@@ -49,6 +51,8 @@ class BuiltinPluginNode implements PluginHostNode {
   private node: AudioWorkletNode | null = null
   private pending: ToWorklet[] = []
   private listeners = new Set<(msg: unknown) => void>()
+  private pongs = new Map<number, () => void>()
+  private pingSeq = 0
   private disposed = false
   /** Stable in/out so the graph can be wired before the worklet node exists (wasm compile is async). */
   private inGain: GainNode | null
@@ -82,7 +86,10 @@ class BuiltinPluginNode implements PluginHostNode {
     })
     node.port.onmessage = (e: MessageEvent<FromWorklet>) => {
       const m = e.data
-      if (m.type === 'message') for (const l of this.listeners) l(m.msg)
+      if (m.type === 'pong') {
+        this.pongs.get(m.id)?.()
+        this.pongs.delete(m.id)
+      } else if (m.type === 'message') for (const l of this.listeners) l(m.msg)
       else if (m.type === 'error') console.error(`[plugin ${this.pluginId}]`, m.message)
     }
     if (this.inGain) this.inGain.connect(node, 0, 0)
@@ -129,6 +136,14 @@ class BuiltinPluginNode implements PluginHostNode {
   onMessage(cb: (msg: unknown) => void): () => void {
     this.listeners.add(cb)
     return () => this.listeners.delete(cb)
+  }
+  async flush(): Promise<void> {
+    await this.ready
+    const id = ++this.pingSeq
+    await new Promise<void>((resolve) => {
+      this.pongs.set(id, resolve)
+      this.send({ type: 'ping', id })
+    })
   }
   setBypass(bypass: boolean): void {
     this.send({ type: 'bypass', bypass })

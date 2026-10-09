@@ -58,6 +58,9 @@ export async function renderProject(opts: RenderOptions = {}): Promise<AudioBuff
       src.start(at(clip.start), clip.offset / tps, clip.length / tps)
     }
   }
+  // Port messages are async: make sure every plugin has its events before the (fast) offline render runs.
+  const nodes = [...engine.channels.values()].map((c) => c.instrument).concat(engine.mixer.flatMap((m) => m.slots.map((s) => s?.plugin ?? null)))
+  await Promise.all(nodes.map((n) => n?.flush?.()))
   const out = await ctx.startRendering()
   engine.dispose()
   return out

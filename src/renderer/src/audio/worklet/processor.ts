@@ -94,6 +94,10 @@ class ArkanePluginProcessor extends AudioWorkletProcessor {
       case 'bypass':
         this.bypass = m.bypass
         return
+      case 'ping':
+        // Ordered after everything posted before it: the host uses this to know events have arrived.
+        this.port.postMessage({ type: 'pong', id: m.id })
+        return
     }
   }
 

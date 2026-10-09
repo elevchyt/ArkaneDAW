@@ -146,5 +146,6 @@ export type ToWorklet =
   | { type: 'reset' }
   | { type: 'message'; msg: unknown }
   | { type: 'bypass'; bypass: boolean }
+  | { type: 'ping'; id: number }
 
-export type FromWorklet = { type: 'ready' } | { type: 'error'; message: string } | { type: 'message'; msg: unknown }
+export type FromWorklet = { type: 'ready' } | { type: 'error'; message: string } | { type: 'message'; msg: unknown } | { type: 'pong'; id: number }
