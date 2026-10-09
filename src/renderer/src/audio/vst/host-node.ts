@@ -17,6 +17,7 @@ import { host } from '../../platform'
 import { parsePluginId } from './ids'
 import { childProcess, loadAddon, nativeStatus, sidecarPath, type BridgeAddon } from './native'
 import { SidecarProcess, describeExit, type VstParamInfo, type VstPluginInfo } from './sidecar'
+import { requireDependency } from '../../system/deps'
 import {
   Ev,
   F64_ANCHOR_PPQ,
@@ -141,7 +142,10 @@ export class VstHostNode implements PluginHostNode {
     const ref = parsePluginId(state.pluginId)
     if (!ref) return this.fail('error', `Invalid plugin id ${state.pluginId}`)
     const ns = await nativeStatus()
-    if (!ns.available) return this.fail('unavailable', ns.reason)
+    if (!ns.available) {
+      this.fail('unavailable', ns.reason)
+      return this.promptNativeHost(state)
+    }
     if (host && !host.fs.existsSync(ref.path)) return this.fail('unavailable', `Plugin file not found: ${ref.path}`)
     this.addon = await loadAddon()
     this.exe = (await sidecarPath())!
@@ -305,6 +309,23 @@ export class VstHostNode implements PluginHostNode {
     }
     console.warn(`[vst] ${this.pluginId}: ${message ?? status}`)
     this.changed()
+  }
+
+  /** Native host missing: show the dependency prompt; when a "Re-check" finds it, load the plugin after all. */
+  private promptNativeHost(state: PluginInstanceState): void {
+    const offline = typeof OfflineAudioContext !== 'undefined' && this.ctx instanceof OfflineAudioContext
+    if (!host || offline) return
+    void requireDependency('vsthost').then((ok) => {
+      if (!ok || this.disposed || this.status !== 'unavailable' || this.sab) return
+      if (this.passthrough && this.inGain) {
+        this.inGain.disconnect(this.outGain)
+        this.passthrough = false
+      }
+      this.status = 'loading'
+      this.message = undefined
+      this.changed()
+      this.init(state).catch((e: unknown) => this.fail('error', e instanceof Error ? e.message : String(e)))
+    })
   }
 
   /** Re-spawn after a crash, restoring the last captured state. */

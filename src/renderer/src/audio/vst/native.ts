@@ -69,6 +69,11 @@ export async function loadAddon(): Promise<BridgeAddon | null> {
   return addon
 }
 
+/** Forget a failed addon load so the next nativeStatus() looks again (dependency "Re-check"). */
+export function resetNativeProbe(): void {
+  if (addon === null) addon = undefined
+}
+
 export function childProcess(): ChildProcessModule | null {
   const req = nodeRequire()
   if (!req) return null

@@ -9,6 +9,7 @@ import { useUI, installHintTracking } from '@/store/ui'
 import { useProject } from '@/store/project'
 import { initAudio } from '@/audio/transport'
 import { host } from '@/platform'
+import { SystemChecks } from '@/system/SystemChecks'
 
 export default function App() {
   const browser = useUI((s) => s.browserVisible)
@@ -41,6 +42,7 @@ export default function App() {
           <Workspace />
         </div>
       </div>
+      <SystemChecks />
     </TooltipProvider>
   )
 }

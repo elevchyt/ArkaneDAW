@@ -34,7 +34,8 @@ import {
   type OggCodec
 } from './core'
 import { mixerStems, playlistStems } from './split'
-import { detectFfmpeg, rendererChildProcess, type FfmpegInfo } from './ffmpeg'
+import type { FfmpegInfo } from './ffmpeg'
+import { probeFfmpeg, requireDependency } from '@/system/deps'
 import { closeExportWizard, useExportWizard } from './store'
 
 const STORAGE_KEY = 'arkane.exportSettings'
@@ -55,11 +56,11 @@ function saveSettings(s: ExportSettings): void {
   }
 }
 
-let ffmpegProbe: Promise<FfmpegInfo | null> | null = null
-function probeFfmpeg(): Promise<FfmpegInfo | null> {
-  if (!host) return Promise.resolve(null)
-  if (!ffmpegProbe) ffmpegProbe = detectFfmpeg(rendererChildProcess()).catch(() => null)
-  return ffmpegProbe
+/** Can `info` produce `f`? (WAV never needs ffmpeg; OGG needs Vorbis or Opus.) */
+function canEncode(info: FfmpegInfo | null | undefined, f: ExportFormat): boolean {
+  if (f === 'wav') return true
+  if (!info) return false
+  return f === 'ogg' ? info.encoders.has(FFMPEG_ENCODER.vorbis) || info.encoders.has(FFMPEG_ENCODER.opus) : info.encoders.has(FFMPEG_ENCODER[f])
 }
 
 const baseName = (p: string) => p.slice(Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')) + 1)
@@ -213,10 +214,33 @@ export function ExportWizard() {
     return { wav: true, mp3: has('mp3'), vorbis: has('vorbis'), opus: has('opus'), ogg: has('vorbis') || has('opus'), flac: has('flac') }
   }, [ff])
 
+  // MP3/OGG/FLAC stay selectable without ffmpeg: picking one opens the dependency prompt instead
+  // (system/deps.ts); after a successful "Re-check" the format is selected.
+  const pickFormat = async (f: ExportFormat) => {
+    let info = ff === undefined ? await probeFfmpeg() : ff
+    if (!canEncode(info, f)) {
+      if (!host) return
+      if (!(await requireDependency('ffmpeg', f === 'ogg' ? FFMPEG_ENCODER.vorbis : FFMPEG_ENCODER[f as 'mp3' | 'flac']))) return
+      info = await probeFfmpeg()
+      if (!canEncode(info, f)) return
+    }
+    setFf(info)
+    set({ format: f })
+  }
+  const promptedRef = useRef(-1)
+
   // If the persisted/preset format can't be produced, fall back (WAV always works).
   useEffect(() => {
     if (ff === undefined) return
-    if (s.format !== 'wav' && !available[s.format]) set({ format: 'wav' })
+    if (s.format !== 'wav' && !available[s.format]) {
+      const want = s.format
+      set({ format: 'wav' })
+      // Opened for this format (FILE › Export › MP3…): explain what's missing instead of silently switching.
+      if (host && preset === want && promptedRef.current !== session) {
+        promptedRef.current = session
+        void pickFormat(want)
+      }
+    }
     else if (s.format === 'ogg' && !available[s.oggCodec]) set({ oggCodec: available.vorbis ? 'vorbis' : 'opus' })
   }, [ff, s.format, s.oggCodec, available])
 
@@ -292,13 +316,14 @@ export function ExportWizard() {
   }
 
   const dis = running
-  const fmtDisabled = (f: ExportFormat) => dis || (f !== 'wav' && !(f === 'ogg' ? available.ogg : available[f]))
+  const fmtMissing = (f: ExportFormat) => f !== 'wav' && !(f === 'ogg' ? available.ogg : available[f])
+  const fmtDisabled = (f: ExportFormat) => dis || (!host && f !== 'wav')
   const ffHint = !host
     ? 'Browser build: only WAV download is available.'
     : ff === undefined
       ? 'Detecting ffmpeg…'
       : ff === null
-        ? 'Install ffmpeg to export MP3/OGG/FLAC.'
+        ? 'ffmpeg not found: pick MP3/OGG/FLAC to see how to install it.'
         : `ffmpeg ${ff.version}`
 
   const pct = progress ? Math.round(progress.fraction * 100) : 0
@@ -383,7 +408,7 @@ export function ExportWizard() {
               <Section title="Output format">
                 <div role="radiogroup" aria-label="Output format" className="grid grid-cols-4 gap-1">
                   {(['wav', 'mp3', 'ogg', 'flac'] as const).map((f) => (
-                    <Radio key={f} on={s.format === f} disabled={fmtDisabled(f)} onClick={() => set({ format: f })} title={needsFfmpeg(f) && fmtDisabled(f) && !dis ? ffHint : undefined}>
+                    <Radio key={f} on={s.format === f} disabled={fmtDisabled(f)} onClick={() => void pickFormat(f)} title={needsFfmpeg(f) && fmtMissing(f) && !dis ? ffHint : undefined}>
                       {f.toUpperCase()}
                     </Radio>
                   ))}

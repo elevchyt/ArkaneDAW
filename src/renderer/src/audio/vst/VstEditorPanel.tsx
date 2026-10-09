@@ -8,6 +8,7 @@ import { VstHostNode, type VstSnapshot } from './host-node'
 import type { VstParamInfo } from './sidecar'
 import { parsePluginId } from './ids'
 import { getExternalPluginInfo } from './catalog'
+import { requireDependency } from '../../system/deps'
 
 export interface ExternalEditorProps {
   pluginId: string
@@ -114,7 +115,11 @@ export function VstEditorPanel({ pluginId, params, getNode, setParam, hint }: Ex
         <button
           disabled={status !== 'running' || info?.hasEditor === false}
           className="flex items-center gap-1 rounded-sm bg-fl-orange px-2 py-1 font-semibold text-[#1b1f22] disabled:opacity-40"
-          onClick={() => node?.post({ type: snap.editorOpen ? 'hideEditor' : 'showEditor' })}
+          onClick={() => {
+            if (snap.editorOpen) return node?.post({ type: 'hideEditor' })
+            // Plugin GUIs are X11 windows: without X11/XWayland explain what to install first.
+            void requireDependency('x11').then((ok) => ok && node?.post({ type: 'showEditor' }))
+          }}
           onMouseEnter={() => hint?.('Open the plugin’s own editor in a separate window')}
         >
           <AppWindow size={12} /> {snap.editorOpen ? 'Hide editor' : 'Show editor'}
