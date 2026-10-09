@@ -2,6 +2,10 @@
 // VST3/VST2/CLAP plugins. Pickers, menus and the browser use this so external plugins show up everywhere.
 import { listPlugins, getPlugin } from './registry'
 import { getExternalPluginInfo, listExternalPlugins, useExternalPlugins, type ExternalPluginInfo } from '../audio/vst'
+import { entryPack, type EntryPack } from '../packs/entry'
+import { packsSupported } from '../packs/paths'
+import { initPacks, usePacks } from '../packs/store'
+import type { PackStatus } from '../packs/status'
 
 export interface PluginEntry {
   id: string
@@ -13,6 +17,8 @@ export interface PluginEntry {
   color?: string
   external: boolean
   favorite?: boolean
+  /** set when the plugin needs a downloadable sound library (packs/): menus show a badge while not installed */
+  pack?: EntryPack
 }
 
 function fromExternal(p: ExternalPluginInfo): PluginEntry {
@@ -27,7 +33,9 @@ function fromExternal(p: ExternalPluginInfo): PluginEntry {
   }
 }
 
-function builtins(kind?: 'instrument' | 'effect'): PluginEntry[] {
+function builtins(kind?: 'instrument' | 'effect', packs: Record<string, PackStatus> = usePacks.getState().status): PluginEntry[] {
+  const supported = packsSupported()
+  if (supported) initPacks()
   return listPlugins(kind).map((m) => ({
     id: m.manifest.id,
     name: m.manifest.name,
@@ -35,7 +43,8 @@ function builtins(kind?: 'instrument' | 'effect'): PluginEntry[] {
     category: m.manifest.category,
     description: m.manifest.description,
     color: m.manifest.color,
-    external: false
+    external: false,
+    pack: entryPack(m.manifest.id, packs, supported)
   }))
 }
 
@@ -47,7 +56,8 @@ export function allPlugins(kind?: 'instrument' | 'effect'): PluginEntry[] {
 /** Reactive list: re-renders when the VST catalogue changes (scan finished). */
 export function useAllPlugins(kind?: 'instrument' | 'effect'): PluginEntry[] {
   const ext = useExternalPlugins(kind)
-  return [...builtins(kind), ...ext.map(fromExternal)]
+  const packs = usePacks((s) => s.status)
+  return [...builtins(kind, packs), ...ext.map(fromExternal)]
 }
 
 /** Categories in display order: built-in groups alphabetically, then external formats/vendors. */

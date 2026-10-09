@@ -6,6 +6,9 @@ import { useUI } from '@/store/ui'
 import { useProject } from '@/store/project'
 import { allPlugins } from '@/plugins/catalog'
 import { addInstrumentChannel } from '@/store/actions'
+import { guardPack } from '@/packs/guard'
+import { PackBadge } from '@/packs/PackBadge'
+import { usePacks } from '@/packs/store'
 import { initAudio } from '@/audio/transport'
 import { decode } from '@/audio/samples'
 import { openChannelPlugin } from '@/windows/plugin/open'
@@ -62,7 +65,7 @@ async function preview(path: string): Promise<void> {
   previewSrc = src
 }
 
-function Row({ depth, icon, label, open, onClick, onDoubleClick, draggable, onDragStart, active, onContextMenu }: { depth: number; icon: React.ReactNode; label: string; open?: boolean; onClick?: () => void; onDoubleClick?: () => void; draggable?: boolean; onDragStart?: (e: React.DragEvent) => void; active?: boolean; onContextMenu?: (e: React.MouseEvent) => void }) {
+function Row({ depth, icon, label, open, onClick, onDoubleClick, draggable, onDragStart, active, onContextMenu, badge }: { depth: number; icon: React.ReactNode; label: string; open?: boolean; onClick?: () => void; onDoubleClick?: () => void; draggable?: boolean; onDragStart?: (e: React.DragEvent) => void; active?: boolean; onContextMenu?: (e: React.MouseEvent) => void; badge?: React.ReactNode }) {
   const setHint = useUI((s) => s.setHint)
   return (
     <div
@@ -78,6 +81,7 @@ function Row({ depth, icon, label, open, onClick, onDoubleClick, draggable, onDr
       {open !== undefined ? <ChevronRight size={10} className={cn('shrink-0 text-fl-dim transition-transform', open && 'rotate-90')} /> : <span className="w-[10px]" />}
       {icon}
       <span className="truncate">{label}</span>
+      {badge}
     </div>
   )
 }
@@ -133,6 +137,7 @@ function DirNode({ path, name, depth }: { path: string; name: string; depth: num
 
 function PluginDatabase() {
   const [open, setOpen] = useState<Record<string, boolean>>({ Generators: false, Effects: false })
+  usePacks((s) => s.status) // re-render when a pack gets installed (badges)
   return (
     <>
       {(['Generators', 'Effects'] as const).map((g) => {
@@ -149,7 +154,8 @@ function PluginDatabase() {
                   label={m.external ? `${m.name} (${m.category.split(' ')[0]})` : m.name}
                   draggable
                   onDragStart={(e) => e.dataTransfer.setData('application/x-arkane-plugin', m.id)}
-                  onDoubleClick={() => g === 'Generators' && addInstrumentChannel(m.id)}
+                  onDoubleClick={() => g === 'Generators' && guardPack(m.id, () => addInstrumentChannel(m.id))}
+                  badge={m.pack && <PackBadge packId={m.pack.id} />}
                 />
               ))}
           </div>

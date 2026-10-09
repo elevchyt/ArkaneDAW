@@ -1,6 +1,7 @@
 import { host } from '@/platform'
 import { importSampleFile } from '@/audio/samples'
 import { addInstrumentChannel, addSamplerChannel } from '@/store/actions'
+import { guardPack } from '@/packs/guard'
 import { initAudio } from '@/audio/transport'
 
 export const AUDIO_EXT = /\.(wav|mp3|ogg|flac|aif|aiff|m4a|opus|webm)$/i
@@ -18,7 +19,7 @@ export async function handleChannelRackDrop(e: React.DragEvent): Promise<void> {
   e.preventDefault()
   const plugin = e.dataTransfer.getData('application/x-arkane-plugin')
   if (plugin) {
-    addInstrumentChannel(plugin)
+    guardPack(plugin, () => addInstrumentChannel(plugin))
     return
   }
   await initAudio()

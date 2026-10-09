@@ -1,9 +1,13 @@
-// Main-thread side of Concerto: loads resources/concerto/<instrument>/instrument.json for every layer, reads &
-// decodes the FLAC samples with the AudioContext and attaches them (as 16-bit PCM) to the data sent to the DSP.
+// Main-thread side of Concerto: loads <root>/<instrument>/instrument.json for every layer, reads & decodes the FLAC
+// samples with the AudioContext and attaches them (as 16-bit PCM) to the data sent to the DSP.
+// <root> is the "concerto" content pack (<userData>/packs/concerto, downloaded on demand — see packs/), or
+// <resources>/concerto when running unpackaged from a dev checkout. Without either the plugin is "not installed":
+// the DSP gets no instruments (silent) and the editor shows the download panel (packs/PackGate.tsx).
 // Same approach as Studio Drums: worklet module globals are shared by every instance living in one AudioContext,
 // so each sample file is shipped to a given context only once; later instances / instrument switches only send
 // the definitions and the DSP picks the PCM from its shared store.
 import { host } from '../../platform'
+import { onPackRootChange, packRoot } from '../../packs/paths'
 import { readData, type InstrumentJson, type ResolvedConcertoData } from './types'
 
 export type LoadState =
@@ -28,15 +32,26 @@ function setStatus(id: string, s: LoadState): void {
   for (const l of listeners) l()
 }
 
-let rootPromise: Promise<string> | null = null
-/** <resources>/concerto (Electron only). */
-export function concertoDir(): Promise<string> {
-  if (!host) return Promise.reject(new Error('no host'))
-  if (!rootPromise) rootPromise = host.paths().then((p) => host!.path.join(p.resources, 'concerto'))
-  return rootPromise
+export const PACK_ID = 'concerto'
+export const NOT_INSTALLED = 'Concerto sound library not installed — open the instrument to download it.'
+
+export class NotInstalledError extends Error {
+  constructor() {
+    super(NOT_INSTALLED)
+  }
+}
+
+/** Sample root (installed pack, or the dev checkout's resources/concerto). Rejects with NotInstalledError. */
+export async function concertoDir(): Promise<string> {
+  if (!host) throw new Error('no host')
+  const r = await packRoot(PACK_ID)
+  if (!r) throw new NotInstalledError()
+  return r.dir
 }
 
 const jsonCache = new Map<string, Promise<InstrumentJson>>()
+// pack installed / removed / updated: re-read everything from the new root
+onPackRootChange((id) => id === PACK_ID && jsonCache.clear())
 export function loadInstrumentJson(id: string): Promise<InstrumentJson> {
   let p = jsonCache.get(id)
   if (!p) {
@@ -95,6 +110,10 @@ export async function resolveConcerto(data: unknown, ctx: BaseAudioContext): Pro
   try {
     dir = await concertoDir()
   } catch (e) {
+    if (e instanceof NotInstalledError) {
+      for (const id of ids) setStatus(id, { state: 'unavailable', message: NOT_INSTALLED })
+      return { ...d, error: 'not-installed' }
+    }
     return { ...d, error: String(e) }
   }
   const defs: Record<string, InstrumentJson> = {}
@@ -108,7 +127,7 @@ export async function resolveConcerto(data: unknown, ctx: BaseAudioContext): Pro
       def = await loadInstrumentJson(id)
     } catch (e) {
       anyError = String(e)
-      setStatus(id, { state: 'error', message: `Instrument "${id}" not found in resources/concerto — run "npm run concerto". (${String(e)})` })
+      setStatus(id, { state: 'error', message: `Instrument "${id}" not found in the Concerto sound library (${dir}) — reinstall it from OPTIONS › Sound libraries. (${String(e)})` })
       continue
     }
     defs[id] = def

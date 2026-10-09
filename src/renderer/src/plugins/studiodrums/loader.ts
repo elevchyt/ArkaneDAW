@@ -1,10 +1,14 @@
-// Main-thread side of Studio Drums: loads resources/drumkits/<kit>/kit.json, reads & decodes the FLAC
-// samples with the AudioContext and attaches them (as 16-bit PCM) to the data sent to the DSP.
+// Main-thread side of Studio Drums: loads <root>/<kit>/kit.json, reads & decodes the FLAC samples with the
+// AudioContext and attaches them (as 16-bit PCM) to the data sent to the DSP.
+// <root> is the "studiodrums" content pack (<userData>/packs/studiodrums, downloaded on demand — see packs/), or
+// <resources>/drumkits when running unpackaged from a dev checkout. Without either the plugin is "not installed":
+// the DSP gets no kit (silent) and the editor shows the download panel (packs/PackGate.tsx).
 //
 // Worklet module globals are shared by every instance living in one AudioContext, so each sample file is
 // shipped to a given context only once (`shipped`); later instances / kit switches only send the kit
 // definition and the DSP picks the PCM from its shared store.
 import { host } from '../../platform'
+import { onPackRootChange, packRoot } from '../../packs/paths'
 import type { KitJson, ResolvedDrumsData, StudioDrumsData } from './types'
 import { DEFAULT_KIT } from './manifest'
 
@@ -30,15 +34,26 @@ function setStatus(kit: string, s: KitLoadState): void {
   for (const l of listeners) l()
 }
 
-let rootPromise: Promise<string> | null = null
-/** <resources>/drumkits (Electron only). */
-export function drumkitsDir(): Promise<string> {
-  if (!host) return Promise.reject(new Error('no host'))
-  if (!rootPromise) rootPromise = host.paths().then((p) => host!.path.join(p.resources, 'drumkits'))
-  return rootPromise
+export const PACK_ID = 'studiodrums'
+export const NOT_INSTALLED = 'Studio Drums sound library not installed — open the instrument to download it.'
+
+export class NotInstalledError extends Error {
+  constructor() {
+    super(NOT_INSTALLED)
+  }
+}
+
+/** Kit root (installed pack, or the dev checkout's resources/drumkits). Rejects with NotInstalledError. */
+export async function drumkitsDir(): Promise<string> {
+  if (!host) throw new Error('no host')
+  const r = await packRoot(PACK_ID)
+  if (!r) throw new NotInstalledError()
+  return r.dir
 }
 
 const kitJsonCache = new Map<string, Promise<KitJson>>()
+// pack installed / removed / updated: re-read everything from the new root
+onPackRootChange((id) => id === PACK_ID && kitJsonCache.clear())
 export function loadKitJson(kit: string): Promise<KitJson> {
   let p = kitJsonCache.get(kit)
   if (!p) {
@@ -90,8 +105,18 @@ export async function resolveStudioDrums(data: unknown, ctx: BaseAudioContext): 
     setStatus(kitId, { state: 'unavailable', message: 'Drum samples load from disk: run ArkaneDAW in Electron (npm run dev).' })
     return { ...base, error: 'no-host' }
   }
+  let dir: string
   try {
-    const [dir, kit] = await Promise.all([drumkitsDir(), loadKitJson(kitId)])
+    dir = await drumkitsDir()
+  } catch (e) {
+    if (e instanceof NotInstalledError) {
+      setStatus(kitId, { state: 'unavailable', message: NOT_INSTALLED })
+      return { ...base, error: 'not-installed' }
+    }
+    return { ...base, error: String(e) }
+  }
+  try {
+    const kit = await loadKitJson(kitId)
     let sent = shipped.get(ctx)
     if (!sent) shipped.set(ctx, (sent = new Set()))
     const need = kitFiles(kit).filter((f) => !sent!.has(f))
@@ -121,7 +146,7 @@ export async function resolveStudioDrums(data: unknown, ctx: BaseAudioContext): 
     } else setStatus(kitId, { state: 'ready', files: kitFiles(kit).length })
     return { ...base, kitDef: kit, pcm: need.length ? pcm : undefined }
   } catch (e) {
-    setStatus(kitId, { state: 'error', message: `Kit "${kitId}" not found in resources/drumkits — run "npm run drumkits". (${String(e)})` })
+    setStatus(kitId, { state: 'error', message: `Kit "${kitId}" not found in the Studio Drums sound library (${dir}) — reinstall it from OPTIONS › Sound libraries. (${String(e)})` })
     return { ...base, error: String(e) }
   }
 }

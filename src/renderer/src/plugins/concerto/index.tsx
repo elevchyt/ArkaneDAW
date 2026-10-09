@@ -1,3 +1,4 @@
+import { withPack } from '../../packs/PackGate'
 import { definePlugin, type KeyName, type PluginInstanceView } from '../sdk/module'
 import { ConcertoEditor, EDITOR_H, EDITOR_W } from './Editor'
 import { INSTRUMENTS } from './instruments.gen'
@@ -36,12 +37,14 @@ export function concertoKeyNames(instance: PluginInstanceView): Record<number, K
 }
 
 /**
- * Concerto: sampled Baroque & Classical orchestra. Samples live in resources/concerto (built by
- * `npm run concerto`) and are decoded on the main thread, shipped once per AudioContext.
+ * Concerto: sampled Baroque & Classical orchestra. Samples come from the downloadable "concerto" content pack
+ * (built from resources/concerto by `npm run pack:concerto`; dev checkouts read resources/concerto directly) and
+ * are decoded on the main thread, shipped once per AudioContext. Until the pack is installed the editor shows a
+ * download panel and the DSP stays silent.
  */
 export default definePlugin({
   manifest,
-  Editor: ConcertoEditor,
+  Editor: withPack('concerto', ConcertoEditor),
   editorSize: { width: EDITOR_W, height: EDITOR_H },
   keyNames: concertoKeyNames,
   defaultKeyView: 'piano',

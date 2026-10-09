@@ -1,0 +1,9 @@
+{
+  "$comment": "Files that must NOT be shipped in packaged builds (AppImage etc.). They are optional content packs downloaded on demand from the GitHub release 'packs-v1' (see docs/SPEC.md › Content packs, scripts/packs/build.mjs). When a packager is added, feed these globs to its exclude list — e.g. electron-builder: \"files\": [\"**/*\", ...excludes.map(g => '!' + g)] and keep them out of \"extraResources\".",
+  "exclude": [
+    "resources/concerto/**",
+    "resources/drumkits/**",
+    "dist-packs/**",
+    ".tools/**"
+  ]
+}

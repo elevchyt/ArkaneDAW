@@ -131,3 +131,38 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
   scan `~/.vst ~/.vst3 ~/.clap /usr/lib/{vst,vst3,clap}` (+ yabridge-wrapped Windows plugins appear automatically).
 * No root needed: dev headers can be fetched with `apt-get download` into a private sysroot (see Kabee's `scripts/local-deps.sh`).
 * Audio I/O is Chromium's (PulseAudio/PipeWire). Recording uses getUserMedia with all processing (AGC/NS/EC) disabled.
+
+## 8. Content packs (optional sound libraries)
+
+Large sample libraries are **not shipped with the app** (keeps the AppImage small); users download them on demand.
+Packs: `concerto` (Concerto, ~181 MB, from `resources/concerto/`) and `studiodrums` (Studio Drums, ~86 MB, from
+`resources/drumkits/`). The git-lfs files in those folders stay the source of truth for building the packs.
+
+* **Registry** `renderer/src/packs/packs.json` (id → version, source folder, sizeBytes, files, sha256 — the last three are
+  written by the builder) + `packs/registry.ts` (names, descriptions, licences, which plugins need which pack).
+* **Build** `npm run pack:concerto` / `npm run pack:studiodrums` / `npm run packs` → `dist-packs/<id>-<version>.tar`
+  (deterministic, uncompressed ustar — FLACs are already compressed) + `<id>-<version>.json` manifest
+  `{ id, version, file, size, sha256, files }`. It prints the `gh release upload packs-v1 …` command.
+  **Bump the pack's `version` in packs.json whenever its content changes**, rebuild, upload; the app compares the sha256
+  compiled into it with the release manifest, so a re-built pack must be re-uploaded.
+* **Hosting** GitHub release tag `packs-v1` of the repo in package.json `"repository"` (fallback `elevchyt/ArkaneDAW`):
+  `https://github.com/<repo>/releases/download/packs-v1/<id>-<version>.{json,tar}`. `ARKANE_PACKS_BASE_URL` overrides the
+  base URL (testing / mirrors).
+* **Install** (main process, `src/main/packs.ts`, Node built-ins only): fetch manifest → download the tar to
+  `<userData>/packs/.downloads/<asset>.part` (follows redirects, resumes with `Range`, cancellable) → verify size + sha256 →
+  extract into `<userData>/packs/<id>.tmp` (rejects absolute / `..` paths; pax + ustar-prefix + GNU long names) → write
+  `pack.json` → rename to `<userData>/packs/<id>/` (e.g. `~/.config/ArkaneDAW/packs/concerto`). Installed ⇔ `pack.json`
+  exists. IPC: `packs:info|installed|install|cancel|remove`, progress events on `packs:progress`; preload exposes `host.packs`.
+* **Loaders** (`plugins/concerto/loader.ts`, `plugins/studiodrums/loader.ts`) take their root from `packs/paths.ts`:
+  installed pack first, then `<resources>/<dir>` **only when unpackaged** (dev checkout). Neither → "not installed": the DSP
+  gets no instruments (silent) and the editor (wrapped with `withPack`) shows a *"… sound library not installed — Download"*
+  panel. After install/remove every channel using the plugin re-resolves its data (no project reload needed).
+* **UX** every instrument list (channel rack `+` menu and Replace/Insert submenus, ADD menu, plugin picker, browser plugin
+  database, drag & drop onto the rack) shows a dim-orange `⬇ 181 MB` badge on not-installed pack plugins and inline progress
+  while downloading. Selecting such an item does not add a channel: `guardPack()` opens the download dialog (description,
+  size, licence, install location → Download / Cancel → progress with MB, speed, ETA, Cancel; closable — the download
+  continues) and, once installed, offers the original action ("Add to channel rack" / "Replace <channel>").
+  OPTIONS › *Sound libraries…* lists packs with Install / Update / Remove. Offline → error with Retry; release asset missing
+  (HTTP 404) → "Pack not published yet".
+* **Packaging**: `resources/concerto/**` and `resources/drumkits/**` must be excluded from packaged builds — see
+  `build/package-excludes.json` (feed it to the packager's exclude list once one is configured).

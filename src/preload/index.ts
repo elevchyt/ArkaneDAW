@@ -4,6 +4,8 @@ import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import type { AppInfo, CheckResult, InstallResult, UpdateInfo, UpdateProgress } from '../main/updater'
+import type { InstalledPack, PackInfo, PackProgress, PackResult, PackSpec } from '../main/packs'
 
 const host = {
   isElectron: true as const,
@@ -33,7 +35,49 @@ const host = {
   fs,
   fsp,
   path,
-  os
+  os,
+  /** System facts for the dependency checks (system/deps.ts). */
+  system: {
+    env: (name: string): string | undefined => process.env[name],
+    info: () => ipcRenderer.invoke('app:info') as Promise<AppInfo>
+  },
+  /** GitHub-releases updater (main/updater.ts). */
+  updater: {
+    check: () => ipcRenderer.invoke('update:check') as Promise<CheckResult>,
+    last: () => ipcRenderer.invoke('update:last') as Promise<CheckResult | null>,
+    install: () => ipcRenderer.invoke('update:install') as Promise<InstallResult>,
+    restart: () => ipcRenderer.invoke('update:restart') as Promise<void>,
+    openRelease: (url: string) => ipcRenderer.invoke('update:openRelease', url) as Promise<void>,
+    onAvailable: (cb: (info: UpdateInfo) => void) => {
+      const h = (_: unknown, info: UpdateInfo) => cb(info)
+      ipcRenderer.on('update:available', h)
+      return () => {
+        ipcRenderer.off('update:available', h)
+      }
+    },
+    onProgress: (cb: (p: UpdateProgress) => void) => {
+      const h = (_: unknown, p: UpdateProgress) => cb(p)
+      ipcRenderer.on('update:progress', h)
+      return () => {
+        ipcRenderer.off('update:progress', h)
+      }
+    }
+  },
+  /** Downloadable content packs (main/packs.ts). */
+  packs: {
+    info: () => ipcRenderer.invoke('packs:info') as Promise<PackInfo>,
+    installed: (id: string) => ipcRenderer.invoke('packs:installed', id) as Promise<InstalledPack | null>,
+    install: (spec: PackSpec) => ipcRenderer.invoke('packs:install', spec) as Promise<PackResult>,
+    cancel: (id: string) => ipcRenderer.invoke('packs:cancel', id) as Promise<boolean>,
+    remove: (id: string) => ipcRenderer.invoke('packs:remove', id) as Promise<boolean>,
+    onProgress: (cb: (p: PackProgress) => void) => {
+      const h = (_: unknown, p: PackProgress) => cb(p)
+      ipcRenderer.on('packs:progress', h)
+      return () => {
+        ipcRenderer.off('packs:progress', h)
+      }
+    }
+  }
 }
 
 ;(globalThis as unknown as { arkaneHost: typeof host }).arkaneHost = host

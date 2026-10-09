@@ -9,3 +9,4 @@ native/**/*.so
 .DS_Store
 .tools
 resources/native
+dist-packs

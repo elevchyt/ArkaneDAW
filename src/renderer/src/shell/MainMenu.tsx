@@ -3,6 +3,9 @@ import { useTransport } from '@/store/transport'
 import { useUI } from '@/store/ui'
 import { groupPlugins, useAllPlugins } from '@/plugins/catalog'
 import { addInstrumentChannel } from '@/store/actions'
+import { guardPack, openSoundLibraries } from '@/packs/guard'
+import { PackBadge } from '@/packs/PackBadge'
+import { PackDialogHost } from '@/packs/PackDialog'
 import { recentFiles } from '@/store/io'
 import {
   Menubar,
@@ -19,6 +22,7 @@ import {
   MenubarLabel
 } from '@/components/ui/menubar'
 import { commands } from './commands'
+import { checkForUpdatesNow } from '@/system/update'
 
 const trig = 'h-[18px] rounded-sm px-1.5 py-0 text-[11px] font-semibold tracking-wide text-[#d4dbde] data-[state=open]:bg-fl-orange data-[state=open]:text-[#1b1f22]'
 
@@ -39,6 +43,7 @@ export function MainMenu() {
   const recent = recentFiles()
 
   return (
+    <>
     <Menubar className="h-[20px] gap-0 border-none bg-transparent p-0 shadow-none">
       <MenubarMenu>
         <MenubarTrigger className={trig}>FILE</MenubarTrigger>
@@ -98,7 +103,10 @@ export function MainMenu() {
               <MenubarSubTrigger>{cat}</MenubarSubTrigger>
               <MenubarSubContent className="max-h-[60vh] overflow-auto">
                 {list.map((m) => (
-                  <Item key={m.id} label={m.name} onSelect={() => addInstrumentChannel(m.id)} />
+                  <MenubarItem key={m.id} onSelect={() => guardPack(m.id, () => addInstrumentChannel(m.id))}>
+                    {m.name}
+                    {m.pack && <PackBadge packId={m.pack.id} />}
+                  </MenubarItem>
                 ))}
               </MenubarSubContent>
             </MenubarSub>
@@ -136,6 +144,7 @@ export function MainMenu() {
         <MenubarContent>
           <Item label="Audio settings..." onSelect={() => useUI.getState().openWindow('audioSettings', { kind: 'audioSettings', title: 'Settings - Audio', w: 520, h: 420 })} />
           <Item label="Plugin manager..." onSelect={() => useUI.getState().openWindow('pluginManager', { kind: 'pluginManager', title: 'Plugin manager', w: 760, h: 480 })} />
+          <Item label="Sound libraries..." onSelect={openSoundLibraries} />
         </MenubarContent>
       </MenubarMenu>
 
@@ -150,8 +159,12 @@ export function MainMenu() {
         <MenubarTrigger className={trig}>HELP</MenubarTrigger>
         <MenubarContent>
           <MenubarLabel>ArkaneDAW 0.1</MenubarLabel>
+          <MenubarSeparator />
+          <Item label="Check for updates…" onSelect={() => void checkForUpdatesNow()} />
         </MenubarContent>
       </MenubarMenu>
     </Menubar>
+    <PackDialogHost />
+    </>
   )
 }
