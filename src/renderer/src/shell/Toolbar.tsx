@@ -53,7 +53,7 @@ function PatSong() {
   const setHint = useUI((s) => s.setHint)
   return (
     <div
-      className="flex h-[52px] w-[62px] cursor-pointer flex-col justify-center gap-1 rounded-[3px] border border-[#20272a] bg-[#3a454b] px-1 fl-bevel"
+      className="flex h-[52px] w-max shrink-0 cursor-pointer flex-col justify-center gap-1 rounded-[3px] border border-[#20272a] bg-[#3a454b] px-1.5 fl-bevel"
       onClick={() => transport.setMode(mode === 'pattern' ? 'song' : 'pattern')}
       onMouseEnter={() => setHint('Pattern / Song mode (L)')}
     >

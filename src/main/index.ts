@@ -65,7 +65,10 @@ function createWindow(): void {
       backgroundThrottling: false
     }
   })
-  win.once('ready-to-show', () => win?.show())
+  win.once('ready-to-show', () => {
+    win?.maximize()
+    win?.show()
+  })
   win.on('maximize', () => win?.webContents.send('win:state', { maximized: true }))
   win.on('unmaximize', () => win?.webContents.send('win:state', { maximized: false }))
   win.webContents.setWindowOpenHandler(({ url }) => {

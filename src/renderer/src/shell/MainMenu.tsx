@@ -35,8 +35,6 @@ export function MainMenu() {
   const past = useProject((s) => s.past)
   const future = useProject((s) => s.future)
   const undoTo = useProject((s) => s.undoTo)
-  const t = useTransport()
-  const typing = useUI((s) => s.typingKeyboard)
   const instruments = useAllPlugins('instrument')
   const recent = recentFiles()
 
@@ -133,13 +131,6 @@ export function MainMenu() {
       <MenubarMenu>
         <MenubarTrigger className={trig}>OPTIONS</MenubarTrigger>
         <MenubarContent>
-          <MenubarCheckboxItem checked={t.metronome} onCheckedChange={(v) => t.set({ metronome: !!v })}>
-            Metronome<MenubarShortcut>Ctrl+M</MenubarShortcut>
-          </MenubarCheckboxItem>
-          <MenubarCheckboxItem checked={typing} onCheckedChange={(v) => useUI.getState().set({ typingKeyboard: !!v })}>
-            Typing keyboard to piano<MenubarShortcut>Ctrl+T</MenubarShortcut>
-          </MenubarCheckboxItem>
-          <MenubarSeparator />
           <Item label="Audio settings..." onSelect={() => useUI.getState().openWindow('audioSettings', { kind: 'audioSettings', title: 'Settings - Audio', w: 520, h: 420 })} />
           <Item label="Plugin manager..." onSelect={() => useUI.getState().openWindow('pluginManager', { kind: 'pluginManager', title: 'Plugin manager', w: 760, h: 480 })} />
         </MenubarContent>
