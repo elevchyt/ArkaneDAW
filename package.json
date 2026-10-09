@@ -13,7 +13,9 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:native": "bash native/build.sh",
+    "test:native": "bash native/build.sh --test"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

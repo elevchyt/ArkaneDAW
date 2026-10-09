@@ -21,6 +21,7 @@ import { editProject } from '@/store/project'
 import { defaultNote } from '@/store/factory'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { WindowProps } from '../types'
+import { getExternalEditor } from '@/audio/vst'
 
 /** Generic plugin wrapper window (FL's "plugin wrapper"): preset strip + the plugin's editor. */
 export default function PluginWindow({ win, bounds }: WindowProps) {
@@ -116,6 +117,7 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
   }
   const categories = [...new Set(presets.map((p) => p.category ?? ''))]
   const Editor = mod?.Editor ?? GenericEditor
+  const External = mod ? undefined : getExternalEditor(state.pluginId) // VST/CLAP: audio/vst/VstEditorPanel
 
   return (
     <MdiWindow win={win} bounds={bounds} resizable={!mod?.editorSize} minW={300} minH={160} accent={mod?.manifest.color}>
@@ -184,7 +186,19 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
           )}
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          {props ? <Editor {...props} /> : <div className="p-4 text-fl-dim">Plugin "{state.pluginId}" is not available.</div>}
+          {props ? (
+            <Editor {...props} />
+          ) : External ? (
+            <External
+              pluginId={state.pluginId}
+              params={state.params}
+              getNode={node}
+              setParam={(id, v) => (isFx ? setFxParam(win.mixerTrack!, win.slot!, id, v) : setChannelParam(win.channelId!, id, v))}
+              hint={setHint}
+            />
+          ) : (
+            <div className="p-4 text-fl-dim">Plugin "{state.pluginId}" is not available.</div>
+          )}
         </div>
       </div>
     </MdiWindow>

@@ -8,6 +8,7 @@ import ChannelRack from './channelrack/ChannelRack'
 import PluginWindow from './plugin/PluginWindow'
 import PluginPicker from '@/shell/PluginPicker'
 import AudioSettings from './settings/AudioSettings'
+import PluginManager from './pluginmanager/PluginManager'
 
 export const windowComponents: Partial<Record<WindowKind, ComponentType<WindowProps>>> = {
   playlist: Playlist,
@@ -16,5 +17,6 @@ export const windowComponents: Partial<Record<WindowKind, ComponentType<WindowPr
   channelRack: ChannelRack,
   plugin: PluginWindow,
   pluginPicker: PluginPicker,
-  audioSettings: AudioSettings
+  audioSettings: AudioSettings,
+  pluginManager: PluginManager
 }

@@ -79,6 +79,11 @@ ipcMain.handle('win:toggleMaximize', () => (win?.isMaximized() ? win.unmaximize(
 ipcMain.handle('win:close', () => win?.close())
 ipcMain.handle('win:isMaximized', () => win?.isMaximized() ?? false)
 ipcMain.handle('win:setTitle', (_e, title: string) => win?.setTitle(title))
+// X11 window id of the main window: bridged plugin editors (audio/vst) are made transient for it.
+ipcMain.handle('win:nativeHandle', () => {
+  const b = win?.getNativeWindowHandle()
+  return b && b.length >= 4 ? (b.length >= 8 ? Number(b.readBigUInt64LE(0)) : b.readUInt32LE(0)) : undefined
+})
 ipcMain.handle('dialog:open', (_e, opts: Electron.OpenDialogOptions) => dialog.showOpenDialog(win!, opts))
 ipcMain.handle('dialog:save', (_e, opts: Electron.SaveDialogOptions) => dialog.showSaveDialog(win!, opts))
 ipcMain.handle('app:paths', () => ({

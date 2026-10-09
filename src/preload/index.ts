@@ -14,6 +14,7 @@ const host = {
     close: () => ipcRenderer.invoke('win:close'),
     isMaximized: () => ipcRenderer.invoke('win:isMaximized') as Promise<boolean>,
     setTitle: (t: string) => ipcRenderer.invoke('win:setTitle', t),
+    nativeHandle: () => ipcRenderer.invoke('win:nativeHandle') as Promise<number | undefined>,
     onState: (cb: (s: { maximized: boolean }) => void) => {
       const h = (_: unknown, s: { maximized: boolean }) => cb(s)
       ipcRenderer.on('win:state', h)

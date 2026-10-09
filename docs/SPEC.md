@@ -108,7 +108,7 @@ kits: TR-808, TR-909, LinnDrum, Oberheim DMX, CR-78, TR-707, SP-1200-ish, Simmon
 sweep, vibrato, arpeggio, plus a retro drum mode played from the piano roll).
 
 Effects (simple, few knobs, good defaults): **Parametric EQ**, **Compressor**, **Limiter**, **Reverb**, **Delay**, **Chorus**,
-**Phaser**, **Flanger**, **Distortion**, **Filter**, **Bitcrusher**, **Stereo**, **Gate**, … and **Kabee** (guitar/bass amp &
+**Phaser**, **Flanger**, **Distortion**, **Saturation**, **Filter**, **Bitcrusher**, **Stereo**, **Gate**, … and **Kabee** (guitar/bass amp &
 pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
 
 ## 6. UX rules (FL Studio parity)
