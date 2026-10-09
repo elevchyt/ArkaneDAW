@@ -19,7 +19,7 @@ import {
 } from '@/store/actions'
 import { editProject } from '@/store/project'
 import { defaultNote } from '@/store/factory'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { WindowProps } from '../types'
 import { getExternalEditor } from '@/audio/vst'
 
@@ -148,19 +148,35 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
               <ChevronDown size={11} className="ml-auto shrink-0 opacity-60" />
             </DropdownMenuTrigger>
             <DropdownMenuContent className="max-h-[60vh] overflow-auto">
-              {categories.map((cat) => (
-                <div key={cat || '_'}>
-                  {cat && <DropdownMenuLabel>{cat}</DropdownMenuLabel>}
-                  {presets
-                    .filter((p) => (p.category ?? '') === cat)
-                    .map((p) => (
-                      <DropdownMenuItem key={p.name} onSelect={() => props?.loadPreset(p)}>
-                        {p.name}
-                      </DropdownMenuItem>
-                    ))}
-                  <DropdownMenuSeparator />
-                </div>
-              ))}
+              {/* Categorized like the ADD menu: one submenu per category, uncategorized presets inline. */}
+              {presets
+                .filter((p) => !p.category)
+                .map((p) => (
+                  <DropdownMenuItem key={p.name} onSelect={() => props?.loadPreset(p)} className={p.name === state.presetName ? 'text-fl-orange' : undefined}>
+                    {p.name}
+                  </DropdownMenuItem>
+                ))}
+              {categories
+                .filter((cat) => cat)
+                .map((cat) => {
+                  const list = presets.filter((p) => p.category === cat)
+                  const active = list.some((p) => p.name === state.presetName)
+                  return (
+                    <DropdownMenuSub key={cat}>
+                      <DropdownMenuSubTrigger className={active ? 'text-fl-orange' : undefined}>
+                        {cat}
+                        <span className="ml-auto pl-3 text-[10px] text-fl-dim">{list.length}</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-[60vh] overflow-auto">
+                        {list.map((p) => (
+                          <DropdownMenuItem key={p.name} onSelect={() => props?.loadPreset(p)} className={p.name === state.presetName ? 'text-fl-orange' : undefined}>
+                            {p.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )
+                })}
               {presets.length === 0 && <DropdownMenuLabel>No presets</DropdownMenuLabel>}
             </DropdownMenuContent>
           </DropdownMenu>
