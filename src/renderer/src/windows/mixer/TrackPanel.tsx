@@ -246,23 +246,23 @@ const CONTEXT: MenuKit = {
 
 /** Effects grouped by category; category labels are underlined, dim and uppercase. */
 function EffectMenuItems({ onPick, kit }: { onPick: (id: string) => void; kit: MenuKit }) {
-  const { Item, Label, Sep } = kit
+  const { Item, Sub, SubTrigger, SubContent } = kit
   const groups = groupPlugins(allPlugins('effect'))
   if (!groups.length) return <Item disabled>(no effects installed)</Item>
+  // Categorized like the main ADD menu: one submenu per category.
   return (
     <>
-      {groups.map(([cat, mods], gi) => (
-        <div key={cat}>
-          {gi > 0 && <Sep />}
-          <Label className="px-2 pb-0.5 pt-1.5 text-[9px] font-semibold uppercase tracking-wider text-[#7f8c92] underline decoration-[#7f8c92]/70 underline-offset-[3px]">
-            {cat}
-          </Label>
-          {mods.map((m) => (
-            <Item key={m.id} className="pl-4 text-[11px]" onSelect={() => onPick(m.id)}>
-              {m.name}
-            </Item>
-          ))}
-        </div>
+      {groups.map(([cat, mods]) => (
+        <Sub key={cat}>
+          <SubTrigger className="text-[11px]">{cat}</SubTrigger>
+          <SubContent className="max-h-[60vh] overflow-auto">
+            {mods.map((m) => (
+              <Item key={m.id} className="text-[11px]" onSelect={() => onPick(m.id)}>
+                {m.name}
+              </Item>
+            ))}
+          </SubContent>
+        </Sub>
       ))}
     </>
   )

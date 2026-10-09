@@ -317,44 +317,6 @@ function SnapSelector() {
   )
 }
 
-function PatternSelector() {
-  const patterns = useProject((s) => s.project.patterns)
-  const cur = useUI((s) => s.currentPattern) ?? patterns[0]?.id
-  const pat = patterns.find((p) => p.id === cur) ?? patterns[0]
-  return (
-    <div className="flex items-center gap-px">
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          className="flex h-[22px] w-[130px] items-center gap-1 rounded-l-[3px] border border-[#20272a] bg-fl-well px-1.5 text-left text-[11px] fl-inset"
-          title="Pattern selector (numpad +/-)"
-          onWheel={(e) => {
-            const i = patterns.findIndex((p) => p.id === pat?.id)
-            const n = patterns[Math.min(patterns.length - 1, Math.max(0, i + Math.sign(e.deltaY)))]
-            if (n) selectPattern(n.id)
-          }}
-        >
-          <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ background: pat?.color }} />
-          <span className="truncate">{pat?.name}</span>
-          <ChevronDown size={10} className="ml-auto" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="max-h-[60vh] overflow-auto">
-          {patterns.map((p) => (
-            <DropdownMenuItem key={p.id} onSelect={() => selectPattern(p.id)}>
-              <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: p.color }} />
-              {p.name}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => addPattern()}>New pattern</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <button className="grid h-[22px] w-[18px] place-items-center rounded-r-[3px] border border-[#20272a] bg-[#46525a] fl-bevel hover:bg-[#53616a]" title="Add pattern (F4)" onClick={() => addPattern()}>
-        <Plus size={11} />
-      </button>
-    </div>
-  )
-}
-
 function WindowButtons() {
   const w = useUI((s) => s.windows)
   const browser = useUI((s) => s.browserVisible)
@@ -419,7 +381,6 @@ export function Toolbar() {
       <div className="flex flex-col justify-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <div className="flex items-center gap-1">
           <SnapSelector />
-          <PatternSelector />
         </div>
         <WindowButtons />
       </div>

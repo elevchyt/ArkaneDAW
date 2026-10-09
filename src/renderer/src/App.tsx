@@ -4,6 +4,7 @@ import { Toolbar } from '@/shell/Toolbar'
 import { Browser } from '@/shell/Browser'
 import { Workspace } from '@/shell/Workspace'
 import { useGlobalShortcuts } from '@/shell/shortcuts'
+import { installMiddleClickReset } from '@/shell/middleClickReset'
 import { useUI, installHintTracking } from '@/store/ui'
 import { useProject } from '@/store/project'
 import { initAudio } from '@/audio/transport'
@@ -13,6 +14,7 @@ export default function App() {
   const browser = useUI((s) => s.browserVisible)
   useGlobalShortcuts()
   useEffect(() => installHintTracking(), [])
+  useEffect(() => installMiddleClickReset(), [])
 
   useEffect(() => {
     // Boot audio right away in Electron; in a browser wait for the first gesture.

@@ -32,8 +32,9 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { handleChannelRackDrop } from './drop'
+import { PatternSelector } from '@/shell/PatternSelector'
 import type { WindowProps } from '../types'
 
 const ROW_H = 26
@@ -67,6 +68,7 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
 
   const titleExtra = (
     <div className="flex items-center gap-2 pl-2">
+      <PatternSelector />
       <DropdownMenu>
         <DropdownMenuTrigger className="flex h-4 items-center gap-1 rounded-sm bg-fl-well px-1.5 text-[10px] text-fl-text fl-inset">
           {filter}
@@ -141,15 +143,16 @@ function AddChannelButton() {
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" className="max-h-[70vh] overflow-auto">
         {groups.map(([c, list]) => (
-          <div key={c}>
-            <DropdownMenuLabel>{c}</DropdownMenuLabel>
-            {list.map((m) => (
-              <DropdownMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
-                {m.name}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-          </div>
+          <DropdownMenuSub key={c}>
+            <DropdownMenuSubTrigger>{c}</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-[60vh] overflow-auto">
+              {list.map((m) => (
+                <DropdownMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
+                  {m.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -262,20 +265,34 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
           <ContextMenuSub>
             <ContextMenuSubTrigger>Replace</ContextMenuSubTrigger>
             <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
-              {instruments.map((m) => (
-                <ContextMenuItem key={m.id} onSelect={() => replaceChannelPlugin(ch.id, m.id)}>
-                  {m.name}
-                </ContextMenuItem>
+              {groupPlugins(instruments).map(([cat, list]) => (
+                <ContextMenuSub key={cat}>
+                  <ContextMenuSubTrigger>{cat}</ContextMenuSubTrigger>
+                  <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
+                    {list.map((m) => (
+                      <ContextMenuItem key={m.id} onSelect={() => replaceChannelPlugin(ch.id, m.id)}>
+                        {m.name}
+                      </ContextMenuItem>
+                    ))}
+                  </ContextMenuSubContent>
+                </ContextMenuSub>
               ))}
             </ContextMenuSubContent>
           </ContextMenuSub>
           <ContextMenuSub>
             <ContextMenuSubTrigger>Insert</ContextMenuSubTrigger>
             <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
-              {instruments.map((m) => (
-                <ContextMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
-                  {m.name}
-                </ContextMenuItem>
+              {groupPlugins(instruments).map(([cat, list]) => (
+                <ContextMenuSub key={cat}>
+                  <ContextMenuSubTrigger>{cat}</ContextMenuSubTrigger>
+                  <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
+                    {list.map((m) => (
+                      <ContextMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
+                        {m.name}
+                      </ContextMenuItem>
+                    ))}
+                  </ContextMenuSubContent>
+                </ContextMenuSub>
               ))}
             </ContextMenuSubContent>
           </ContextMenuSub>
