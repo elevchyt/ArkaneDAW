@@ -18,6 +18,7 @@ import {
   updateMixerTrack
 } from '@/store/actions'
 import { editProject } from '@/store/project'
+import { defaultNote } from '@/store/factory'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { WindowProps } from '../types'
 
@@ -80,7 +81,19 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
               }
             })
           },
-      hint: setHint
+      hint: setHint,
+      insertNotes: isFx
+        ? undefined
+        : (notes, mode = 'replace') =>
+            editProject('Insert notes', (d) => {
+              const patId = useUI.getState().currentPattern ?? d.patterns[0]?.id
+              const pat = d.patterns.find((x) => x.id === patId)
+              if (!pat) return
+              const list = mode === 'replace' ? [] : [...(pat.notes[win.channelId!] ?? [])]
+              for (const n of notes) list.push(defaultNote({ key: n.key, pos: Math.round(n.pos), len: Math.max(1, Math.round(n.len)), vel: n.vel ?? 100 / 128, pan: n.pan ?? 0 }))
+              list.sort((a, b) => a.pos - b.pos)
+              pat.notes[win.channelId!] = list
+            })
     }
   }, [state, mod, isFx, win.channelId, win.mixerTrack, win.slot, win.id, node, setHint])
 

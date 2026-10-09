@@ -91,17 +91,20 @@ plugins/<id>/index.tsx     export default definePlugin({ manifest, Editor?, edit
 * Editor gets `PluginEditorProps` (params, setParam, setData, presets, `onDSPMessage`, `postToDSP`, `previewNote`, `hint`).
   Use `plugins/sdk/ui.tsx` + `components/controls` so all plugins share one look. Without an Editor a generic knob panel is generated.
 * Editors are fixed-size (set `editorSize`), rendered inside the FL-style wrapper window (preset ◀ ▶ + dropdown).
+* Drum plugins implement `keyNames(instance)` → the piano roll labels keys and offers a drum view; editors can write notes into the
+  current pattern with `insertNotes`; `resolveData(data, ctx)` lets a plugin load/decode its own sample files before the DSP gets data.
 * NoteOn carries FL per-note props: vel, pan, fine (cents), rel, modX (→ cutoff), modY (→ resonance), porta, slide, color.
 * Test DSP with vitest + `sdk/test-utils.ts` (`renderInstrument`, `renderEffect`, `stats`, `writeWav`).
 
 ### Built-in plugin line-up
 
-Generators: **Sampler**, **Triple Osc** (3x Osc-style starter), **Workstation** (flagship ROMpler-style workstation homage to
+Generators: **Sampler**, **Triple Osc** (3x Osc-style starter), **Mosaic** (flagship layered workstation, homage to
 Yamaha Montage: pianos, EPs, organs, strings, brass, choir, guitars, bells, pads, leads, basses), **Polygon** (homage to 90s Japanese
 digital synths — Roland JV/Sound Canvas, Yamaha MU/XG, Korg M1/01W/Trinity — the "PS1 soundtrack" sound), **Atmos** (atmospheric
-pads/textures/drones), **Bassline** (every kind of bass: 303 acid, sub, reese, Moog, FM, slap, finger, wobble…), **Drum Machine**
-(kits: TR-808, TR-909, LinnDrum, Oberheim DMX, CR-78, TR-707, SP-1200-ish, Simmons… GM key map: 36 kick, 38 snare, 39 clap,
-42 closed hat, 46 open hat, 49 crash, …), **Chiptune** (Magical 8bit Plug homage: NES/GB pulse/tri/noise, envelopes & sequences,
+pads/textures/drones), **Bassline** (every kind of bass: 303 acid, sub, reese, Moog, FM, slap, finger, wobble…), **Classic Drum Machines** (id `drummachine`;
+kits: TR-808, TR-909, LinnDrum, Oberheim DMX, CR-78, TR-707, SP-1200-ish, Simmons… GM key map: 36 kick, 38 snare, 39 clap,
+42 closed hat, 46 open hat, 49 crash, …), **Studio Drums** (realistic sampled acoustic kits, FPC / Power Drum Kit style: pad grid, per-piece mixer, genre groove library
+→ "Send to pattern"), **Hexa** (DX7 clone: 6-op FM, 32 algorithms, loads DX7 .syx cartridges), **Chiptune** (Magical 8bit Plug homage: NES/GB pulse/tri/noise, envelopes & sequences,
 sweep, vibrato, arpeggio, plus a retro drum mode played from the piano roll).
 
 Effects (simple, few knobs, good defaults): **Parametric EQ**, **Compressor**, **Limiter**, **Reverb**, **Delay**, **Chorus**,

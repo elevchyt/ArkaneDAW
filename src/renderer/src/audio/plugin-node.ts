@@ -67,7 +67,8 @@ class BuiltinPluginNode implements PluginHostNode {
   private async init(state: PluginInstanceState): Promise<void> {
     const mod = getPlugin(state.pluginId)
     const wasm = await getWasm(state.pluginId)
-    const data = await resolvePluginData(state.data ?? mod?.manifest.defaultData)
+    const base = await resolvePluginData(state.data ?? mod?.manifest.defaultData)
+    const data = mod?.resolveData ? await mod.resolveData(base, this.ctx) : base
     if (this.disposed) return
     const params = { ...(mod ? defaultParams(mod.manifest) : {}), ...state.params }
     const node = new AudioWorkletNode(this.ctx, 'arkane-plugin', {
@@ -108,7 +109,10 @@ class BuiltinPluginNode implements PluginHostNode {
     this.send({ type: 'params', values })
   }
   setData(data: unknown): void {
-    void resolvePluginData(data).then((d) => this.send({ type: 'data', data: d }))
+    const mod = getPlugin(this.pluginId)
+    void resolvePluginData(data)
+      .then((d) => (mod?.resolveData ? mod.resolveData(d, this.ctx) : d))
+      .then((d) => this.send({ type: 'data', data: d }))
   }
   schedule(events: ScheduledEvent[]): void {
     if (events.length) this.send({ type: 'events', events })

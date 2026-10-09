@@ -71,7 +71,58 @@ export class MixerStrip {
   private chainEnd: AudioNode
   private meterNode: AudioWorkletNode
   private muteGain: GainNode
+  // [mixer-eq] 3-band EQ + stereo width / L-R swap stage between the FX chain and the panner.
+  private eq: BiquadFilterNode[] = []
+  private widthIn!: GainNode
+  private widthGains: GainNode[] = [] // LL, RL, LR, RR (source → dest)
+  private toneIn!: AudioNode
   state: MixerTrack | null = null
+
+  /** [mixer-eq] chainEnd → eqLow → eqMid → eqHigh → width matrix → pan */
+  private buildToneStage(): AudioNode {
+    const ctx = this.ctx
+    const types: BiquadFilterType[] = ['lowshelf', 'peaking', 'highshelf']
+    this.eq = types.map((type) => {
+      const f = ctx.createBiquadFilter()
+      f.type = type
+      f.gain.value = 0
+      if (type === 'peaking') f.Q.value = 0.9
+      return f
+    })
+    this.eq[0].connect(this.eq[1]).connect(this.eq[2])
+    this.widthIn = ctx.createGain()
+    this.widthIn.channelCount = 2
+    this.widthIn.channelCountMode = 'explicit'
+    this.widthIn.channelInterpretation = 'speakers'
+    const split = ctx.createChannelSplitter(2)
+    const merge = ctx.createChannelMerger(2)
+    this.eq[2].connect(this.widthIn).connect(split)
+    this.widthGains = [0, 1, 2, 3].map((k) => {
+      const g = ctx.createGain()
+      split.connect(g, k & 1) // source: L for 0/2, R for 1/3
+      g.connect(merge, 0, k >> 1) // dest: L for 0/1, R for 2/3
+      return g
+    })
+    this.applyTone({ low: [90, 0], mid: [1400, 0], high: [9000, 0], sep: 0, swap: false })
+    merge.connect(this.pan)
+    return this.eq[0]
+  }
+
+  private applyTone(o: { low: [number, number]; mid: [number, number]; high: [number, number]; sep: number; swap: boolean }): void {
+    const bands = [o.low, o.mid, o.high]
+    this.eq.forEach((f, i) => {
+      f.frequency.value = bands[i][0]
+      f.gain.value = bands[i][1]
+    })
+    const w = 1 + Math.max(-1, Math.min(1, o.sep)) // 0 = mono, 1 = unchanged, 2 = wide
+    const a = (1 + w) / 2
+    const b = (1 - w) / 2
+    const [ll, rl, lr, rr] = o.swap ? [b, a, a, b] : [a, b, b, a]
+    this.widthGains[0].gain.value = ll
+    this.widthGains[1].gain.value = rl
+    this.widthGains[2].gain.value = lr
+    this.widthGains[3].gain.value = rr
+  }
 
   constructor(private ctx: BaseAudioContext, readonly index: number) {
     this.input = ctx.createGain()
@@ -92,7 +143,8 @@ export class MixerStrip {
     this.pan.connect(this.fader).connect(this.muteGain).connect(this.meterNode)
     this.meterNode.connect(this.analyser)
     this.post = this.meterNode
-    this.input.connect(this.pan)
+    this.toneIn = this.buildToneStage()
+    this.input.connect(this.toneIn)
   }
 
   private rewireChain(): void {
@@ -104,7 +156,7 @@ export class MixerStrip {
       node.connect(s.input)
       node = s.output
     }
-    node.connect(this.pan)
+    node.connect(this.toneIn)
     this.chainEnd = node
   }
 
@@ -114,6 +166,10 @@ export class MixerStrip {
     this.fader.gain.value = faderToGain(t.volume)
     this.pan.pan.value = t.pan
     this.muteGain.gain.value = t.muted || mutedBySolo ? 0 : t.phaseInvert ? -1 : 1
+    if (!prev || prev.eq !== t.eq || prev.stereoSep !== t.stereoSep || prev.swapLR !== t.swapLR) {
+      const e = t.eq ?? { lowFreq: 90, lowGain: 0, midFreq: 1400, midGain: 0, highFreq: 9000, highGain: 0 }
+      this.applyTone({ low: [e.lowFreq, e.lowGain], mid: [e.midFreq, e.midGain], high: [e.highFreq, e.highGain], sep: t.stereoSep ?? 0, swap: !!t.swapLR })
+    }
     if (!prev || prev.slots !== t.slots || prev.fxEnabled !== t.fxEnabled) {
       let structural = false
       const next: (SlotStrip | null)[] = []
