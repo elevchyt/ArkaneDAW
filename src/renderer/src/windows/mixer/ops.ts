@@ -8,6 +8,7 @@ import { faderToGain, gainToDb } from '@/audio/engine'
 import { getPlugin } from '@/plugins/registry'
 import { uid, makeMixerTrack } from '@/store/factory'
 import { MIXER_INSERTS, type MixerTrack, type Project } from '@/store/types'
+import { openFxPlugin } from '@/windows/plugin/open'
 import { useMixerView } from './state'
 
 // ── formatting ──────────────────────────────────────────────────────────────────
@@ -245,6 +246,19 @@ export function addEffectToTrack(track: number, pluginId: string): number {
   return free
 }
 
+/** Put an effect in a slot (menu pick / drop) and open its editor, like FL does. */
+export function insertEffectAndOpen(track: number, slot: number, pluginId: string): void {
+  insertEffect(track, slot, pluginId)
+  if (getProject().mixer[track]?.slots[slot]?.plugin.pluginId === pluginId) openFxPlugin(track, slot)
+}
+
+/** Drop an effect on a strip: first free slot, then open its editor. */
+export function addEffectAndOpen(track: number, pluginId: string): number {
+  const slot = addEffectToTrack(track, pluginId)
+  if (slot >= 0 && getProject().mixer[track]?.slots[slot]?.plugin.pluginId === pluginId) openFxPlugin(track, slot)
+  return slot
+}
+
 export function deleteSlot(track: number, slot: number): void {
   useUI.getState().closeWindow(`fx:${track}:${slot}`)
   editProject('Remove effect', (d) => {
@@ -302,6 +316,19 @@ export function swapTracks(a: number, b: number): void {
   for (const id of Object.keys(ui.windows)) {
     if (id.startsWith(`fx:${a}:`) || id.startsWith(`fx:${b}:`)) ui.closeWindow(id)
   }
+}
+
+/** First insert that nothing uses yet (no linked channels, default name, no FX, default routing). */
+export function firstFreeInsert(after = 0): number {
+  const p = getProject()
+  const used = new Set(p.channels.map((c) => c.mixerTrack))
+  for (const t of p.mixer) {
+    if (t.index <= after || used.has(t.index)) continue
+    if (t.name !== `Insert ${t.index}` || t.slots.some(Boolean)) continue
+    if (p.mixer.some((m) => m.sends.some((s) => s.target === t.index))) continue
+    return t.index
+  }
+  return -1
 }
 
 // ── selection ─────────────────────────────────────────────────────────────────

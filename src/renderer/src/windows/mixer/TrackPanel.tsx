@@ -1,9 +1,9 @@
-// Right-hand "track inspector" of the FL mixer: input selector, the 10 FX slots, 3-band EQ,
-// output selector and the extra track properties (phase, swap L/R, latency).
+// Right-hand track inspector of the FL 20/21 mixer: audio input, the 10 FX slots (arrow, name,
+// wet mix knob, enable LED), 3-band EQ, PDC (latency) and the output selector.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, GripVertical } from 'lucide-react'
+import { ChevronRight, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Knob, Led } from '@/components/controls'
+import { Led } from '@/components/controls'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -15,57 +15,109 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { useProject } from '@/store/project'
 import { useUI } from '@/store/ui'
 import type { FxSlot, MixerTrack } from '@/store/types'
-import { allPlugins, groupPlugins, pluginName, type PluginEntry } from '@/plugins/catalog'
-import type { PluginModule } from '@/plugins/sdk/module'
+import { allPlugins, groupPlugins, pluginName } from '@/plugins/catalog'
 import { openFxPlugin } from '@/windows/plugin/open'
 import { EQ_FREQ, EQ_GAIN_MAX, eqResponse, freqToNorm, normToFreq } from './eq'
-import { deleteSlot, fmtDb, fmtHz, insertEffect, moveSlot, routeOnly, setEq, setSlot, setTrack, trackLabel } from './ops'
+import { deleteSlot, fmtDb, fmtHz, insertEffectAndOpen, moveSlot, routeOnly, setEq, setSlot, setTrack, trackLabel } from './ops'
+import { PANEL_W } from './state'
+import { TinyKnob } from './widgets'
 
 const hint = (s: string) => useUI.getState().setHint(s)
 const SLOT_MIME = 'application/x-arkane-fxslot'
 const PLUGIN_MIME = 'application/x-arkane-plugin'
-
-function effectsByCategory(): [string, PluginEntry[]][] {
-  return groupPlugins(allPlugins('effect'))
-}
 
 export function TrackPanel({ index }: { index: number }) {
   const t = useProject((s) => s.project.mixer[index])
   if (!t) return null
   const label = trackLabel(t)
   return (
-    <div className="flex h-full w-[236px] shrink-0 flex-col border-l border-[#1a1f22] bg-[#323b40]" onMouseEnter={() => hint(`${label} — track properties`)}>
-      <div className="flex h-[22px] shrink-0 items-center gap-1.5 border-b border-[#1d2326] bg-[#2b3337] px-1.5">
-        <span className="h-3 w-3 shrink-0 rounded-[2px] border border-black/40" style={{ background: t.color }} />
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#e3e9ec]">{label}</span>
+    <div
+      className="flex h-full shrink-0 flex-col border-l-[3px] border-[#1a2023] bg-[#343e43]"
+      style={{ width: PANEL_W }}
+      onMouseEnter={() => hint(`${label} — track properties`)}
+    >
+      <div className="flex h-[18px] shrink-0 items-center gap-1 border-b border-[#20272a] bg-[#2c3539] px-1">
+        <span className="h-[9px] w-[9px] shrink-0 rounded-[1px] border border-black/40" style={{ background: t.color }} />
+        <span className="min-w-0 flex-1 truncate text-[10px] text-[#dfe5e8]">Mixer - {label}</span>
+        <span className="text-[9px] text-[#7f8c92]">FX</span>
         <Led
           on={t.fxEnabled}
-          size={10}
+          size={8}
           onClick={() => setTrack(index, { fxEnabled: !t.fxEnabled }, t.fxEnabled ? 'Disable track effects' : 'Enable track effects')}
           title=""
-          className="mr-0.5"
         />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overflow-x-hidden p-1.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto overflow-x-hidden px-[3px] py-[3px]">
         <InputSelector t={t} />
-        <div className="flex flex-col gap-[2px]">
+        <div className="flex flex-col gap-[1px]">
           {t.slots.map((s, i) => (
             <SlotRow key={i} track={index} slot={i} s={s} fxOn={t.fxEnabled} trackLabel={label} />
           ))}
         </div>
         <EqSection t={t} />
+        <PdcRow t={t} />
         <OutputSelector t={t} />
-        <Extras t={t} />
       </div>
     </div>
   )
 }
 
-// ── input ──────────────────────────────────────────────────────────────────────
+// ── I/O rows ───────────────────────────────────────────────────────────────────
+/** FL-style selector field: arrow, current value, grey caption on the right. A transparent
+ *  native <select> sits on top so keyboard + OS list behaviour stay intact. */
+function IoField({
+  value,
+  display,
+  caption,
+  onChange,
+  disabled,
+  children,
+  hintText,
+  extra
+}: {
+  value: string
+  display: string
+  caption: string
+  onChange?: (v: string) => void
+  disabled?: boolean
+  children: React.ReactNode
+  hintText: string
+  extra?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-[3px]" onMouseEnter={(e) => (e.stopPropagation(), hint(hintText))}>
+      <div className="relative flex h-[18px] min-w-0 flex-1 items-center gap-1 rounded-[2px] border border-[#1b2124] bg-[#262e32] pl-[2px] pr-1.5 fl-inset">
+        <ChevronRight size={10} className="shrink-0 text-[#8b989e]" />
+        <span className="min-w-0 flex-1 truncate text-[10px] text-[#d3dadd]">{display}</span>
+        <span className="shrink-0 text-[10px] text-[#7d8a90]">{caption}</span>
+        <select
+          className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-default"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange?.(e.target.value)}
+        >
+          {children}
+        </select>
+      </div>
+      {extra}
+    </div>
+  )
+}
+
 function useAudioInputs(): MediaDeviceInfo[] {
   const [devs, setDevs] = useState<MediaDeviceInfo[]>([])
   useEffect(() => {
@@ -87,52 +139,126 @@ function useAudioInputs(): MediaDeviceInfo[] {
   return devs
 }
 
-const selectCls = 'h-[20px] min-w-0 flex-1 appearance-none rounded-[2px] border border-[#1a1f22] bg-fl-well px-1 text-[11px] text-fl-text outline-none fl-inset'
+const devLabel = (d: MediaDeviceInfo, i: number) => d.label || (d.deviceId === 'default' ? 'Default input' : `Input ${i + 1}`)
+const CHANNEL_NEXT: Record<MixerTrack['inputChannel'], MixerTrack['inputChannel']> = { stereo: 'left', left: 'right', right: 'stereo' }
+const CHANNEL_SHORT: Record<MixerTrack['inputChannel'], string> = { stereo: 'ST', left: 'L', right: 'R' }
 
 function InputSelector({ t }: { t: MixerTrack }) {
   const devs = useAudioInputs()
-  const known = t.inputDevice === null || devs.some((d) => d.deviceId === t.inputDevice)
+  const di = devs.findIndex((d) => d.deviceId === t.inputDevice)
+  const display = t.inputDevice === null ? '(none)' : di >= 0 ? devLabel(devs[di], di) : '(missing device)'
   return (
-    <div className="flex items-center gap-1" onMouseEnter={(e) => (e.stopPropagation(), hint(`${trackLabel(t)} audio input (for recording)`))}>
-      <span className="w-9 shrink-0 text-[10px] uppercase tracking-wide text-fl-dim">In</span>
-      <select
-        className={selectCls}
-        value={t.inputDevice ?? ''}
-        onChange={(e) => setTrack(t.index, { inputDevice: e.target.value || null }, 'Change mixer input')}
-      >
-        <option value="">(none)</option>
-        {devs.map((d, i) => (
-          <option key={d.deviceId || i} value={d.deviceId}>
-            {d.label || (d.deviceId === 'default' ? 'Default input' : `Input ${i + 1}`)}
-          </option>
-        ))}
-        {!known && <option value={t.inputDevice!}>(missing device)</option>}
-      </select>
-      <select
-        className={cn(selectCls, 'w-[52px] flex-none')}
-        value={t.inputChannel}
-        onChange={(e) => setTrack(t.index, { inputChannel: e.target.value as MixerTrack['inputChannel'] }, 'Change mixer input channel')}
-      >
-        <option value="stereo">Stereo</option>
-        <option value="left">Left</option>
-        <option value="right">Right</option>
-      </select>
-    </div>
+    <IoField
+      value={t.inputDevice ?? ''}
+      display={display}
+      caption="Audio Input"
+      onChange={(v) => setTrack(t.index, { inputDevice: v || null }, 'Change mixer input')}
+      hintText={`${trackLabel(t)} audio input (for recording)`}
+      extra={
+        <button
+          className="h-[18px] w-[22px] shrink-0 rounded-[2px] border border-[#1b2124] bg-[#3e494f] text-[9px] font-semibold text-[#cfd7db] hover:bg-[#4a565c]"
+          onClick={() => setTrack(t.index, { inputChannel: CHANNEL_NEXT[t.inputChannel] }, 'Change mixer input channel')}
+          onMouseEnter={(e) => (e.stopPropagation(), hint(`Input channel: ${t.inputChannel} (click to change)`))}
+        >
+          {CHANNEL_SHORT[t.inputChannel]}
+        </button>
+      }
+    >
+      <option value="">(none)</option>
+      {devs.map((d, i) => (
+        <option key={d.deviceId || i} value={d.deviceId}>
+          {devLabel(d, i)}
+        </option>
+      ))}
+      {t.inputDevice !== null && di < 0 && <option value={t.inputDevice}>(missing device)</option>}
+    </IoField>
   )
 }
 
-// ── FX slots ───────────────────────────────────────────────────────────────────
-function EffectMenuItems({ onPick, Item, Label, Sep }: { onPick: (id: string) => void; Item: typeof DropdownMenuItem | typeof ContextMenuItem; Label: typeof DropdownMenuLabel | typeof ContextMenuLabel; Sep: typeof DropdownMenuSeparator | typeof ContextMenuSeparator }) {
-  const groups = effectsByCategory()
+function OutputSelector({ t }: { t: MixerTrack }) {
+  const mixer = useProject((s) => s.project.mixer)
+  const label = trackLabel(t)
+  if (t.index === 0) {
+    return (
+      <IoField value="default" display="Default output" caption="Audio Output" disabled hintText="Master output: default audio device">
+        <option value="default">Default output</option>
+      </IoField>
+    )
+  }
+  const value = t.sends.length === 1 ? String(t.sends[0].target) : t.sends.length === 0 ? 'none' : 'multi'
+  const display =
+    value === 'none'
+      ? '(none)'
+      : value === 'multi'
+        ? `(multiple: ${t.sends.map((s) => (s.target === 0 ? 'M' : s.target)).join(', ')})`
+        : t.sends[0].target === 0
+          ? 'Master'
+          : trackLabel(mixer[t.sends[0].target])
+  return (
+    <IoField
+      value={value}
+      display={display}
+      caption="Output"
+      hintText={`${label} output (route to this track only)`}
+      onChange={(v) => {
+        if (v === 'none') setTrack(t.index, { sends: [] }, 'Unroute mixer track')
+        else if (v !== 'multi') routeOnly(t.index, Number(v))
+      }}
+    >
+      <option value="none">(none)</option>
+      {value === 'multi' && <option value="multi">{display}</option>}
+      {mixer
+        .filter((m) => m.index !== t.index)
+        .map((m) => (
+          <option key={m.index} value={m.index}>
+            {m.index === 0 ? 'Master' : trackLabel(m)}
+          </option>
+        ))}
+    </IoField>
+  )
+}
+
+// ── effect menus ───────────────────────────────────────────────────────────────
+type MenuKit = {
+  Item: React.ElementType
+  Label: React.ElementType
+  Sep: React.ElementType
+  Sub: React.ElementType
+  SubTrigger: React.ElementType
+  SubContent: React.ElementType
+}
+const DROPDOWN: MenuKit = {
+  Item: DropdownMenuItem,
+  Label: DropdownMenuLabel,
+  Sep: DropdownMenuSeparator,
+  Sub: DropdownMenuSub,
+  SubTrigger: DropdownMenuSubTrigger,
+  SubContent: DropdownMenuSubContent
+}
+const CONTEXT: MenuKit = {
+  Item: ContextMenuItem,
+  Label: ContextMenuLabel,
+  Sep: ContextMenuSeparator,
+  Sub: ContextMenuSub,
+  SubTrigger: ContextMenuSubTrigger,
+  SubContent: ContextMenuSubContent
+}
+
+/** Effects grouped by category; category labels are underlined, dim and uppercase. */
+function EffectMenuItems({ onPick, kit }: { onPick: (id: string) => void; kit: MenuKit }) {
+  const { Item, Label, Sep } = kit
+  const groups = groupPlugins(allPlugins('effect'))
   if (!groups.length) return <Item disabled>(no effects installed)</Item>
   return (
     <>
       {groups.map(([cat, mods], gi) => (
         <div key={cat}>
           {gi > 0 && <Sep />}
-          <Label className="text-[10px] uppercase tracking-wide text-fl-dim">{cat}</Label>
+          <Label className="px-2 pb-0.5 pt-1.5 text-[9px] font-semibold uppercase tracking-wider text-[#7f8c92] underline decoration-[#7f8c92]/70 underline-offset-[3px]">
+            {cat}
+          </Label>
           {mods.map((m) => (
-            <Item key={m.id} onSelect={() => onPick(m.id)}>
+            <Item key={m.id} className="pl-4 text-[11px]" onSelect={() => onPick(m.id)}>
               {m.name}
             </Item>
           ))}
@@ -142,6 +268,49 @@ function EffectMenuItems({ onPick, Item, Label, Sep }: { onPick: (id: string) =>
   )
 }
 
+/** Slot menu (arrow + right-click). Empty slots only get the effect list. */
+function SlotMenuItems({ track, slot, s, kit }: { track: number; slot: number; s: FxSlot | null; kit: MenuKit }) {
+  const { Item, Label, Sep, Sub, SubTrigger, SubContent } = kit
+  const pick = (id: string) => {
+    if (s) useUI.getState().closeWindow(`fx:${track}:${slot}`)
+    insertEffectAndOpen(track, slot, id)
+  }
+  if (!s) {
+    return (
+      <>
+        <Label className="text-fl-orange no-underline normal-case tracking-normal text-[11px]">Slot {slot + 1}</Label>
+        <EffectMenuItems onPick={pick} kit={kit} />
+      </>
+    )
+  }
+  const name = pluginName(s.plugin.pluginId)
+  return (
+    <>
+      <Label className="text-fl-orange no-underline normal-case tracking-normal text-[11px]">{name}</Label>
+      <Item onSelect={() => openFxPlugin(track, slot)}>Open editor</Item>
+      <Item onSelect={() => setSlot(track, slot, { enabled: !s.enabled }, s.enabled ? 'Disable effect' : 'Enable effect')}>{s.enabled ? 'Bypass' : 'Enable'}</Item>
+      <Sub>
+        <SubTrigger>Replace</SubTrigger>
+        <SubContent className="max-h-[60vh] min-w-[180px] overflow-auto">
+          <EffectMenuItems onPick={pick} kit={kit} />
+        </SubContent>
+      </Sub>
+      <Sep />
+      <Item disabled={slot === 0} onSelect={() => moveSlot(track, slot, slot - 1)}>
+        Move up
+      </Item>
+      <Item disabled={slot === 9} onSelect={() => moveSlot(track, slot, slot + 1)}>
+        Move down
+      </Item>
+      <Sep />
+      <Item className="text-[#ff8a80]" onSelect={() => deleteSlot(track, slot)}>
+        Delete
+      </Item>
+    </>
+  )
+}
+
+// ── FX slots ───────────────────────────────────────────────────────────────────
 function SlotRow({ track, slot, s, fxOn, trackLabel: tl }: { track: number; slot: number; s: FxSlot | null; fxOn: boolean; trackLabel: string }) {
   const [over, setOver] = useState(false)
   const name = s ? pluginName(s.plugin.pluginId) : ''
@@ -167,124 +336,89 @@ function SlotRow({ track, slot, s, fxOn, trackLabel: tl }: { track: number; slot
         if (tr === track) moveSlot(track, from, slot)
       } else if (plugin) {
         e.preventDefault()
-        insertEffect(track, slot, plugin)
+        if (s) useUI.getState().closeWindow(`fx:${track}:${slot}`)
+        insertEffectAndOpen(track, slot, plugin)
       }
     }
   }
 
+  const on = !!s && s.enabled && fxOn
   const rowCls = cn(
-    'group flex h-[21px] items-center gap-1 rounded-[2px] border pl-0.5 pr-1',
-    over ? 'border-fl-orange' : 'border-[#1d2326]',
-    s ? 'bg-[#3c474d]' : 'bg-[#2a3236]'
+    'group flex h-[19px] items-center gap-[3px] rounded-[2px] border pr-[3px]',
+    over ? 'border-fl-orange' : 'border-[#20272a]',
+    s ? 'bg-[#3d494f]' : 'bg-[#2c3539]'
   )
 
-  if (!s) {
-    return (
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div {...dnd} onMouseEnter={(e) => (e.stopPropagation(), hint(`${tl} slot ${slot + 1}: empty — click to add an effect`))}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className={cn(rowCls, 'w-full text-left hover:bg-[#323b40]')}>
-                  <span className="w-[14px] shrink-0 text-center text-[9px] text-[#5d696f]">{slot + 1}</span>
-                  <span className="flex-1 truncate text-[11px] text-[#66737a]">Slot {slot + 1}</span>
-                  <ChevronDown size={11} className="text-[#66737a] opacity-0 group-hover:opacity-100" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="max-h-[60vh] min-w-[180px] overflow-auto">
-                <EffectMenuItems onPick={(id) => insertEffect(track, slot, id)} Item={DropdownMenuItem} Label={DropdownMenuLabel} Sep={DropdownMenuSeparator} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>Select</ContextMenuSubTrigger>
-            <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
-              <EffectMenuItems onPick={(id) => insertEffect(track, slot, id)} Item={ContextMenuItem} Label={ContextMenuLabel} Sep={ContextMenuSeparator} />
-            </ContextMenuSubContent>
-          </ContextMenuSub>
-        </ContextMenuContent>
-      </ContextMenu>
-    )
-  }
+  const arrow = (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="grid h-full w-[14px] shrink-0 place-items-center rounded-l-[2px] text-[#8b989e] hover:bg-white/5 hover:text-white"
+        onMouseEnter={(e) => (e.stopPropagation(), hint(`${tl} slot ${slot + 1}: ${s ? `${name} — slot menu` : 'select an effect'}`))}
+      >
+        <ChevronRight size={10} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-[60vh] min-w-[180px] overflow-auto">
+        <SlotMenuItems track={track} slot={slot} s={s} kit={DROPDOWN} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 
-  const on = s.enabled && fxOn
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
           className={rowCls}
           {...dnd}
-          draggable
+          draggable={!!s}
           onDragStart={(e) => {
             e.dataTransfer.setData(SLOT_MIME, `${track}:${slot}`)
             e.dataTransfer.effectAllowed = 'move'
           }}
-          onMouseEnter={(e) => (e.stopPropagation(), hint(`${tl} slot ${slot + 1}: ${name}${s.plugin.presetName ? ` (${s.plugin.presetName})` : ''} — click to open, drag to move`))}
+          onMouseEnter={(e) => (
+            e.stopPropagation(),
+            hint(s ? `${tl} slot ${slot + 1}: ${name}${s.plugin.presetName ? ` (${s.plugin.presetName})` : ''} — click to open, drag to move` : `${tl} slot ${slot + 1}: empty — click to add an effect`)
+          )}
         >
-          <GripVertical size={10} className="shrink-0 cursor-grab text-[#5d696f]" />
-          <button
-            className={cn('min-w-0 flex-1 truncate text-left text-[11px]', on ? 'text-[#e6ecef]' : 'text-[#7f8c92] line-through decoration-[#7f8c92]/50', editorOpen && 'text-fl-orange')}
-            onClick={() => openFxPlugin(track, slot)}
-          >
-            {name}
-          </button>
-          <div
-            onMouseEnter={(e) => (e.stopPropagation(), hint(`${name} mix: ${Math.round(s.mix * 100)}%`))}
-            className="shrink-0"
-          >
-            <Knob
-              size={16}
-              value={s.mix}
-              labelPosition="none"
-              color="var(--fl-green)"
-              onChange={(v) => {
-                setSlot(track, slot, { mix: v }, 'Change effect mix', `mx:${track}:slot:${slot}:mix`)
-                hint(`${name} mix: ${Math.round(v * 100)}%`)
-              }}
-              onReset={() => setSlot(track, slot, { mix: 1 }, 'Change effect mix')}
-            />
-          </div>
-          <Led
-            on={s.enabled}
-            size={9}
-            title=""
-            onClick={() => setSlot(track, slot, { enabled: !s.enabled }, s.enabled ? 'Disable effect' : 'Enable effect')}
-          />
+          {arrow}
+          {s ? (
+            <>
+              <button
+                className={cn(
+                  'min-w-0 flex-1 truncate text-left text-[10px]',
+                  on ? 'text-[#e6ecef]' : 'text-[#7f8c92] line-through decoration-[#7f8c92]/50',
+                  editorOpen && 'text-fl-orange'
+                )}
+                onClick={() => openFxPlugin(track, slot)}
+              >
+                {name}
+              </button>
+              <div className="shrink-0" onMouseEnter={(e) => (e.stopPropagation(), hint(`${name} mix: ${Math.round(s.mix * 100)}%`))}>
+                <TinyKnob
+                  size={15}
+                  value={s.mix}
+                  color="var(--fl-green)"
+                  dim={!on}
+                  onChange={(v) => {
+                    setSlot(track, slot, { mix: v }, 'Change effect mix', `mx:${track}:slot:${slot}:mix`)
+                    hint(`${name} mix: ${Math.round(v * 100)}%`)
+                  }}
+                  onReset={() => setSlot(track, slot, { mix: 1 }, 'Change effect mix')}
+                />
+              </div>
+              <Led on={s.enabled} size={8} title="" onClick={() => setSlot(track, slot, { enabled: !s.enabled }, s.enabled ? 'Disable effect' : 'Enable effect')} />
+            </>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="min-w-0 flex-1 truncate text-left text-[10px] italic text-[#6f7c82] hover:text-[#a4b0b5]">Slot {slot + 1}</DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-[60vh] min-w-[180px] overflow-auto">
+                <SlotMenuItems track={track} slot={slot} s={null} kit={DROPDOWN} />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="min-w-[180px]">
-        <ContextMenuLabel className="text-fl-orange">{name}</ContextMenuLabel>
-        <ContextMenuItem onSelect={() => openFxPlugin(track, slot)}>Open editor</ContextMenuItem>
-        <ContextMenuItem onSelect={() => setSlot(track, slot, { enabled: !s.enabled }, s.enabled ? 'Disable effect' : 'Enable effect')}>
-          {s.enabled ? 'Bypass' : 'Enable'}
-        </ContextMenuItem>
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>Replace</ContextMenuSubTrigger>
-          <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
-            <EffectMenuItems
-              onPick={(id) => {
-                useUI.getState().closeWindow(`fx:${track}:${slot}`)
-                insertEffect(track, slot, id)
-              }}
-              Item={ContextMenuItem}
-              Label={ContextMenuLabel}
-              Sep={ContextMenuSeparator}
-            />
-          </ContextMenuSubContent>
-        </ContextMenuSub>
-        <ContextMenuSeparator />
-        <ContextMenuItem disabled={slot === 0} onSelect={() => moveSlot(track, slot, slot - 1)}>
-          Move up
-        </ContextMenuItem>
-        <ContextMenuItem disabled={slot === 9} onSelect={() => moveSlot(track, slot, slot + 1)}>
-          Move down
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem className="text-[#ff8a80]" onSelect={() => deleteSlot(track, slot)}>
-          Delete
-        </ContextMenuItem>
+      <ContextMenuContent className="max-h-[70vh] min-w-[180px] overflow-auto">
+        <SlotMenuItems track={track} slot={slot} s={s} kit={CONTEXT} />
       </ContextMenuContent>
     </ContextMenu>
   )
@@ -292,13 +426,13 @@ function SlotRow({ track, slot, s, fxOn, trackLabel: tl }: { track: number; slot
 
 // ── EQ ─────────────────────────────────────────────────────────────────────────
 const BANDS = [
-  { key: 'low', gain: 'lowGain', freq: 'lowFreq', name: 'Low', color: '#e6a040' },
-  { key: 'mid', gain: 'midGain', freq: 'midFreq', name: 'Mid', color: '#8fe34a' },
-  { key: 'high', gain: 'highGain', freq: 'highFreq', name: 'High', color: '#5fb3e6' }
+  { key: 'low', gain: 'lowGain', freq: 'lowFreq', name: 'Low', color: '#e6a040', def: 90 },
+  { key: 'mid', gain: 'midGain', freq: 'midFreq', name: 'Med', color: '#8fe34a', def: 1400 },
+  { key: 'high', gain: 'highGain', freq: 'highFreq', name: 'High', color: '#5fb3e6', def: 9000 }
 ] as const
 
-const GW = 220
-const GH = 62
+const GW = PANEL_W - 17 // border + paddings
+const GH = 44
 const F_LO = 20
 const F_HI = 20000
 const fx = (f: number) => (Math.log(f / F_LO) / Math.log(F_HI / F_LO)) * GW
@@ -341,20 +475,24 @@ function EqSection({ t }: { t: MixerTrack }) {
   }
 
   return (
-    <div className="rounded-[2px] border border-[#1d2326] bg-[#2b3337] p-1" onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} EQ — drag the points: left/right = frequency, up/down = gain`))}>
-      <svg ref={svgRef} width={GW} height={GH} className="block rounded-[2px] bg-fl-well fl-inset">
+    <div
+      className="mt-[2px] rounded-[2px] border border-[#20272a] bg-[#2c3539] p-[2px]"
+      onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} EQ — drag the points: left/right = frequency, up/down = gain`))}
+    >
+      <div className="flex h-[13px] items-center px-[2px] text-[9px] text-[#8b989e]">Equalizer</div>
+      <svg ref={svgRef} width={GW} height={GH} className="block rounded-[1px] bg-[#1d2427] fl-inset">
         {[100, 1000, 10000].map((f) => (
-          <line key={f} x1={fx(f)} x2={fx(f)} y1={0} y2={GH} stroke="#263034" />
+          <line key={f} x1={fx(f)} x2={fx(f)} y1={0} y2={GH} stroke="#273136" />
         ))}
-        <line x1={0} x2={GW} y1={GH / 2} y2={GH / 2} stroke="#33414a" />
+        <line x1={0} x2={GW} y1={GH / 2} y2={GH / 2} stroke="#34424a" />
         <path d={`${path} L${GW},${GH / 2} L0,${GH / 2} Z`} fill="rgba(143,227,74,.12)" />
-        <path d={path} stroke="#9fe86a" strokeWidth={1.4} fill="none" />
+        <path d={path} stroke="#9fe86a" strokeWidth={1.2} fill="none" />
         {BANDS.map((b) => (
           <circle
             key={b.key}
             cx={fx(eq[b.freq])}
             cy={gy(eq[b.gain])}
-            r={4.5}
+            r={3.5}
             fill={b.color}
             stroke="#11161a"
             className="cursor-move"
@@ -364,45 +502,40 @@ function EqSection({ t }: { t: MixerTrack }) {
           />
         ))}
       </svg>
-      <div className="mt-1 grid grid-cols-3 gap-x-1">
+      <div className="mt-[2px] grid grid-cols-3">
         {BANDS.map((b) => {
           const range = EQ_FREQ[b.key]
-          const defaults = { low: 90, mid: 1400, high: 9000 }
           return (
-            <div key={b.key} className="flex flex-col items-center gap-0.5">
-              <span className="text-[9px] uppercase tracking-wide" style={{ color: b.color }}>
+            <div key={b.key} className="flex items-center justify-center gap-[3px]">
+              <span className="w-[22px] text-right text-[9px]" style={{ color: b.color }}>
                 {b.name}
               </span>
-              <div className="flex items-end gap-1">
-                <div onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} EQ ${b.name} gain: ${fmtDb(eq[b.gain])}`))}>
-                  <Knob
-                    size={24}
-                    bipolar
-                    value={(eq[b.gain] + EQ_GAIN_MAX) / (2 * EQ_GAIN_MAX)}
-                    color={b.color}
-                    labelPosition="none"
-                    onChange={(v) => {
-                      const g = Math.round((v * 2 - 1) * EQ_GAIN_MAX * 10) / 10
-                      setEq(t.index, { [b.gain]: g }, `${b.key}g`)
-                      hint(`${label} EQ ${b.name} gain: ${fmtDb(g)}`)
-                    }}
-                    onReset={() => setEq(t.index, { [b.gain]: 0 }, `${b.key}g`)}
-                  />
-                </div>
-                <div onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} EQ ${b.name} frequency: ${fmtHz(eq[b.freq])}`))}>
-                  <Knob
-                    size={18}
-                    value={freqToNorm(eq[b.freq], range)}
-                    color="#9aa6ac"
-                    labelPosition="none"
-                    onChange={(v) => {
-                      const f = Math.round(normToFreq(v, range))
-                      setEq(t.index, { [b.freq]: f }, `${b.key}f`)
-                      hint(`${label} EQ ${b.name} frequency: ${fmtHz(f)}`)
-                    }}
-                    onReset={() => setEq(t.index, { [b.freq]: defaults[b.key] }, `${b.key}f`)}
-                  />
-                </div>
+              <div title="" onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} EQ ${b.name} gain: ${fmtDb(eq[b.gain])}`))}>
+                <TinyKnob
+                  size={18}
+                  bipolar
+                  value={(eq[b.gain] + EQ_GAIN_MAX) / (2 * EQ_GAIN_MAX)}
+                  color={b.color}
+                  onChange={(v) => {
+                    const g = Math.round((v * 2 - 1) * EQ_GAIN_MAX * 10) / 10
+                    setEq(t.index, { [b.gain]: g }, `${b.key}g`)
+                    hint(`${label} EQ ${b.name} gain: ${fmtDb(g)}`)
+                  }}
+                  onReset={() => setEq(t.index, { [b.gain]: 0 }, `${b.key}g`)}
+                />
+              </div>
+              <div onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} EQ ${b.name} frequency: ${fmtHz(eq[b.freq])}`))}>
+                <TinyKnob
+                  size={14}
+                  value={freqToNorm(eq[b.freq], range)}
+                  color="#aab6bb"
+                  onChange={(v) => {
+                    const f = Math.round(normToFreq(v, range))
+                    setEq(t.index, { [b.freq]: f }, `${b.key}f`)
+                    hint(`${label} EQ ${b.name} frequency: ${fmtHz(f)}`)
+                  }}
+                  onReset={() => setEq(t.index, { [b.freq]: b.def }, `${b.key}f`)}
+                />
               </div>
             </div>
           )
@@ -412,102 +545,39 @@ function EqSection({ t }: { t: MixerTrack }) {
   )
 }
 
-// ── output ─────────────────────────────────────────────────────────────────────
-function OutputSelector({ t }: { t: MixerTrack }) {
-  const mixer = useProject((s) => s.project.mixer)
-  const label = trackLabel(t)
-  if (t.index === 0) {
-    return (
-      <div className="flex items-center gap-1" onMouseEnter={(e) => (e.stopPropagation(), hint('Master output: default audio device'))}>
-        <span className="w-9 shrink-0 text-[10px] uppercase tracking-wide text-fl-dim">Out</span>
-        <select className={selectCls} value="default" disabled>
-          <option value="default">Default output</option>
-        </select>
-      </div>
-    )
-  }
-  const value = t.sends.length === 1 ? String(t.sends[0].target) : t.sends.length === 0 ? 'none' : 'multi'
-  return (
-    <div className="flex items-center gap-1" onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} output (route to this track only)`))}>
-      <span className="w-9 shrink-0 text-[10px] uppercase tracking-wide text-fl-dim">Out</span>
-      <select
-        className={selectCls}
-        value={value}
-        onChange={(e) => {
-          const v = e.target.value
-          if (v === 'none') setTrack(t.index, { sends: [] }, 'Unroute mixer track')
-          else if (v !== 'multi') routeOnly(t.index, Number(v))
-        }}
-      >
-        <option value="none">(none)</option>
-        {value === 'multi' && <option value="multi">(multiple: {t.sends.map((s) => (s.target === 0 ? 'M' : s.target)).join(', ')})</option>}
-        {mixer
-          .filter((m) => m.index !== t.index)
-          .map((m) => (
-            <option key={m.index} value={m.index}>
-              {m.index === 0 ? 'Master' : trackLabel(m)}
-            </option>
-          ))}
-      </select>
-    </div>
-  )
-}
-
-// ── extras ─────────────────────────────────────────────────────────────────────
-function Toggle({ on, onClick, children, hintText }: { on: boolean; onClick: () => void; children: React.ReactNode; hintText: string }) {
-  return (
-    <button
-      className={cn('h-[18px] rounded-[2px] border border-[#1d2326] px-1.5 text-[10px] fl-bevel', on ? 'bg-fl-orange text-[#1b1f22]' : 'bg-[#46525a] text-fl-text hover:bg-[#515e66]')}
-      onClick={onClick}
-      onMouseEnter={(e) => (e.stopPropagation(), hint(hintText))}
-    >
-      {children}
-    </button>
-  )
-}
-
-function Extras({ t }: { t: MixerTrack }) {
+// ── PDC (latency compensation) ─────────────────────────────────────────────────
+function PdcRow({ t }: { t: MixerTrack }) {
   const label = trackLabel(t)
   const lat = useRef(t.latencyComp)
   lat.current = t.latencyComp
+  const set = (v: number) => {
+    const ms = Math.max(0, Math.min(500, Math.round(v)))
+    setTrack(t.index, { latencyComp: ms }, 'Track latency', `mx:${t.index}:lat`)
+    hint(`${label} latency compensation: ${ms ? `${ms} ms` : 'none'}`)
+  }
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      <Toggle on={t.phaseInvert} onClick={() => setTrack(t.index, { phaseInvert: !t.phaseInvert }, 'Invert phase')} hintText={`${label}: invert polarity`}>
-        Ø Phase
-      </Toggle>
-      <Toggle on={t.swapLR} onClick={() => setTrack(t.index, { swapLR: !t.swapLR }, 'Swap left/right')} hintText={`${label}: swap left and right channels`}>
-        L⇄R
-      </Toggle>
-      <div
-        className="ml-auto flex h-[18px] cursor-ns-resize items-center gap-1 rounded-[2px] px-1 fl-lcd text-[10px]"
-        onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} latency compensation: ${t.latencyComp} ms (drag / wheel, double-click to reset)`))}
-        onWheel={(e) => {
-          const v = Math.max(0, Math.min(500, t.latencyComp - Math.sign(e.deltaY)))
-          setTrack(t.index, { latencyComp: v }, 'Track latency', `mx:${t.index}:lat`)
-          hint(`${label} latency compensation: ${v} ms`)
-        }}
-        onDoubleClick={() => setTrack(t.index, { latencyComp: 0 }, 'Track latency')}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return
-          e.preventDefault()
-          const sy = e.clientY
-          const start = lat.current
-          const move = (ev: PointerEvent) => {
-            const v = Math.max(0, Math.min(500, Math.round(start + (sy - ev.clientY) / 2)))
-            setTrack(t.index, { latencyComp: v }, 'Track latency', `mx:${t.index}:lat`)
-            hint(`${label} latency compensation: ${v} ms`)
-          }
-          const up = () => {
-            window.removeEventListener('pointermove', move)
-            window.removeEventListener('pointerup', up)
-          }
-          window.addEventListener('pointermove', move)
-          window.addEventListener('pointerup', up)
-        }}
-      >
-        <span className="text-fl-dim">PDC</span>
-        <span>{t.latencyComp} ms</span>
-      </div>
+    <div
+      className="flex h-[18px] cursor-ns-resize items-center gap-1 rounded-[2px] border border-[#1b2124] bg-[#262e32] px-1 fl-inset"
+      onMouseEnter={(e) => (e.stopPropagation(), hint(`${label} latency compensation: ${t.latencyComp} ms (drag / wheel, double-click to reset)`))}
+      onWheel={(e) => set(t.latencyComp - Math.sign(e.deltaY))}
+      onDoubleClick={() => set(0)}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        e.preventDefault()
+        const sy = e.clientY
+        const start = lat.current
+        const move = (ev: PointerEvent) => set(start + (sy - ev.clientY) / 2)
+        const up = () => {
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', up)
+        }
+        window.addEventListener('pointermove', move)
+        window.addEventListener('pointerup', up)
+      }}
+    >
+      <Clock size={10} className={t.latencyComp ? 'text-fl-green' : 'text-[#8b989e]'} />
+      <span className="flex-1 text-[10px] text-[#d3dadd]">{t.latencyComp ? `${t.latencyComp} ms` : '(none)'}</span>
+      <span className="text-[10px] text-[#7d8a90]">PDC</span>
     </div>
   )
 }

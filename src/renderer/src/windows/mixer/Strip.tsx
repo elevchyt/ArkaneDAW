@@ -1,9 +1,10 @@
-// One mixer track strip (FL Studio 20 layout): mute LED, pan, stereo separation, fader + stereo
-// peak meter with the name written vertically, track number, record arm and the route switch.
+// One mixer track strip, FL Studio 20/21 compact layout (~32 px): track number, vertical name with
+// the peak meter beside it, mute LED, pan, fader, phase/swap, stereo separation, FX-off/latency,
+// record arm and the send switch (+ send level knob when the selected track routes here).
 import { memo, useState } from 'react'
-import { ArrowDown, Disc } from 'lucide-react'
+import { ArrowLeftRight, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Fader, Knob, Led } from '@/components/controls'
+import { Led } from '@/components/controls'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -19,9 +20,10 @@ import { useProject } from '@/store/project'
 import { useUI } from '@/store/ui'
 import { MIXER_INSERTS } from '@/store/types'
 import { StereoMeter } from './Meter'
+import { IconToggle, SlimFader, TinyKnob } from './widgets'
 import { DEFAULT_TRACK_COLOR, TRACK_COLORS, useMixerView } from './state'
 import {
-  addEffectToTrack,
+  addEffectAndOpen,
   fmtPan,
   fmtSep,
   linkChannels,
@@ -48,12 +50,14 @@ const hint = (s: string) => useUI.getState().setHint(s)
 export interface StripProps {
   index: number
   width: number
+  /** height of the top name + peak meter area */
+  nameH: number
   faderH: number
   /** muted because another track is soloed */
   soloMuted: boolean
 }
 
-export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: StripProps) {
+export const Strip = memo(function Strip({ index, width, nameH, faderH, soloMuted }: StripProps) {
   const t = useProject((s) => s.project.mixer[index])
   const sel = useUI((s) => s.selectedMixerTrack)
   const selected = sel === index
@@ -74,13 +78,18 @@ export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: St
   const colored = color !== DEFAULT_TRACK_COLOR
   const effMuted = t.muted || soloMuted
   const wide = layout === 'wide'
-  const knobS = wide ? 26 : 24
+  const usedFx = t.slots.filter(Boolean).length
 
-  const hoverHint = () =>
-    hint(`${label}${linked ? ` — linked: ${linked}` : ''}${t.slots.some(Boolean) ? ` — FX: ${t.slots.filter(Boolean).length}` : ''}`)
+  const hoverHint = () => hint(`${label}${linked ? ` — linked: ${linked}` : ''}${usedFx ? ` — FX: ${usedFx}` : ''}`)
+  const ctlHint = (s: string) => (e: React.MouseEvent) => {
+    e.stopPropagation()
+    hint(s)
+  }
 
   const onPointerDownCapture = (e: React.PointerEvent) => {
     if (e.button !== 0) return
+    // the send switch / send knob act on the *selected* track: never change the selection there
+    if ((e.target as HTMLElement).closest('[data-route]')) return
     const ctl = (e.target as HTMLElement).closest('[data-ctl],svg,canvas,button,input')
     if (!ctl && (e.ctrlKey || e.metaKey)) selectTrack(index, 'toggle')
     else if (!ctl && e.shiftKey) selectTrack(index, 'range')
@@ -103,6 +112,11 @@ export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: St
     setTrack(index, { stereoSep }, 'Mixer track stereo separation', `mx:${index}:sep`)
     hint(`${label} stereo separation: ${fmtSep(stereoSep)}`)
   }
+  const setLatency = (ms: number) => {
+    const v = Math.max(0, Math.min(500, ms))
+    setTrack(index, { latencyComp: v }, 'Track latency', `mx:${index}:lat`)
+    hint(`${label} latency compensation: ${v ? `${v} ms` : 'none'}`)
+  }
 
   const commitName = (name: string) => {
     useMixerView.getState().set({ renaming: null })
@@ -110,14 +124,14 @@ export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: St
     if (n && n !== t.name) setTrack(index, { name: n }, 'Rename mixer track')
   }
 
+  const bg = selected ? '#51636d' : inMulti ? '#48565d' : isMaster ? '#3f4b51' : index % 2 ? '#3b464c' : '#363f45'
+  const meterW = isMaster ? (wide ? 12 : 9) : wide ? 9 : 7
+  const knob = wide ? 20 : 18
+
   const body = (
     <div
-      className={cn(
-        'relative flex h-full flex-col items-stretch border-r border-[#1e2427]',
-        selected ? 'bg-[#56636a]' : inMulti ? 'bg-[#4c585e]' : isMaster ? 'bg-[#3f4a50]' : 'bg-[#39444a]',
-        dropHover && 'outline outline-1 -outline-offset-1 outline-fl-orange'
-      )}
-      style={{ width }}
+      className={cn('relative flex h-full flex-col items-stretch border-r border-[#232b2f] pb-[2px]', dropHover && 'outline outline-1 -outline-offset-1 outline-fl-orange')}
+      style={{ width, background: bg }}
       onPointerDownCapture={onPointerDownCapture}
       onMouseEnter={hoverHint}
       onWheel={(e) => {
@@ -140,26 +154,50 @@ export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: St
         if (!id) return
         e.preventDefault()
         selectTrack(index)
-        if (addEffectToTrack(index, id) < 0) hint(`${label}: no free effect slot`)
+        if (addEffectAndOpen(index, id) < 0) hint(`${label}: no free effect slot`)
       }}
     >
-      {/* color bar */}
-      <div className="h-[3px] shrink-0" style={{ background: colored ? color : selected ? '#7b878d' : '#4a555b' }} />
+      {/* track number */}
+      <div
+        className={cn('flex h-[14px] shrink-0 items-center justify-center text-[9px] font-semibold leading-none', selected ? 'bg-[#6f8792] text-white' : 'bg-[#2b3337] text-[#9aa7ad]')}
+        onDoubleClick={() => useMixerView.getState().set({ renaming: index })}
+      >
+        {isMaster ? 'M' : index}
+      </div>
+      {/* color / icon bar */}
+      <div className="h-[2px] shrink-0" style={{ background: colored ? color : selected ? '#8aa3ae' : 'transparent' }} />
+
+      {/* vertical name + peak meter */}
+      <div className="flex shrink-0 items-stretch justify-center gap-[2px] px-[2px] pt-[2px]" style={{ height: nameH }}>
+        <div
+          className="flex min-w-0 flex-1 items-end justify-center overflow-hidden pb-[1px]"
+          onDoubleClick={() => useMixerView.getState().set({ renaming: index })}
+          onMouseEnter={ctlHint(`${label}${linked ? ` — linked: ${linked}` : ''} (double-click / F2 to rename)`)}
+        >
+          <span
+            className={cn('overflow-hidden text-ellipsis whitespace-nowrap text-[10px] leading-[11px]', selected ? 'text-white' : colored ? 'text-[#e2e8eb]' : 'text-[#c3ccd0]', effMuted && 'opacity-50')}
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: nameH - 4 }}
+          >
+            {t.name}
+          </span>
+        </div>
+        <div className={cn('shrink-0', effMuted && 'opacity-50')}>
+          <StereoMeter index={index} height={nameH - 2} width={meterW} label={label} />
+        </div>
+      </div>
 
       {/* mute / solo LED */}
       <div
-        className="flex h-[18px] shrink-0 items-center justify-center gap-1"
+        className="flex h-[14px] shrink-0 items-center justify-center gap-[2px]"
         data-ctl
-        onMouseEnter={(e) => {
-          e.stopPropagation()
-          hint(`${label}: ${t.solo ? 'solo' : effMuted ? 'muted' : 'on'} — click: mute, right-click / Ctrl+click: solo, Alt+click: solo with sources, Ctrl+right-click: unmute all`)
-        }}
+        onMouseEnter={ctlHint(`${label}: ${t.solo ? 'solo' : effMuted ? 'muted' : 'on'} — click: mute, right-click / Ctrl+click: solo, Alt+click: solo with sources, Ctrl+right-click: unmute all`)}
       >
         <Led
           on={!effMuted}
-          size={11}
-          color={t.solo ? '#b6ff5a' : 'var(--fl-green)'}
+          size={9}
+          color={t.solo ? '#c6ff6a' : 'var(--fl-green)'}
           title=""
+          className={t.solo ? 'ring-1 ring-[#c6ff6a]/70' : undefined}
           onClick={(e) => {
             if (e.ctrlKey || e.metaKey) soloTrack(index, e.shiftKey)
             else if (e.altKey) soloWithSources(index)
@@ -172,90 +210,85 @@ export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: St
             else soloTrack(index)
           }}
         />
-        {t.solo && <span className="text-[8px] font-bold leading-none text-[#b6ff5a]">S</span>}
       </div>
 
       {/* pan */}
-      <div
-        className="flex h-[30px] shrink-0 items-center justify-center"
-        data-ctl
-        onMouseEnter={(e) => {
-          e.stopPropagation()
-          hint(`${label} panning: ${fmtPan(t.pan)}`)
-        }}
-      >
-        <Knob size={knobS} value={(t.pan + 1) / 2} bipolar color="#d7a050" labelPosition="none" onChange={setPan} onReset={() => setPan(0.5)} />
+      <div className="flex h-[22px] shrink-0 items-center justify-center" data-ctl onMouseEnter={ctlHint(`${label} panning: ${fmtPan(t.pan)}`)}>
+        <TinyKnob size={knob} value={(t.pan + 1) / 2} bipolar color="#e3b06a" onChange={setPan} onReset={() => setPan(0.5)} />
+      </div>
+
+      {/* level fader */}
+      <div className="flex shrink-0 justify-center px-[4px] py-[2px]" data-ctl style={{ height: faderH }} onMouseEnter={ctlHint(`${label} volume: ${volDb(t.volume)}`)}>
+        <SlimFader value={Math.min(1, t.volume)} height={faderH - 4} width={Math.min(width - 8, wide ? 26 : 22)} accent={selected} onChange={setVol} onReset={() => setVol(0.8)} />
+      </div>
+
+      {/* invert phase / swap stereo */}
+      <div className="flex h-[13px] shrink-0 items-center justify-center gap-[1px]">
+        <IconToggle
+          on={t.phaseInvert}
+          onClick={() => setTrack(index, { phaseInvert: !t.phaseInvert }, 'Invert phase')}
+          onHover={() => hint(`${label}: invert polarity ${t.phaseInvert ? '(on)' : '(off)'}`)}
+        >
+          <span className="text-[9px] font-normal">Ø</span>
+        </IconToggle>
+        <IconToggle
+          on={t.swapLR}
+          onClick={() => setTrack(index, { swapLR: !t.swapLR }, 'Swap left/right')}
+          onHover={() => hint(`${label}: swap left and right ${t.swapLR ? '(on)' : '(off)'}`)}
+        >
+          <ArrowLeftRight size={8} strokeWidth={2.5} />
+        </IconToggle>
       </div>
 
       {/* stereo separation */}
-      <div
-        className="flex h-[26px] shrink-0 items-center justify-center"
-        data-ctl
-        onMouseEnter={(e) => {
-          e.stopPropagation()
-          hint(`${label} stereo separation: ${fmtSep(t.stereoSep)}`)
-        }}
-      >
-        <Knob size={18} value={(t.stereoSep + 1) / 2} bipolar color="#7fb6d8" labelPosition="none" onChange={setSep} onReset={() => setSep(0.5)} />
+      <div className="flex h-[18px] shrink-0 items-center justify-center" data-ctl onMouseEnter={ctlHint(`${label} stereo separation: ${fmtSep(t.stereoSep)}`)}>
+        <TinyKnob size={14} value={(t.stereoSep + 1) / 2} bipolar color="#8cc4e6" onChange={setSep} onReset={() => setSep(0.5)} />
       </div>
 
-      {/* fader zone: vertical name | fader | meter */}
-      <div className="flex shrink-0 items-stretch justify-center gap-[3px] px-[2px] py-1" style={{ height: faderH + 8 }}>
-        <div
-          className="relative w-[12px] shrink-0 overflow-hidden rounded-[2px]"
-          style={{ background: colored ? `${color}55` : 'rgba(0,0,0,.12)' }}
-          onDoubleClick={() => useMixerView.getState().set({ renaming: index })}
+      {/* disable FX / latency */}
+      <div className="flex h-[13px] shrink-0 items-center justify-center gap-[1px]">
+        <IconToggle
+          on={!t.fxEnabled}
+          activeColor="#ff6a5c"
+          onClick={() => setTrack(index, { fxEnabled: !t.fxEnabled }, t.fxEnabled ? 'Disable track effects' : 'Enable track effects')}
+          onHover={() => hint(`${label}: ${t.fxEnabled ? 'effects enabled — click to disable all FX' : 'all effects DISABLED — click to enable'}`)}
+          className={!t.fxEnabled ? 'line-through' : undefined}
         >
-          <span
-            className={cn('absolute bottom-1 left-1/2 origin-bottom-left whitespace-nowrap text-[10px] leading-[12px]', selected ? 'text-white' : 'text-[#cfd7db]')}
-            style={{ transform: 'rotate(-90deg) translateY(50%)', maxWidth: faderH - 4, overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >
-            {t.name}
-          </span>
-        </div>
-        <div
-          data-ctl
-          onMouseEnter={(e) => {
-            e.stopPropagation()
-            hint(`${label} volume: ${volDb(t.volume)}`)
-          }}
+          fx
+        </IconToggle>
+        <IconToggle
+          on={t.latencyComp > 0}
+          activeColor="#8fe34a"
+          onHover={() => hint(`${label} latency compensation: ${t.latencyComp ? `${t.latencyComp} ms` : 'none'} (wheel to change, double-click to reset)`)}
+          onWheel={(e) => setLatency(t.latencyComp - Math.sign(e.deltaY))}
+          onDoubleClick={() => setLatency(0)}
         >
-          <Fader value={Math.min(1, t.volume)} unity={0.8} height={faderH} width={wide ? 22 : 18} onChange={setVol} onReset={() => setVol(0.8)} />
-        </div>
-        <StereoMeter index={index} height={faderH} width={isMaster ? 12 : wide ? 11 : 9} label={label} />
-      </div>
-
-      {/* track number */}
-      <div
-        className={cn('mx-[3px] flex h-[15px] shrink-0 items-center justify-center rounded-[2px] text-[10px] font-semibold leading-none', selected ? 'text-[#1b1f22]' : 'text-[#c5cdd1]')}
-        style={{ background: selected ? '#d9e2e6' : colored ? `${color}aa` : '#2c3438' }}
-        onDoubleClick={() => useMixerView.getState().set({ renaming: index })}
-      >
-        {isMaster ? 'M' : index}
+          <Clock size={8} strokeWidth={2.5} />
+        </IconToggle>
       </div>
 
       {/* record arm */}
-      <div className="flex h-[18px] shrink-0 items-center justify-center" data-ctl>
+      <div className="flex h-[12px] shrink-0 items-center justify-center" data-ctl>
         <button
-          className={cn('grid h-[14px] w-[14px] place-items-center rounded-full', t.armed ? 'text-[#ff4b3e]' : 'text-[#6b777d] hover:text-[#9aa6ac]')}
+          className="grid h-[11px] w-[11px] place-items-center"
           onClick={() => setTrack(index, { armed: !t.armed }, t.armed ? 'Disarm mixer track' : 'Arm mixer track')}
-          onMouseEnter={(e) => {
-            e.stopPropagation()
-            hint(`${label}: ${t.armed ? 'armed for recording' : 'arm disk recording'}${t.inputDevice ? '' : ' (no input selected)'}`)
-          }}
+          onMouseEnter={ctlHint(`${label}: ${t.armed ? 'armed for recording' : 'arm disk recording'}${t.inputDevice ? '' : ' (no input selected)'}`)}
         >
-          <Disc size={12} fill={t.armed ? '#ff4b3e' : 'transparent'} strokeWidth={2} />
+          <span
+            className="block h-[7px] w-[7px] rounded-full border"
+            style={t.armed ? { background: '#ff4b3e', borderColor: '#7a1d17', boxShadow: '0 0 4px #ff4b3e' } : { background: '#2a3236', borderColor: '#171c1e' }}
+          />
         </button>
       </div>
 
-      {/* route switch / send knob */}
+      {/* send switch / send level */}
       <RouteArea index={index} sel={sel} selSend={selSend} feedsSelected={feedsSelected} label={label} />
 
       {renaming && (
         <input
           autoFocus
           defaultValue={t.name}
-          className="absolute bottom-[70px] left-0 z-20 h-[20px] w-[130px] rounded-sm border border-fl-orange bg-fl-well px-1 text-[11px] text-white outline-none"
+          className="absolute left-0 top-[18px] z-20 h-[18px] w-[130px] rounded-sm border border-fl-orange bg-fl-well px-1 text-[11px] text-white outline-none"
           onFocus={(e) => e.currentTarget.select()}
           onBlur={(e) => commitName(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -325,54 +358,53 @@ export const Strip = memo(function Strip({ index, width, faderH, soloMuted }: St
 
 function RouteArea({ index, sel, selSend, feedsSelected, label }: { index: number; sel: number; selSend: { target: number; level: number } | undefined; feedsSelected: boolean; label: string }) {
   const selName = useProject((s) => (s.project.mixer[sel] ? trackLabel(s.project.mixer[sel]) : ''))
+  const box = 'flex h-[30px] shrink-0 flex-col items-center justify-start'
   if (index === sel) {
     return (
-      <div className="flex h-[34px] shrink-0 items-center justify-center" onMouseEnter={(e) => (e.stopPropagation(), hint(`${label}: selected track (output)`))}>
-        <ArrowDown size={16} strokeWidth={3} className="text-fl-green drop-shadow-[0_0_3px_rgba(143,227,74,.7)]" />
+      <div className={box} onMouseEnter={(e) => (e.stopPropagation(), hint(`${label}: selected track — click another track's send switch to route to it`))}>
+        <svg width="12" height="8" viewBox="0 0 12 8" className="mt-[2px]">
+          <path d="M6 0.5 L11.5 7.5 L0.5 7.5 Z" fill="none" stroke="#9fe86a" strokeWidth="1.2" />
+        </svg>
       </div>
     )
   }
-  if (index === 0 && sel === 0) return <div className="h-[34px] shrink-0" />
-  if (sel === 0) {
-    return <div className="h-[34px] shrink-0" />
-  }
+  if (sel === 0) return <div className={box} />
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          className="relative flex h-[34px] shrink-0 flex-col items-center justify-start"
+          className={box}
           data-ctl
+          data-route
           onMouseEnter={(e) => {
             e.stopPropagation()
-            hint(
-              selSend
-                ? `Send from ${selName} to ${label}: ${sendDb(selSend.level)} (click arrow to remove)`
-                : `Route ${selName} to ${label} (right-click: route to this track only)`
-            )
+            hint(selSend ? `Send from ${selName} to ${label}: ${sendDb(selSend.level)} (click switch to remove)` : `Route ${selName} to ${label} (right-click: route to this track only)`)
           }}
           onContextMenu={(e) => e.stopPropagation()}
         >
-          <button
-            className="mt-[1px] h-[9px] w-[16px]"
-            onClick={() => toggleSend(sel, index)}
-            title=""
-          >
-            <svg width="16" height="9" viewBox="0 0 16 9">
-              <path d="M8 0 L15 8 L1 8 Z" fill={selSend ? '#8fe34a' : feedsSelected ? '#f79a2e' : '#22292c'} stroke={selSend ? '#4d7a2a' : '#151a1c'} strokeWidth="1" />
+          <button className="mt-[2px] grid h-[8px] w-[14px] place-items-center" onClick={() => toggleSend(sel, index)} title="">
+            <svg width="12" height="8" viewBox="0 0 12 8">
+              <path
+                d="M6 0.5 L11.5 7.5 L0.5 7.5 Z"
+                fill={selSend ? '#8fe34a' : feedsSelected ? '#f79a2e' : '#262e32'}
+                stroke={selSend ? '#4d7a2a' : feedsSelected ? '#8a5418' : '#161b1d'}
+                strokeWidth="1"
+              />
             </svg>
           </button>
           {selSend && (
-            <Knob
-              size={20}
-              value={Math.min(1, selSend.level / 1.25)}
-              color="var(--fl-green)"
-              labelPosition="none"
-              onChange={(v) => {
-                setSendLevel(sel, index, v * 1.25)
-                hint(`Send from ${selName} to ${label}: ${sendDb(v * 1.25)}`)
-              }}
-              onReset={() => setSendLevel(sel, index, 1)}
-            />
+            <div className="mt-[2px]">
+              <TinyKnob
+                size={16}
+                value={Math.min(1, selSend.level / 1.25)}
+                color="var(--fl-green)"
+                onChange={(v) => {
+                  setSendLevel(sel, index, v * 1.25)
+                  hint(`Send from ${selName} to ${label}: ${sendDb(v * 1.25)}`)
+                }}
+                onReset={() => setSendLevel(sel, index, 1)}
+              />
+            </div>
           )}
         </div>
       </ContextMenuTrigger>

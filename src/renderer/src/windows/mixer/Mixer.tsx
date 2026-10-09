@@ -1,7 +1,7 @@
-// FL Studio 20/21 style Mixer: Master docked left, 125 inserts in a horizontally scrolling
-// (virtualized) row, routing cables under the strips and the track inspector on the right.
+// FL Studio 20/21 style Mixer (compact): Master docked left, 125 narrow inserts in a horizontally
+// scrolling (virtualized) row, routing cables under the strips and the track inspector on the right.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Columns2, Columns3, PanelRight, Cable } from 'lucide-react'
+import { Cable, ChevronDown, PanelRight, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MdiWindow } from '@/shell/MdiWindow'
 import { useWindowKeys } from '@/shell/keys'
@@ -22,10 +22,11 @@ import { useProject } from '@/store/project'
 import { useUI } from '@/store/ui'
 import { MIXER_INSERTS, type MixerTrack } from '@/store/types'
 import type { WindowProps } from '../types'
-import { MASTER_W, STRIP_FIXED_H, STRIP_W, useMixerView } from './state'
+import { MASTER_W, STRIP_W, stripSplit, useMixerView } from './state'
 import { Strip } from './Strip'
 import { TrackPanel } from './TrackPanel'
 import {
+  firstFreeInsert,
   linkChannels,
   resetTrack,
   selectTrack,
@@ -36,10 +37,11 @@ import {
   soloWithSources,
   swapTracks,
   toggleMute,
+  trackLabel,
   unmuteAll
 } from './ops'
 
-const CABLE_H = 22
+const CABLE_H = 18
 const OVERSCAN = 2
 
 export default function Mixer({ win, bounds }: WindowProps) {
@@ -83,8 +85,8 @@ export default function Mixer({ win, bounds }: WindowProps) {
   // solo state → which strips look muted
   const audible = useMemo(() => soloAudible(mixer), [mixer])
 
-  const stripH = Math.max(0, view.height - (cables ? CABLE_H : 0) - 10 /* scrollbar */)
-  const faderH = Math.max(60, stripH - STRIP_FIXED_H)
+  const stripH = Math.max(0, view.height - (cables ? CABLE_H : 0) - 8 /* scrollbar */)
+  const { nameH, faderH } = stripSplit(stripH)
   const first = Math.max(1, Math.floor(view.left / sw) + 1 - OVERSCAN)
   const last = Math.min(MIXER_INSERTS, Math.ceil((view.left + view.width) / sw) + OVERSCAN)
   const visible: number[] = []
@@ -159,7 +161,7 @@ export default function Mixer({ win, bounds }: WindowProps) {
       const x1 = xOf(from)
       const x2 = xOf(to)
       if ((x1 < mw && x2 < mw && from !== 0 && to !== 0) || (x1 > totalW && x2 > totalW)) return
-      const depth = Math.min(CABLE_H - 4, 6 + Math.abs(x2 - x1) / 30)
+      const depth = Math.min(CABLE_H - 3, 5 + Math.abs(x2 - x1) / 30)
       out.push({ d: `M${x1},1 C${x1},${depth + 2} ${x2},${depth + 2} ${x2},4`, color, head: [x2, 2], dim })
     }
     const t = mixer[sel]
@@ -183,10 +185,10 @@ export default function Mixer({ win, bounds }: WindowProps) {
           <DropdownMenuSubTrigger>View</DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             <DropdownMenuCheckboxItem checked={layout === 'narrow'} onSelect={() => useMixerView.getState().set({ layout: 'narrow' })}>
-              Narrow strips
+              Compact
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={layout === 'wide'} onSelect={() => useMixerView.getState().set({ layout: 'wide' })}>
-              Wide strips
+              Wide
             </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem checked={inspector} onSelect={() => useMixerView.getState().set({ inspector: !inspector })}>
@@ -236,46 +238,82 @@ export default function Mixer({ win, bounds }: WindowProps) {
     </DropdownMenu>
   )
 
+  const selLabel = mixer[sel] ? trackLabel(mixer[sel]) : ''
   const titleExtra = (
-    <div className="ml-2 flex items-center gap-[2px]">
-      <LayoutBtn active={layout === 'narrow'} onClick={() => useMixerView.getState().set({ layout: 'narrow' })} hint="Mixer layout: narrow strips">
-        <Columns3 size={11} />
-      </LayoutBtn>
-      <LayoutBtn active={layout === 'wide'} onClick={() => useMixerView.getState().set({ layout: 'wide' })} hint="Mixer layout: wide strips">
-        <Columns2 size={11} />
-      </LayoutBtn>
-      <LayoutBtn active={cables} onClick={() => useMixerView.getState().set({ cables: !cables })} hint="Show routing cables">
-        <Cable size={11} />
-      </LayoutBtn>
-      <LayoutBtn active={inspector} onClick={() => useMixerView.getState().set({ inspector: !inspector })} hint="Show track inspector (FX slots, EQ, I/O)">
-        <PanelRight size={11} />
-      </LayoutBtn>
+    <div className="flex min-w-0 flex-1 items-center gap-[3px]">
+      <span className="mr-1 min-w-0 truncate text-[11px] text-[#c9d2d6]">- {selLabel}</span>
+      <HeadBtn active={inspector} onClick={() => useMixerView.getState().set({ inspector: !inspector })} hint="Show / hide the track inspector (FX slots, EQ, I/O)">
+        <PanelRight size={10} />
+      </HeadBtn>
+      <HeadBtn
+        active={false}
+        onClick={() => {
+          const i = firstFreeInsert(Math.max(0, sel))
+          const j = i < 0 ? firstFreeInsert(0) : i
+          if (j < 0) useUI.getState().setHint('No free insert tracks left')
+          else {
+            selectTrack(j)
+            useUI.getState().setHint(`Selected free track: Insert ${j}`)
+          }
+        }}
+        hint="Go to the next unused insert track"
+      >
+        <Plus size={10} />
+      </HeadBtn>
+      <HeadBtn active={cables} onClick={() => useMixerView.getState().set({ cables: !cables })} hint="Show routing cables">
+        <Cable size={10} />
+      </HeadBtn>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex h-[15px] items-center gap-[2px] rounded-[2px] border border-[#1e2427] bg-[#3b464c] px-1 text-[10px] text-[#d3dadd] hover:bg-[#46525a]"
+          onMouseEnter={() => useUI.getState().setHint('Mixer layout')}
+        >
+          {layout === 'narrow' ? 'Compact' : 'Wide'}
+          <ChevronDown size={9} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-[160px]">
+          <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-fl-dim">Layout</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem checked={layout === 'narrow'} onSelect={() => useMixerView.getState().set({ layout: 'narrow' })}>
+            Compact
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={layout === 'wide'} onSelect={() => useMixerView.getState().set({ layout: 'wide' })}>
+            Wide
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem checked={inspector} onSelect={() => useMixerView.getState().set({ inspector: !inspector })}>
+            Track inspector
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem checked={cables} onSelect={() => useMixerView.getState().set({ cables: !cables })}>
+            Routing cables
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {selList.length > 1 && <span className="ml-1 text-[10px] text-fl-dim">{selList.length} selected</span>}
     </div>
   )
 
   return (
     <MdiWindow win={win} bounds={bounds} menu={menu} titleExtra={titleExtra} minW={420} minH={300}>
-      <div className="flex h-full bg-[#2a3236]">
+      <div className="flex h-full bg-[#252d31]">
         <div ref={areaRef} className="relative flex min-w-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
             {/* Master, docked left */}
-            <div className="shrink-0 border-r-2 border-[#151a1c]" style={{ height: stripH }}>
-              <Strip index={0} width={mw} faderH={faderH} soloMuted={false} />
+            <div className="shrink-0 border-r-[3px] border-[#1a2023]" style={{ height: stripH }}>
+              <Strip index={0} width={mw} nameH={nameH} faderH={faderH} soloMuted={false} />
             </div>
             {/* Inserts (virtualized) */}
             <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-scroll overflow-y-hidden">
               <div className="relative" style={{ width: MIXER_INSERTS * sw, height: stripH }}>
                 {visible.map((i) => (
                   <div key={i} className="absolute top-0" style={{ left: (i - 1) * sw, height: stripH }}>
-                    <Strip index={i} width={sw} faderH={faderH} soloMuted={!!audible && !audible.has(i)} />
+                    <Strip index={i} width={sw} nameH={nameH} faderH={faderH} soloMuted={!!audible && !audible.has(i)} />
                   </div>
                 ))}
               </div>
             </div>
           </div>
           {cables && (
-            <svg className="pointer-events-none shrink-0" width={totalW} height={CABLE_H} style={{ background: '#20272a' }}>
+            <svg className="pointer-events-none shrink-0" width={totalW} height={CABLE_H} style={{ background: '#222a2e' }}>
               <defs>
                 <clipPath id="mixer-cable-clip">
                   <rect x={0} y={0} width={totalW} height={CABLE_H} />
@@ -284,9 +322,9 @@ export default function Mixer({ win, bounds }: WindowProps) {
               <g clipPath="url(#mixer-cable-clip)">
                 {cablePaths.map((c, k) => (
                   <g key={k} opacity={c.dim ? 0.75 : 1}>
-                    <path d={c.d} stroke="#0e1213" strokeWidth={4} fill="none" strokeLinecap="round" />
-                    <path d={c.d} stroke={c.color} strokeWidth={2} fill="none" strokeLinecap="round" />
-                    <path d={`M${c.head[0] - 4},${c.head[1] + 5} L${c.head[0]},${c.head[1] - 1} L${c.head[0] + 4},${c.head[1] + 5} Z`} fill={c.color} />
+                    <path d={c.d} stroke="#0e1213" strokeWidth={3} fill="none" strokeLinecap="round" />
+                    <path d={c.d} stroke={c.color} strokeWidth={1.5} fill="none" strokeLinecap="round" />
+                    <path d={`M${c.head[0] - 3},${c.head[1] + 4} L${c.head[0]},${c.head[1] - 1} L${c.head[0] + 3},${c.head[1] + 4} Z`} fill={c.color} />
                   </g>
                 ))}
               </g>
@@ -299,10 +337,10 @@ export default function Mixer({ win, bounds }: WindowProps) {
   )
 }
 
-function LayoutBtn({ active, onClick, hint, children }: { active: boolean; onClick: () => void; hint: string; children: React.ReactNode }) {
+function HeadBtn({ active, onClick, hint, children }: { active: boolean; onClick: () => void; hint: string; children: React.ReactNode }) {
   return (
     <button
-      className={cn('grid h-[16px] w-[18px] place-items-center rounded-[2px] border border-[#1e2427]', active ? 'bg-fl-orange text-[#1b1f22]' : 'bg-[#46525a] text-fl-text hover:bg-[#515e66]')}
+      className={cn('grid h-[15px] w-[17px] place-items-center rounded-[2px] border border-[#1e2427]', active ? 'bg-[#8fa3ad] text-[#1b1f22]' : 'bg-[#3b464c] text-[#d3dadd] hover:bg-[#46525a]')}
       onClick={onClick}
       onMouseEnter={() => useUI.getState().setHint(hint)}
     >
