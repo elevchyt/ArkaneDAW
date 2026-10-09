@@ -24,7 +24,7 @@ export const useTransport = create<TransportState>((set) => ({
   recording: false,
   mode: 'pattern',
   metronome: false,
-  precount: false,
+  precount: true,
   waitForInput: false,
   loopRecord: true,
   startTick: 0,

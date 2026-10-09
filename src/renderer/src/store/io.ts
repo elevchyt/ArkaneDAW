@@ -92,6 +92,14 @@ export function newProject(template?: () => Project): void {
   const p = template ? template() : makeEmptyProject()
   useProject.getState().load(p, null)
   useUI.getState().set({ currentPattern: p.patterns[0].id, selectedChannels: [], pianoRollChannel: p.channels[0]?.id ?? null })
+  showOnlyChannelRack()
+}
+
+/** A fresh project starts with just the Channel rack (pattern editor) on screen. */
+export function showOnlyChannelRack(): void {
+  const ui = useUI.getState()
+  for (const [id, w] of Object.entries(ui.windows)) if (w.open && id !== 'channelRack') ui.closeWindow(id)
+  ui.openWindow('channelRack', { kind: 'channelRack', title: 'Channel rack' })
 }
 
 const RECENT_KEY = 'arkane.recent'

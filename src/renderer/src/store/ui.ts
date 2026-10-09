@@ -100,7 +100,7 @@ interface UIState {
 
 // Default layout roughly matching FL Studio's "Arrange windows" (Ctrl+Shift+H).
 const DEFAULT_WINDOWS: Record<string, WindowState> = {
-  playlist: { id: 'playlist', kind: 'playlist', title: 'Playlist - Arrangement', x: 0, y: 0, w: 1100, h: 560, z: 1, open: true, maximized: true, minimized: false },
+  playlist: { id: 'playlist', kind: 'playlist', title: 'Playlist - Arrangement', x: 0, y: 0, w: 1100, h: 560, z: 1, open: false, maximized: true, minimized: false },
   channelRack: { id: 'channelRack', kind: 'channelRack', title: 'Channel rack', x: 60, y: 40, w: 640, h: 380, z: 3, open: true, maximized: false, minimized: false },
   pianoRoll: { id: 'pianoRoll', kind: 'pianoRoll', title: 'Piano roll', x: 140, y: 80, w: 980, h: 560, z: 2, open: false, maximized: false, minimized: false },
   mixer: { id: 'mixer', kind: 'mixer', title: 'Mixer', x: 80, y: 220, w: 1180, h: 470, z: 2, open: false, maximized: false, minimized: false }
@@ -120,7 +120,7 @@ export const useUI = create<UIState>((set, get) => ({
   playlistTool: 'draw',
   pianoRollTool: 'draw',
   globalSnap: 'line',
-  typingKeyboard: false,
+  typingKeyboard: true,
   typingOctave: 5,
   stepEditMode: false,
   channelFilter: 'All',
