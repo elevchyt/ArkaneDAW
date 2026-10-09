@@ -6,6 +6,8 @@ import { readFile } from 'node:fs/promises'
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
+// Dev only: Chrome DevTools Protocol on localhost for debugging the renderer.
+if (process.env.ELECTRON_RENDERER_URL) app.commandLine.appendSwitch('remote-debugging-port', '9339')
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }

@@ -53,14 +53,14 @@ function PatSong() {
   const setHint = useUI((s) => s.setHint)
   return (
     <div
-      className="flex h-[52px] w-[44px] cursor-pointer flex-col justify-center gap-1 rounded-[3px] border border-[#20272a] bg-[#3a454b] px-1 fl-bevel"
+      className="flex h-[52px] w-[62px] cursor-pointer flex-col justify-center gap-1 rounded-[3px] border border-[#20272a] bg-[#3a454b] px-1 fl-bevel"
       onClick={() => transport.setMode(mode === 'pattern' ? 'song' : 'pattern')}
       onMouseEnter={() => setHint('Pattern / Song mode (L)')}
     >
       {(['pattern', 'song'] as const).map((m) => (
         <div key={m} className="flex items-center gap-1 text-[10px] font-bold">
-          <span className="h-2 w-2 rounded-full" style={{ background: mode === m ? (m === 'pattern' ? 'var(--fl-orange)' : 'var(--fl-green)') : 'var(--fl-led-off)', boxShadow: mode === m ? '0 0 4px currentColor' : undefined }} />
-          <span className={mode === m ? 'text-white' : 'text-fl-dim'}>{m === 'pattern' ? 'PAT' : 'SONG'}</span>
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: mode === m ? (m === 'pattern' ? 'var(--fl-orange)' : 'var(--fl-green)') : 'var(--fl-led-off)', boxShadow: mode === m ? '0 0 4px currentColor' : undefined }} />
+          <span className={mode === m ? 'text-white' : 'text-fl-dim'}>{m === 'pattern' ? 'PATTERN' : 'SONG'}</span>
         </div>
       ))}
     </div>
@@ -101,8 +101,13 @@ function TempoDisplay() {
       onPointerMove={(e) => {
         const d = drag.current
         if (!d) return
-        const delta = (d.y - e.clientY) * (d.fine || e.shiftKey ? 0.01 : 0.5)
-        const v = Math.round(Math.min(522, Math.max(10, d.v + delta)) * 1000) / 1000
+        // Left of the decimal point: whole BPM only. Right of it: the fraction only.
+        const steps = Math.round((d.y - e.clientY) / 4)
+        const whole = Math.floor(d.v)
+        const frac = Math.round((d.v - whole) * 1000)
+        const v = d.fine
+          ? whole + Math.min(999, Math.max(0, frac + steps * 10)) / 1000
+          : Math.min(522, Math.max(10, whole + steps)) + frac / 1000
         editProject('Tempo', (p) => void (p.tempo = v), { coalesceKey: 'tempo' })
       }}
       onPointerUp={() => (drag.current = null)}
@@ -119,7 +124,7 @@ function TempoDisplay() {
 
 function TimeDisplay() {
   const ref = useRef<HTMLSpanElement>(null)
-  const [msMode, setMsMode] = useState(false)
+  const [msMode, setMsMode] = useState(true)
   const timeSig = useProject((s) => s.project.timeSig)
   const tempo = useProject((s) => s.project.tempo)
   useEffect(() => {
