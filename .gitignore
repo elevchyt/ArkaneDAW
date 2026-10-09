@@ -1,0 +1,9 @@
+node_modules
+out
+dist
+*.log
+.deps
+native/**/build
+native/**/*.o
+native/**/*.so
+.DS_Store

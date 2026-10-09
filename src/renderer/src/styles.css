@@ -1,0 +1,134 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * ArkaneDAW theme. Values are sampled from FL Studio 20+'s default skin:
+ * slate-blue panels, near-black wells, orange "hint/active" accents and lime LEDs.
+ */
+:root {
+  --radius: 0.25rem;
+  --background: #262d31;
+  --foreground: #c5cdd1;
+  --card: #353f44;
+  --card-foreground: #c5cdd1;
+  --popover: #2b3337;
+  --popover-foreground: #d4dadd;
+  --primary: #f79a2e;
+  --primary-foreground: #1b1f22;
+  --secondary: #3e494f;
+  --secondary-foreground: #c5cdd1;
+  --muted: #323b40;
+  --muted-foreground: #7f8c92;
+  --accent: #46535a;
+  --accent-foreground: #e8eef1;
+  --destructive: #e8524f;
+  --border: #1d2326;
+  --input: #1f2629;
+  --ring: #f79a2e;
+
+  /* FL-specific tokens */
+  --fl-app: #262d31;          /* desktop behind windows */
+  --fl-bar: #3a4448;          /* main toolbar */
+  --fl-bar-hi: #444f54;
+  --fl-panel: #353f44;        /* window body */
+  --fl-panel-2: #2f383c;
+  --fl-title: #4a565c;        /* window title bar */
+  --fl-title-active: #56636a;
+  --fl-well: #1c2225;         /* recessed displays */
+  --fl-grid-bg: #34424a;      /* playlist / piano roll background */
+  --fl-grid-bg-2: #303d44;
+  --fl-grid-line: #2a353b;
+  --fl-grid-beat: #26313a;
+  --fl-grid-bar: #1d262c;
+  --fl-text: #c5cdd1;
+  --fl-text-dim: #7f8c92;
+  --fl-orange: #f79a2e;
+  --fl-orange-dim: #a8692a;
+  --fl-green: #8fe34a;
+  --fl-green-dim: #4d7a2a;
+  --fl-led-off: #3a4c2c;
+  --fl-red: #ff5d55;
+  --fl-note: #8fe19a;
+  --fl-note-sel: #ff8a8a;
+  --fl-playhead: #7dff3c;
+  --fl-step-off-a: #5b676d;
+  --fl-step-off-b: #6c5a5c;
+  --fl-step-on: #dfe5e8;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+
+  --color-fl-app: var(--fl-app);
+  --color-fl-bar: var(--fl-bar);
+  --color-fl-bar-hi: var(--fl-bar-hi);
+  --color-fl-panel: var(--fl-panel);
+  --color-fl-panel-2: var(--fl-panel-2);
+  --color-fl-title: var(--fl-title);
+  --color-fl-title-active: var(--fl-title-active);
+  --color-fl-well: var(--fl-well);
+  --color-fl-grid-bg: var(--fl-grid-bg);
+  --color-fl-text: var(--fl-text);
+  --color-fl-dim: var(--fl-text-dim);
+  --color-fl-orange: var(--fl-orange);
+  --color-fl-green: var(--fl-green);
+  --color-fl-red: var(--fl-red);
+
+  --font-sans: "Segoe UI", "Noto Sans", "Ubuntu", "Cantarell", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --font-lcd: "DSEG7 Classic", "JetBrains Mono", "DejaVu Sans Mono", monospace;
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 11px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  input, textarea { user-select: text; -webkit-user-select: text; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #232a2d; }
+  ::-webkit-scrollbar-thumb { background: #4d585e; border-radius: 2px; border: 1px solid #232a2d; }
+  ::-webkit-scrollbar-thumb:hover { background: #5d6a70; }
+  ::-webkit-scrollbar-corner { background: #232a2d; }
+}
+
+/* Small reusable FL-look primitives */
+@utility fl-bevel {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.35);
+}
+@utility fl-inset {
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.05);
+}
+@utility fl-lcd {
+  background: var(--fl-well);
+  color: var(--fl-text);
+  font-family: var(--font-mono);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.05);
+}
