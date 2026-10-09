@@ -17,6 +17,8 @@ import {
 import { patternLength } from '@/audio/sequence'
 import { Led, MiniKnob, Knob } from '@/components/controls'
 import { groupPlugins, useAllPlugins } from '@/plugins/catalog'
+import { guardPack } from '@/packs/guard'
+import { PackBadge } from '@/packs/PackBadge'
 import { toggleChannelPlugin } from '../plugin/open'
 import { openPianoRoll } from '../pianoroll/open'
 import { cn } from '@/lib/utils'
@@ -147,8 +149,9 @@ function AddChannelButton() {
             <DropdownMenuSubTrigger>{c}</DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="max-h-[60vh] overflow-auto">
               {list.map((m) => (
-                <DropdownMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
+                <DropdownMenuItem key={m.id} onSelect={() => guardPack(m.id, () => addInstrumentChannel(m.id))}>
                   {m.name}
+                  {m.pack && <PackBadge packId={m.pack.id} />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
@@ -183,7 +186,7 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
   }
 
   return (
-    <div className="flex items-center gap-1 px-1.5" style={{ height: ROW_H }}>
+    <div className="flex w-max items-center gap-1 px-1.5 [&>*]:shrink-0" style={{ height: ROW_H }}>
       <Led
         on={!ch.muted}
         onClick={() => updateChannel(ch.id, { muted: !ch.muted }, 'Mute channel')}
@@ -270,8 +273,9 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
                   <ContextMenuSubTrigger>{cat}</ContextMenuSubTrigger>
                   <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
                     {list.map((m) => (
-                      <ContextMenuItem key={m.id} onSelect={() => replaceChannelPlugin(ch.id, m.id)}>
+                      <ContextMenuItem key={m.id} onSelect={() => guardPack(m.id, () => replaceChannelPlugin(ch.id, m.id), `Replace ${ch.name}`)}>
                         {m.name}
+                        {m.pack && <PackBadge packId={m.pack.id} />}
                       </ContextMenuItem>
                     ))}
                   </ContextMenuSubContent>
@@ -287,8 +291,9 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
                   <ContextMenuSubTrigger>{cat}</ContextMenuSubTrigger>
                   <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
                     {list.map((m) => (
-                      <ContextMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
+                      <ContextMenuItem key={m.id} onSelect={() => guardPack(m.id, () => addInstrumentChannel(m.id))}>
                         {m.name}
+                        {m.pack && <PackBadge packId={m.pack.id} />}
                       </ContextMenuItem>
                     ))}
                   </ContextMenuSubContent>
