@@ -265,7 +265,7 @@ function TitleBar({ ctl }: { ctl: PianoRollController }) {
       </button>
       {hasNames && ch && (
         <button
-          className={cn(btn, (pr.drumView[ch.id] ?? true) ? 'bg-fl-orange text-[#1b1f22]' : 'text-fl-text')}
+          className={cn(btn, (pr.drumView[ch.id] ?? (ch.plugin ? getPlugin(ch.plugin.pluginId)?.defaultKeyView !== 'piano' : true)) ? 'bg-fl-orange text-[#1b1f22]' : 'text-fl-text')}
           onClick={() => ctl.toggleDrumView()}
           title="Keyboard view: drum names / piano (M)"
           {...hint('Keyboard view: drum names / piano (M)')}

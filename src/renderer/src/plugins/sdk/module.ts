@@ -51,6 +51,11 @@ export interface PluginModule {
    */
   keyNames?: (instance: PluginInstanceView) => Record<number, KeyName> | undefined
   /**
+   * Piano roll keyboard view when keyNames is defined: 'names' (drum-style rows of named keys, default)
+   * or 'piano' (normal keyboard with names as labels — e.g. melodic instruments with keyswitches).
+   */
+  defaultKeyView?: 'names' | 'piano'
+  /**
    * Main-thread hook to enrich `data` before it is sent to the DSP (e.g. load & decode sample files and
    * attach PCM as Float32Arrays). `ctx` identifies the AudioContext so a plugin can avoid re-sending
    * large buffers it already shipped to that context's worklet (worklet module globals are shared per context).

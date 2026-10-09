@@ -328,7 +328,7 @@ export class PianoRollController {
       this.rowsSig = ''
     }
     const override = channelId ? usePR.getState().drumView[channelId] : undefined
-    const drum = !!this.names && (override ?? true)
+    const drum = !!this.names && (override ?? (plugin ? getPlugin(plugin.pluginId)?.defaultKeyView !== 'piano' : true))
     const sig = `${channelId}|${drum}`
     if (sig === this.rowsSig) return
     const switched = this.rowsSig !== '' && drum !== this.drum

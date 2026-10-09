@@ -44,5 +44,6 @@ export default definePlugin({
   Editor: ConcertoEditor,
   editorSize: { width: EDITOR_W, height: EDITOR_H },
   keyNames: concertoKeyNames,
+  defaultKeyView: 'piano',
   resolveData: (data, ctx) => resolveConcerto(data, ctx)
 })
