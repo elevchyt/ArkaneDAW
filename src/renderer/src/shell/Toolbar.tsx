@@ -59,7 +59,14 @@ function PatSong() {
     >
       {(['pattern', 'song'] as const).map((m) => (
         <div key={m} className="flex items-center gap-1 text-[10px] font-bold">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: mode === m ? (m === 'pattern' ? 'var(--fl-orange)' : 'var(--fl-green)') : 'var(--fl-led-off)', boxShadow: mode === m ? '0 0 4px currentColor' : undefined }} />
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{
+              background: m === 'pattern' ? 'var(--fl-orange)' : 'var(--fl-green)',
+              opacity: mode === m ? 1 : 0.35,
+              boxShadow: mode === m ? `0 0 4px ${m === 'pattern' ? 'var(--fl-orange)' : 'var(--fl-green)'}` : undefined
+            }}
+          />
           <span className={mode === m ? 'text-white' : 'text-fl-dim'}>{m === 'pattern' ? 'PATTERN' : 'SONG'}</span>
         </div>
       ))}
@@ -95,7 +102,10 @@ function TempoDisplay() {
       className="flex h-[34px] w-[74px] cursor-ns-resize flex-col items-end justify-center rounded-[3px] bg-fl-well px-1.5 fl-inset"
       onMouseEnter={() => setHint(`Tempo: ${tempo.toFixed(3)} BPM – drag, or wheel`)}
       onPointerDown={(e) => {
-        drag.current = { y: e.clientY, v: tempo, fine: e.nativeEvent.offsetX > 46 }
+        // Right of the decimal point = fractional part.
+        const decimals = (e.currentTarget as HTMLElement).querySelector('[data-decimals]')
+        const fine = decimals ? e.clientX >= decimals.getBoundingClientRect().left : false
+        drag.current = { y: e.clientY, v: tempo, fine }
         ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
       }}
       onPointerMove={(e) => {
@@ -111,11 +121,11 @@ function TempoDisplay() {
         editProject('Tempo', (p) => void (p.tempo = v), { coalesceKey: 'tempo' })
       }}
       onPointerUp={() => (drag.current = null)}
-      onWheel={(e) => editProject('Tempo', (p) => void (p.tempo = Math.min(522, Math.max(10, Math.round(p.tempo) - Math.sign(e.deltaY)))), { coalesceKey: 'tempo' })}
+      onWheel={(e) => editProject('Tempo', (p) => void (p.tempo = Math.min(522, Math.max(10, Math.floor(p.tempo) - Math.sign(e.deltaY))) + (p.tempo % 1)), { coalesceKey: 'tempo' })}
     >
       <span className="font-mono text-[17px] leading-none text-[#e9f3ff]">
         {Math.floor(tempo)}
-        <span className="text-[12px] text-[#9fb2bd]">.{(tempo % 1).toFixed(3).slice(2)}</span>
+        <span data-decimals className="text-[12px] text-[#9fb2bd]">.{(tempo % 1).toFixed(3).slice(2)}</span>
       </span>
       <span className="text-[8px] uppercase tracking-wider text-fl-dim">tempo</span>
     </div>
@@ -388,7 +398,7 @@ export function Toolbar() {
   const dirty = useProject((s) => s.dirty)
   return (
     <div className="flex h-[62px] shrink-0 items-stretch gap-2 border-b border-[#14191b] bg-gradient-to-b from-[#435056] to-[#363f44] px-1.5 py-1" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-      <div className="flex w-[270px] shrink-0 flex-col justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <div className="flex w-[310px] shrink-0 flex-col justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <MainMenu />
         <div className="flex items-center gap-1">
           <span className="truncate text-[10px] text-fl-dim">{name}{dirty ? ' *' : ''}</span>
