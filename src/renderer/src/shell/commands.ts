@@ -7,7 +7,8 @@ import { openProject, saveProject, saveNewVersion, newProject, openProjectFrom }
 import { openPianoRoll } from '@/windows/pianoroll/open'
 import { togglePluginPicker } from './PluginPicker'
 import { nextEmptyPattern, addPattern, clonePattern, deletePattern, currentPatternId } from '@/store/actions'
-import { exportAudio } from '@/audio/export'
+import { openExportWizard } from '@/windows/export/open'
+import type { ExportFormat } from '@/windows/export/core'
 import { defaultTemplate } from '@/store/templates'
 
 export const commands = {
@@ -18,7 +19,8 @@ export const commands = {
   save: () => void saveProject(false),
   saveAs: () => void saveProject(true),
   saveNewVersion: () => void saveNewVersion(),
-  exportWav: () => void exportAudio('wav'),
+  exportWav: () => openExportWizard('wav'),
+  exportAs: (format: ExportFormat) => openExportWizard(format),
   undo: () => useProject.getState().undo(),
   redo: () => useProject.getState().redo(),
   togglePlaylist: () => useUI.getState().toggleWindow('playlist', { kind: 'playlist', title: 'Playlist - Arrangement' }),

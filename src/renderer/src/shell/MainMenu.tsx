@@ -64,6 +64,9 @@ export function MainMenu() {
             <MenubarSubTrigger>Export</MenubarSubTrigger>
             <MenubarSubContent>
               <Item label="WAVE file..." shortcut="Ctrl+R" onSelect={commands.exportWav} />
+              <Item label="MP3 file..." onSelect={() => commands.exportAs('mp3')} />
+              <Item label="OGG file..." onSelect={() => commands.exportAs('ogg')} />
+              <Item label="FLAC file..." onSelect={() => commands.exportAs('flac')} />
             </MenubarSubContent>
           </MenubarSub>
         </MenubarContent>
