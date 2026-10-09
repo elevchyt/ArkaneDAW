@@ -7,3 +7,4 @@ native/**/build
 native/**/*.o
 native/**/*.so
 .DS_Store
+.tools
