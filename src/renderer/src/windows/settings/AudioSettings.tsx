@@ -448,12 +448,12 @@ export default function AudioSettingsWindow({ win, bounds }: WindowProps) {
       /* ignore */
     }
   }
-  const trig = 'h-[20px] flex-none rounded-[2px] px-3 text-[11px] text-fl-dim data-[state=active]:bg-fl-orange data-[state=active]:text-[#1b1f22] dark:data-[state=active]:bg-fl-orange dark:data-[state=active]:text-[#1b1f22] dark:data-[state=active]:border-transparent'
+  const trig = '!h-[18px] flex-none rounded-[2px] px-3 text-[11px] text-fl-dim data-[state=active]:bg-fl-orange data-[state=active]:text-[#1b1f22] dark:data-[state=active]:bg-fl-orange dark:data-[state=active]:text-[#1b1f22] dark:data-[state=active]:border-transparent'
   return (
     <MdiWindow win={win} bounds={bounds} minW={440} minH={300}>
       <Tabs value={tab} onValueChange={pick} className="flex h-full flex-col gap-0 text-[11px] text-fl-text">
         <div className="flex h-[26px] shrink-0 items-center gap-2 border-b border-[#1d2326] bg-[#2a3236] px-2">
-          <TabsList className="h-[22px] gap-0.5 rounded-[3px] bg-fl-well p-[1px] fl-inset">
+          <TabsList className="!h-[22px] gap-0.5 rounded-[3px] bg-fl-well p-[1px] fl-inset">
             <TabsTrigger value="audio" className={trig}>
               Audio
             </TabsTrigger>

@@ -18,6 +18,8 @@ export default defineConfig({
     plugins: [react(), tailwindcss()],
     worker: { format: 'es' },
     server: {
+      // A plugin that fails to load is skipped (see plugins/registry.ts); don't cover the app with an overlay.
+      hmr: { overlay: false },
       headers: {
         'Cross-Origin-Opener-Policy': 'same-origin',
         'Cross-Origin-Embedder-Policy': 'require-corp'
