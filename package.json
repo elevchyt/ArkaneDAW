@@ -16,7 +16,8 @@
     "test": "vitest run",
     "build:native": "bash native/build.sh",
     "test:native": "bash native/build.sh --test",
-    "drumkits": "node scripts/drumkits/build.mjs"
+    "drumkits": "node scripts/drumkits/build.mjs",
+    "concerto": "node scripts/concerto/build.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

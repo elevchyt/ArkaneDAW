@@ -1,0 +1,125 @@
+{
+ "format": 1,
+ "instruments": [
+  {
+   "id": "violin",
+   "name": "Solo Violin",
+   "section": "Strings"
+  },
+  {
+   "id": "violins",
+   "name": "Violins",
+   "section": "Strings"
+  },
+  {
+   "id": "violas",
+   "name": "Violas",
+   "section": "Strings"
+  },
+  {
+   "id": "cello",
+   "name": "Solo Cello",
+   "section": "Strings"
+  },
+  {
+   "id": "cellos",
+   "name": "Cellos",
+   "section": "Strings"
+  },
+  {
+   "id": "bass",
+   "name": "Double Bass",
+   "section": "Strings"
+  },
+  {
+   "id": "strings",
+   "name": "String Ensemble",
+   "section": "Strings"
+  },
+  {
+   "id": "flute",
+   "name": "Flute",
+   "section": "Woodwinds"
+  },
+  {
+   "id": "recorder",
+   "name": "Recorder",
+   "section": "Woodwinds"
+  },
+  {
+   "id": "oboe",
+   "name": "Oboe",
+   "section": "Woodwinds"
+  },
+  {
+   "id": "clarinet",
+   "name": "Clarinet",
+   "section": "Woodwinds"
+  },
+  {
+   "id": "bassoon",
+   "name": "Bassoon",
+   "section": "Woodwinds"
+  },
+  {
+   "id": "horn",
+   "name": "French Horn",
+   "section": "Brass"
+  },
+  {
+   "id": "trumpet",
+   "name": "Baroque Trumpet",
+   "section": "Brass"
+  },
+  {
+   "id": "trombone",
+   "name": "Trombone",
+   "section": "Brass"
+  },
+  {
+   "id": "harpsichord",
+   "name": "Harpsichord",
+   "section": "Keys"
+  },
+  {
+   "id": "organ",
+   "name": "Pipe Organ",
+   "section": "Keys"
+  },
+  {
+   "id": "chamberorgan",
+   "name": "Chamber Organ",
+   "section": "Keys"
+  },
+  {
+   "id": "fortepiano",
+   "name": "Fortepiano",
+   "section": "Keys"
+  },
+  {
+   "id": "celesta",
+   "name": "Celesta & Glockenspiel",
+   "section": "Keys"
+  },
+  {
+   "id": "choir",
+   "name": "Choir",
+   "section": "Choir"
+  },
+  {
+   "id": "timpani",
+   "name": "Timpani",
+   "section": "Percussion"
+  },
+  {
+   "id": "harp",
+   "name": "Harp",
+   "section": "Plucked"
+  },
+  {
+   "id": "lute",
+   "name": "Lute / Guitar",
+   "section": "Plucked"
+  }
+ ]
+}
