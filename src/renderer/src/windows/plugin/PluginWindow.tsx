@@ -57,14 +57,23 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
       setData: (data) => (isFx ? setFxData(win.mixerTrack!, win.slot!, data) : setChannelData(win.channelId!, data)),
       loadPreset: (p: Preset) => (isFx ? loadFxPreset(win.mixerTrack!, win.slot!, p) : loadChannelPreset(win.channelId!, p)),
       onDSPMessage: (cb) => {
+        // The engine may replace the plugin node (plugin swap, project reload): re-bind when it changes.
         let off: (() => void) | null = null
+        let bound: unknown = null
         let cancelled = false
-        void initAudio().then(() => {
+        const bind = () => {
           if (cancelled) return
-          off = node()?.onMessage(cb) ?? null
-        })
+          const n = node()
+          if (n === bound) return
+          off?.()
+          bound = n
+          off = n?.onMessage(cb) ?? null
+        }
+        void initAudio().then(bind)
+        const timer = window.setInterval(bind, 500)
         return () => {
           cancelled = true
+          clearInterval(timer)
           off?.()
         }
       },
