@@ -137,10 +137,14 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     if (t.mode !== 'song') return
     const v = view()
     let x = tickToX(v, tick)
-    if (t.playing && (x > w - 4 || x < 0)) {
-      // FL page-follows the playhead
-      getPl().set({ scrollTick: Math.max(0, tick - 8 / v.ppt) })
-      x = 8
+    if (t.playing && w > 24 && (x > w - 4 || x < 0)) {
+      // FL page-follows the playhead. Setting scrollTick re-enters via the store subscription,
+      // so only scroll when it actually changes.
+      const next = Math.max(0, tick - 8 / v.ppt)
+      if (Math.abs(next - getPl().scrollTick) > 0.5) {
+        getPl().set({ scrollTick: next })
+        return
+      }
     }
     if (x < -2 || x > w + 2) return
     ctx.fillStyle = 'rgba(125,255,60,0.18)'

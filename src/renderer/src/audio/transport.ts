@@ -9,9 +9,12 @@ import { automationValue, barTicks, patternHits, patternLength, songHits, songLe
 import { getBuffer, loadSample } from './samples'
 import { getPlugin } from '../plugins/registry'
 import { denormalize } from '../plugins/sdk/params'
+import { getAudioSettings } from '../windows/settings/settings-store'
 
 const LOOKAHEAD_MS = 25
 const HORIZON = 0.12 // seconds
+/** Delay between pressing play and the first scheduled sample (audio recording aligns to this). */
+export const START_DELAY = 0.06
 
 let engine: AudioEngine | null = null
 let initPromise: Promise<AudioEngine> | null = null
@@ -54,7 +57,7 @@ class Scheduler {
     if (!e) return
     const ctx = e.ctx as AudioContext
     this.tempo = getProject().tempo
-    this.cursorTime = ctx.currentTime + 0.06
+    this.cursorTime = ctx.currentTime + START_DELAY
     this.cursorTick = fromTick
     this.wraps = [{ time: this.cursorTime, tick: fromTick }]
     this.startAudioClipsAt(fromTick, this.cursorTime)
@@ -241,10 +244,19 @@ class Scheduler {
       src.buffer = this.clickBuf
       src.playbackRate.value = b % bar === 0 ? 1.5 : 1
       const g = ctx.createGain()
-      g.gain.value = 0.35
+      g.gain.value = 0.35 * metronomeVolume()
       src.connect(g).connect(e.masterOut)
       src.start(at(b))
     }
+  }
+}
+
+function metronomeVolume(): number {
+  try {
+    const v = getAudioSettings().metronomeVolume
+    return typeof v === 'number' ? v : 1
+  } catch {
+    return 1
   }
 }
 

@@ -14,7 +14,7 @@ import { useTransport, playhead } from '../store/transport'
 import { useUI } from '../store/ui'
 import { makeChannel, uid, CHANNEL_COLORS } from '../store/factory'
 import { PLAYLIST_TRACKS, PPQ, type Clip, type MixerTrack } from '../store/types'
-import { getEngine, initAudio } from './transport'
+import { getEngine, initAudio, START_DELAY } from './transport'
 import { registerBuffer } from './samples'
 import { assembleTake, compensationSec, detectOnset, firstFreeTrack, median, type Chunk } from './recording-core'
 import { getAudioSettings, useAudioSettings } from '../windows/settings/settings-store'
@@ -234,7 +234,7 @@ export async function startAudioRecording(fromTick: number, startTime?: number):
   if (!armed.length) return
   const engine = getEngine() ?? (await initAudio())
   const ctx = engine.ctx as AudioContext
-  const t0 = startTime ?? ctx.currentTime + 0.06
+  const t0 = startTime ?? ctx.currentTime + START_DELAY
   const s = getAudioSettings()
   const comp = compensationSec({
     auto: s.autoLatencyComp,
@@ -412,7 +412,7 @@ export function initAudioRecording(): void {
       // The scheduler renders the start tick 60 ms after play() (see audio/transport.ts).
       const ctx = getEngine()?.ctx as AudioContext | undefined
       const from = !prev.playing ? (prev.paused ? playhead.tick : s.startTick) : Math.round(playhead.tick)
-      void startAudioRecording(from, ctx ? ctx.currentTime + (!prev.playing ? 0.06 : -(ctx.outputLatency || 0)) : undefined).catch((e) => console.warn(e))
+      void startAudioRecording(from, ctx ? ctx.currentTime + (!prev.playing ? START_DELAY : -(ctx.outputLatency || 0)) : undefined).catch((e) => console.warn(e))
     } else if (stopRec) {
       void stopAudioRecording().catch((e) => console.warn(e))
     }
