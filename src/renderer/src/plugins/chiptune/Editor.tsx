@@ -46,7 +46,7 @@ function Header({ p }: { p: PluginEditorProps }) {
         <PixelText text="CHIPTUNE" scale={3} color={NES.red} shadow={NES.white} />
         <PixelText text="8-BIT" scale={1.5} color={NES.yellow} />
       </div>
-      <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
+      <div style={{ display: p.manifest.id === 'chiptunedrums' ? 'none' : 'flex', gap: 2, marginLeft: 8 }}>
         <PixButton active={!drums} color={NES.cyan} style={{ padding: '4px 10px' }} onClick={() => p.setParam('mode', 0)} onHover={() => p.hint('Mode: Synth (pulse / triangle / noise / GB wave)')}>
           ♪ Synth
         </PixButton>
