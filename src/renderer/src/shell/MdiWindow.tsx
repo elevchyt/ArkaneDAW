@@ -3,6 +3,16 @@ import { ChevronDown, Maximize2, Minimize2, Minus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUI, type WindowState } from '@/store/ui'
 
+const RESIZE_CURSORS: Record<string, string> = { e: 'ew-resize', w: 'ew-resize', s: 'ns-resize', n: 'ns-resize', se: 'nwse-resize', nw: 'nwse-resize', sw: 'nesw-resize', ne: 'nesw-resize' }
+
+/** Show `cursor` everywhere while a window is dragged/resized (child elements can't override it). */
+function forceCursor(cursor: string): () => void {
+  const style = document.createElement('style')
+  style.textContent = `*, *::before, *::after { cursor: ${cursor} !important; }`
+  document.head.appendChild(style)
+  return () => style.remove()
+}
+
 export interface MdiWindowProps {
   win: WindowState
   /** Area of the workspace in px, for clamping & maximize. */
@@ -27,18 +37,20 @@ export function MdiWindow({ win, bounds, children, titleExtra, menu, resizable =
 
   const startMove = (e: React.PointerEvent) => {
     if (e.button !== 0 || win.maximized) return
-    if ((e.target as HTMLElement).closest('button,input,select,[data-nodrag]')) return
+    if ((e.target as HTMLElement).closest('button,input,select,textarea,canvas,[role=button],[role=combobox],[data-nodrag]')) return
     e.preventDefault()
     const sx = e.clientX
     const sy = e.clientY
     const ox = win.x
     const oy = win.y
+    const endCursor = forceCursor('move')
     const move = (ev: PointerEvent) => {
       const x = Math.min(Math.max(ox + ev.clientX - sx, -win.w + 80), bounds.w - 60)
       const y = Math.min(Math.max(oy + ev.clientY - sy, 0), bounds.h - 22)
       updateWindow(win.id, { x, y })
     }
     const up = () => {
+      endCursor()
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
@@ -53,6 +65,7 @@ export function MdiWindow({ win, bounds, children, titleExtra, menu, resizable =
     const sx = e.clientX
     const sy = e.clientY
     const o = { x: win.x, y: win.y, w: win.w, h: win.h }
+    const endCursor = forceCursor(RESIZE_CURSORS[edge] ?? 'nwse-resize')
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - sx
       const dy = ev.clientY - sy
@@ -70,6 +83,7 @@ export function MdiWindow({ win, bounds, children, titleExtra, menu, resizable =
       updateWindow(win.id, n)
     }
     const up = () => {
+      endCursor()
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
     }
@@ -98,15 +112,13 @@ export function MdiWindow({ win, bounds, children, titleExtra, menu, resizable =
         style={accent ? { boxShadow: `inset 0 2px 0 ${accent}` } : undefined}
         onPointerDown={startMove}
         onDoubleClick={(e) => {
-          if ((e.target as HTMLElement).closest('button,[data-nodrag]')) return
+          if ((e.target as HTMLElement).closest('button,input,select,textarea,canvas,[role=button],[role=combobox],[data-nodrag]')) return
           updateWindow(win.id, { maximized: !win.maximized })
         }}
       >
         {menu ?? <ChevronDown size={12} className="opacity-70" />}
         <span className="truncate font-medium">{win.title}</span>
-        <div className="flex min-w-0 flex-1 items-center gap-1" data-nodrag>
-          {titleExtra}
-        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-1">{titleExtra}</div>
         <button className="grid h-[18px] w-[18px] place-items-center rounded-sm hover:bg-white/10" onClick={() => updateWindow(win.id, { minimized: true })} title="Minimize">
           <Minus size={11} />
         </button>

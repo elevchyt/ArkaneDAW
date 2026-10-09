@@ -57,6 +57,15 @@ export function useGlobalShortcuts(): void {
         e.preventDefault()
         return
       }
+      // Escape closes the active window, whatever it is (open menus/dialogs handle Escape themselves).
+      if (e.code === 'Escape' && !document.querySelector('[role=dialog],[role=menu],[data-radix-popper-content-wrapper]')) {
+        const w = ui.focused ? ui.windows[ui.focused] : null
+        if (w?.open && !w.minimized) {
+          ui.closeWindow(w.id)
+          e.preventDefault()
+          return
+        }
+      }
       if (dispatchWindowKey(ui.focused, e)) {
         e.preventDefault()
         return

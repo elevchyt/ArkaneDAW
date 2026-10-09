@@ -44,7 +44,7 @@ export const manifest: PluginManifest = {
   id: 'mosaic',
   name: 'Mosaic',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description:
     'Flagship workstation (Montage homage): up to 4 layered/split Parts per Performance across 8 engines — modelled pianos, EPs, tonewheel/pipe/combo organs with rotary, 6-op FM, plucked & bowed strings, analog/supersaw, formant choir and mallets — with Super Knob and an EQ/chorus/phaser/delay/reverb chain.',
   color: '#e8c872',

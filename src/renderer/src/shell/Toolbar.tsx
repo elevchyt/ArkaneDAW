@@ -263,7 +263,7 @@ function MasterKnobs() {
   const vol = useProject((s) => s.project.masterVolume)
   const pitch = useProject((s) => s.project.masterPitch)
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 self-end pb-px">
       <Knob size={24} value={vol / 1.25} labelPosition="none" color="var(--fl-green)" hint={`Master volume: ${Math.round((vol / 0.8) * 100)}%`} onChange={(v) => editProject('Master volume', (d) => void (d.masterVolume = v * 1.25), { coalesceKey: 'mvol' })} onReset={() => editProject('Master volume', (d) => void (d.masterVolume = 0.8))} />
       <Knob size={24} value={(pitch + 1200) / 2400} bipolar labelPosition="none" color="var(--fl-orange)" hint={`Master pitch: ${pitch} cents`} onChange={(v) => editProject('Master pitch', (d) => void (d.masterPitch = Math.round(v * 2400 - 1200)), { coalesceKey: 'mpitch' })} onReset={() => editProject('Master pitch', (d) => void (d.masterPitch = 0))} />
     </div>

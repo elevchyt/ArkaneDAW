@@ -7,7 +7,7 @@ export const manifest: PluginManifest = {
   id: 'bassline',
   name: 'Bassline',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description: 'All-in-one bass instrument: 303 acid with accent & slide, analog/Moog, 808 & sub, reese, wobble, FM, plucks and physically modelled finger/pick/slap/fretless/upright basses.',
   color: '#e8b04a',
   mono: true,

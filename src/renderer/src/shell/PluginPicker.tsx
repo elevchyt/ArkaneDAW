@@ -28,7 +28,7 @@ export default function PluginPicker({ win, bounds }: WindowProps) {
         <div className="min-h-0 flex-1 overflow-auto p-2">
           {groups.map(([c, list]) => (
             <div key={c} className="mb-3">
-              <div className="mb-1 text-[10px] uppercase tracking-widest text-fl-dim">{c}</div>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-fl-dim underline underline-offset-2">{c}</div>
               <div className="flex flex-wrap gap-2">
                 {list.map((m) => (
                   <div

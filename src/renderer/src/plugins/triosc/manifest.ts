@@ -15,7 +15,7 @@ export const manifest: PluginManifest = {
   id: 'triosc',
   name: 'Triple Osc',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description: 'Three oscillators, a filter and an envelope. The default channel synth.',
   color: '#7fb8e0',
   params: [

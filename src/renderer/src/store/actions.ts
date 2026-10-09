@@ -6,6 +6,7 @@ import { defaultNote, makeChannel, makePattern, uid, CHANNEL_COLORS } from './fa
 import { DEFAULT_NOTE_KEY, TICKS_PER_STEP, type Channel, type Clip, type FxSlot, type Note, type Pattern, type PluginInstanceState, type Project } from './types'
 import { getPlugin } from '../plugins/registry'
 import { pluginName } from '../plugins/catalog'
+import { openChannelPlugin, openFxPlugin } from '../windows/plugin/open'
 import { defaultParams, presetParams } from '../plugins/sdk/module'
 import type { Preset } from '../plugins/sdk/types'
 
@@ -30,7 +31,7 @@ export function newPluginState(pluginId: string, preset?: Preset): PluginInstanc
 }
 
 // ── channels ──────────────────────────────────────────────────────────────────
-export function addInstrumentChannel(pluginId: string, opts: { name?: string; preset?: Preset; select?: boolean; mixerTrack?: number } = {}): string {
+export function addInstrumentChannel(pluginId: string, opts: { name?: string; preset?: Preset; select?: boolean; mixerTrack?: number; open?: boolean } = {}): string {
   const mod = getPlugin(pluginId)
   const p = getProject()
   const ch = makeChannel(opts.name ?? pluginName(pluginId), newPluginState(pluginId, opts.preset), {
@@ -41,6 +42,7 @@ export function addInstrumentChannel(pluginId: string, opts: { name?: string; pr
     d.channels.push(ch)
   })
   if (opts.select !== false) useUI.getState().set({ selectedChannels: [ch.id], pianoRollChannel: ch.id })
+  if (opts.open !== false) openChannelPlugin(ch.id)
   return ch.id
 }
 
@@ -251,12 +253,13 @@ export function addClip(clip: Omit<Clip, 'id'>): string {
 }
 
 // ── mixer ─────────────────────────────────────────────────────────────────────
-export function setFxSlot(track: number, slot: number, pluginId: string | null, preset?: Preset): void {
+export function setFxSlot(track: number, slot: number, pluginId: string | null, preset?: Preset, open = true): void {
   editProject(pluginId ? 'Add effect' : 'Remove effect', (d) => {
     const t = d.mixer[track]
     if (!t) return
     t.slots[slot] = pluginId ? ({ id: uid(), plugin: newPluginState(pluginId, preset), enabled: true, mix: 1 } satisfies FxSlot) : null
   })
+  if (pluginId && open) openFxPlugin(track, slot)
 }
 
 export function setFxParam(track: number, slot: number, id: string, value: number): void {

@@ -107,7 +107,7 @@ export const manifest: PluginManifest = {
   id: 'atmos',
   name: 'Atmos',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description: 'Atmospheric synth: morphing wavetables, granular textures, tuned air, shimmer reverb.',
   color: '#8f7cf0',
   params: PARAMS,

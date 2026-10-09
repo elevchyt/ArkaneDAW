@@ -18,7 +18,7 @@ export const manifest: PluginManifest = {
   id: 'hexa',
   name: 'Hexa',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description: '6-operator FM synthesizer in the spirit of the DX7: 32 algorithms, loads DX7 .syx voices and cartridges.',
   color: '#c8553d',
   params,

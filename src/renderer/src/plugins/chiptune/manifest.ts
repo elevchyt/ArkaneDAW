@@ -8,7 +8,7 @@ export const manifest: PluginManifest = {
   id: 'chiptune',
   name: 'Chiptune',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description: 'NES / Game Boy style 8-bit synth: pulse, triangle, noise and GB wave channels with Famitracker-style sequences, sweep, vibrato, arpeggio and a retro drum mode.',
   color: '#f83800',
   params: PARAMS,

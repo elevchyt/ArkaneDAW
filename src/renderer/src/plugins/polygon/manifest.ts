@@ -7,7 +7,7 @@ export const manifest: PluginManifest = {
   id: 'polygon',
   name: 'Polygon',
   kind: 'instrument',
-  category: 'Synth',
+  category: 'Synths',
   description: '4-tone 90s ROMpler: procedural virtual ROM, JV-style TVF/TVA, chorus and lo-fi digital reverb. The PS1 soundtrack sound.',
   color: '#5fd0c0',
   params: ALL_PARAMS,

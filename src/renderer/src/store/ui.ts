@@ -112,7 +112,7 @@ export const useUI = create<UIState>((set, get) => ({
   focused: 'channelRack',
   browserVisible: true,
   browserWidth: 220,
-  hint: 'ArkaneDAW',
+  hint: '',
   currentPattern: null,
   selectedChannels: [],
   pianoRollChannel: null,
@@ -150,9 +150,18 @@ export const useUI = create<UIState>((set, get) => ({
     }
   },
   closeWindow(id) {
-    const { windows } = get()
+    const { windows, focused } = get()
     if (!windows[id]) return
-    set({ windows: { ...windows, [id]: { ...windows[id], open: false } } })
+    const next = { ...windows, [id]: { ...windows[id], open: false } }
+    // Hand focus to the topmost remaining window so Escape keeps closing windows one by one.
+    let nextFocus = focused
+    if (focused === id) {
+      const top = Object.values(next)
+        .filter((w) => w.open && !w.minimized)
+        .sort((a, b) => b.z - a.z)[0]
+      nextFocus = top?.id ?? null
+    }
+    set({ windows: next, focused: nextFocus })
   },
   toggleWindow(id, init) {
     const w = get().windows[id]
@@ -171,9 +180,50 @@ export const useUI = create<UIState>((set, get) => ({
     set({ windows: { ...windows, [id]: { ...windows[id], ...patch } } })
   },
   setHint(hint) {
+    hintOwner = findHintOwner(lastHovered)
     if (get().hint !== hint) set({ hint })
   },
   set(patch) {
     set(patch)
   }
 }))
+
+// ── Hint bar auto-clear ─────────────────────────────────────────────────────
+// Controls set the hint on hover but never clear it. We remember which element owned the hint (the
+// nearest ancestor of the hovered node with a React hover/move/wheel handler) and clear the hint once
+// the pointer moves onto something outside it.
+let lastHovered: Element | null = null
+let hintOwner: Element | null = null
+const HOVER_PROPS = ['onMouseEnter', 'onMouseOver', 'onMouseMove', 'onPointerEnter', 'onPointerOver', 'onPointerMove', 'onWheel']
+
+function findHintOwner(el: Element | null): Element | null {
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    const key = Object.keys(n).find((k) => k.startsWith('__reactProps$'))
+    const props = key ? ((n as unknown as Record<string, Record<string, unknown>>)[key] ?? {}) : {}
+    if (HOVER_PROPS.some((h) => typeof props[h] === 'function')) return n
+  }
+  return null
+}
+
+export function installHintTracking(): () => void {
+  const over = (e: PointerEvent) => {
+    const t = e.target instanceof Element ? e.target : null
+    lastHovered = t
+    if (hintOwner && t && !hintOwner.contains(t)) {
+      hintOwner = null
+      useUI.setState({ hint: '' })
+    }
+  }
+  const leave = (e: PointerEvent) => {
+    if (!e.relatedTarget) {
+      hintOwner = null
+      useUI.setState({ hint: '' })
+    }
+  }
+  window.addEventListener('pointerover', over, true)
+  document.documentElement.addEventListener('pointerleave', leave)
+  return () => {
+    window.removeEventListener('pointerover', over, true)
+    document.documentElement.removeEventListener('pointerleave', leave)
+  }
+}

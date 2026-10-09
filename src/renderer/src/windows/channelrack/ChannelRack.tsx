@@ -21,6 +21,7 @@ import { toggleChannelPlugin } from '../plugin/open'
 import { openPianoRoll } from '../pianoroll/open'
 import { cn } from '@/lib/utils'
 import { editProject } from '@/store/project'
+import { defaultNote } from '@/store/factory'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -292,18 +293,22 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
           >
             Clear notes in pattern
           </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() =>
-              editProject('Fill each 4 steps', (d) => {
-                const pat = d.patterns.find((x) => x.id === patternId)
-                if (!pat) return
-                const list = (pat.notes[ch.id] = [] as Note[])
-                for (let s = 0; s < steps; s += 4) list.push({ id: `${ch.id}-${s}-${Date.now()}`, key: root, pos: s * TICKS_PER_STEP, len: TICKS_PER_STEP, vel: 100 / 128, pan: 0, rel: 0.5, fine: 0, modX: 0.5, modY: 0.5, color: 0, slide: false, porta: false, muted: false })
-              })
-            }
-          >
-            Fill each 4 steps
-          </ContextMenuItem>
+          {[2, 4, 8].map((every) => (
+            <ContextMenuItem
+              key={every}
+              onSelect={() =>
+                editProject(`Fill each ${every} steps`, (d) => {
+                  const pat = d.patterns.find((x) => x.id === patternId)
+                  if (!pat) return
+                  const list: Note[] = []
+                  for (let s = 0; s < steps; s += every) list.push(defaultNote({ key: root, pos: s * TICKS_PER_STEP, len: TICKS_PER_STEP }))
+                  pat.notes[ch.id] = list
+                })
+              }
+            >
+              Fill each {every} steps
+            </ContextMenuItem>
+          ))}
         </ContextMenuContent>
       </ContextMenu>
       <button
