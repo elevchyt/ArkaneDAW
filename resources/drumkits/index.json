@@ -1,0 +1,45 @@
+{
+ "format": 1,
+ "kits": [
+  {
+   "id": "studio",
+   "name": "Studio Rock",
+   "description": "DRSKit: hand-made Danish maple kit, Paiste 602 cymbals. Close mics + overheads + room, 6 layers × 3 round robins on kick/snare. Rock, pop, funk."
+  },
+  {
+   "id": "metal",
+   "name": "Metal",
+   "description": "CrocellKit: the kit of Danish metal band Crocell, sampled at JBOSound. Two kick drums, four toms, chinas. Tight & loud."
+  },
+  {
+   "id": "vintage",
+   "name": "Vintage Funk",
+   "description": "AVL Red Zeppelin: Ludwig 26\" kick & 14\" snare, Zildjian/Sabian cymbals. Big classic-rock / funk sound."
+  },
+  {
+   "id": "pearl",
+   "name": "Pop Pearl",
+   "description": "AVL Black Pearl: Pearl 22\" kit, Sabian AA/AAX cymbals. Tight modern pop / rock kit."
+  },
+  {
+   "id": "bop",
+   "name": "Jazz Bop",
+   "description": "AVL Blonde Bop: TAMA 18\" bop kit with sticks, dark AAX ride. Jazz, swing, bossa."
+  },
+  {
+   "id": "rods",
+   "name": "Hot Rods",
+   "description": "AVL Blonde Bop played with Hot Rods: soft, woody attack. Bossa, ballads, unplugged."
+  },
+  {
+   "id": "brushes",
+   "name": "Jazz Brushes",
+   "description": "DRSKit played with brushes (\"whiskers\"): taps, sweeps, brushed ride. Jazz ballads & brush swing."
+  },
+  {
+   "id": "latin",
+   "name": "Latin Percussion",
+   "description": "Congas, bongos, timbales, cowbells, claves, guiro, shakers, cajon… (AVL Buskman's Holiday, VCSL, FluidR3)."
+  }
+ ]
+}

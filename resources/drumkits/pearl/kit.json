@@ -1,0 +1,2736 @@
+{
+ "format": 1,
+ "id": "pearl",
+ "name": "Pop Pearl",
+ "description": "AVL Black Pearl: Pearl 22\" kit, Sabian AA/AAX cymbals. Tight modern pop / rock kit.",
+ "sampleRate": 48000,
+ "velocityExponent": 1.6,
+ "pieces": {
+  "hhpedal": {
+   "name": "Hi-Hat Pedal",
+   "cat": "hat",
+   "channels": 1,
+   "pan": -0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.48127,
+     "files": [
+      "pearl/hhpedal_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.78181,
+     "files": [
+      "pearl/hhpedal_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.79677,
+     "files": [
+      "pearl/hhpedal_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.89131,
+     "files": [
+      "pearl/hhpedal_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/hhpedal_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "hhsemi": {
+   "name": "Hi-Hat Open",
+   "cat": "hatopen",
+   "channels": 1,
+   "pan": -0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.61109,
+     "files": [
+      "pearl/hhsemi_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.72354,
+     "files": [
+      "pearl/hhsemi_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.82944,
+     "files": [
+      "pearl/hhsemi_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.97435,
+     "files": [
+      "pearl/hhsemi_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/hhsemi_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "hhswish": {
+   "name": "Hi-Hat Swish",
+   "cat": "hatopen",
+   "channels": 1,
+   "pan": -0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.47308,
+     "files": [
+      "pearl/hhswish_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.78098,
+     "files": [
+      "pearl/hhswish_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.87625,
+     "files": [
+      "pearl/hhswish_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.8913,
+     "files": [
+      "pearl/hhswish_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/hhswish_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "snare": {
+   "name": "Snare",
+   "cat": "snare",
+   "channels": 1,
+   "pan": -0.2,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.36257,
+     "files": [
+      "pearl/snare_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.73448,
+     "files": [
+      "pearl/snare_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.77476,
+     "files": [
+      "pearl/snare_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.89414,
+     "files": [
+      "pearl/snare_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/snare_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "crashchoke": {
+   "name": "Crash 1 Choke",
+   "cat": "choke",
+   "channels": 1,
+   "pan": -0.42,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/crashchoke_v1_r1.flac"
+     ]
+    }
+   ]
+  },
+  "crash2choke": {
+   "name": "Crash 2 Choke",
+   "cat": "choke",
+   "channels": 1,
+   "pan": 0.42,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/crash2choke_v1_r1.flac"
+     ]
+    }
+   ]
+  },
+  "sticks": {
+   "name": "Sticks",
+   "cat": "side",
+   "channels": 1,
+   "pan": 0,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.09975,
+     "files": [
+      "pearl/sticks_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.21619,
+     "files": [
+      "pearl/sticks_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.39738,
+     "files": [
+      "pearl/sticks_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.57136,
+     "files": [
+      "pearl/sticks_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/sticks_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "crash3": {
+   "name": "Crash 3",
+   "cat": "crash",
+   "channels": 1,
+   "pan": 0.52,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.2827,
+     "files": [
+      "pearl/crash3_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.39219,
+     "files": [
+      "pearl/crash3_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.87716,
+     "files": [
+      "pearl/crash3_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.89991,
+     "files": [
+      "pearl/crash3_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/crash3_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "kick": {
+   "name": "Kick",
+   "cat": "kick",
+   "channels": 1,
+   "pan": 0,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.70801,
+     "files": [
+      "pearl/kick_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.8364,
+     "files": [
+      "pearl/kick_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.91221,
+     "files": [
+      "pearl/kick_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.99586,
+     "files": [
+      "pearl/kick_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/kick_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "side": {
+   "name": "Side Stick",
+   "cat": "side",
+   "channels": 1,
+   "pan": -0.2,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.70059,
+     "files": [
+      "pearl/side_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.7058,
+     "files": [
+      "pearl/side_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.74857,
+     "files": [
+      "pearl/side_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.85124,
+     "files": [
+      "pearl/side_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/side_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "edge": {
+   "name": "Snare Edge",
+   "cat": "snare",
+   "channels": 1,
+   "pan": -0.2,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.25406,
+     "files": [
+      "pearl/edge_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.28734,
+     "files": [
+      "pearl/edge_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.57412,
+     "files": [
+      "pearl/edge_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.86816,
+     "files": [
+      "pearl/edge_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/edge_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "ftom": {
+   "name": "Floor Tom",
+   "cat": "tom",
+   "channels": 1,
+   "pan": 0.4,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.32774,
+     "files": [
+      "pearl/ftom_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.61136,
+     "files": [
+      "pearl/ftom_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.85696,
+     "files": [
+      "pearl/ftom_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.93467,
+     "files": [
+      "pearl/ftom_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/ftom_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "hh": {
+   "name": "Hi-Hat Closed",
+   "cat": "hat",
+   "channels": 1,
+   "pan": -0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.40978,
+     "files": [
+      "pearl/hh_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.46253,
+     "files": [
+      "pearl/hh_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.82817,
+     "files": [
+      "pearl/hh_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.84244,
+     "files": [
+      "pearl/hh_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/hh_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "tom": {
+   "name": "Rack Tom",
+   "cat": "tom",
+   "channels": 1,
+   "pan": -0.1,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.50586,
+     "files": [
+      "pearl/tom_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.77841,
+     "files": [
+      "pearl/tom_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.91163,
+     "files": [
+      "pearl/tom_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.95752,
+     "files": [
+      "pearl/tom_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/tom_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "crash": {
+   "name": "Crash 1",
+   "cat": "crash",
+   "channels": 1,
+   "pan": -0.42,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.32842,
+     "files": [
+      "pearl/crash_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.38736,
+     "files": [
+      "pearl/crash_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.70395,
+     "files": [
+      "pearl/crash_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.75766,
+     "files": [
+      "pearl/crash_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/crash_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "ride": {
+   "name": "Ride",
+   "cat": "ride",
+   "channels": 1,
+   "pan": 0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.2822,
+     "files": [
+      "pearl/ride_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.35644,
+     "files": [
+      "pearl/ride_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.85275,
+     "files": [
+      "pearl/ride_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.89497,
+     "files": [
+      "pearl/ride_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/ride_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "china": {
+   "name": "China",
+   "cat": "china",
+   "channels": 1,
+   "pan": 0.6,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.23715,
+     "files": [
+      "pearl/china_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.34115,
+     "files": [
+      "pearl/china_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.3579,
+     "files": [
+      "pearl/china_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.6246,
+     "files": [
+      "pearl/china_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/china_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "bell": {
+   "name": "Ride Bell",
+   "cat": "ride",
+   "channels": 1,
+   "pan": 0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.39137,
+     "files": [
+      "pearl/bell_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.77867,
+     "files": [
+      "pearl/bell_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.87654,
+     "files": [
+      "pearl/bell_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.98508,
+     "files": [
+      "pearl/bell_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/bell_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "splash": {
+   "name": "Splash",
+   "cat": "splash",
+   "channels": 1,
+   "pan": -0.08,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.56642,
+     "files": [
+      "pearl/splash_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.69592,
+     "files": [
+      "pearl/splash_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.84266,
+     "files": [
+      "pearl/splash_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.85964,
+     "files": [
+      "pearl/splash_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/splash_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "crash2": {
+   "name": "Crash 2",
+   "cat": "crash",
+   "channels": 1,
+   "pan": 0.42,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.09594,
+     "files": [
+      "pearl/crash2_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.30343,
+     "files": [
+      "pearl/crash2_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.40119,
+     "files": [
+      "pearl/crash2_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.85509,
+     "files": [
+      "pearl/crash2_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/crash2_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "rideshank": {
+   "name": "Ride Shank",
+   "cat": "ride",
+   "channels": 1,
+   "pan": 0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.67021,
+     "files": [
+      "pearl/rideshank_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.77958,
+     "files": [
+      "pearl/rideshank_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.95275,
+     "files": [
+      "pearl/rideshank_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.98763,
+     "files": [
+      "pearl/rideshank_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "pearl/rideshank_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.snap": {
+   "name": "Finger Snap",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": 0.24,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.15198,
+     "files": [
+      "latin/snap_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.72046,
+     "files": [
+      "latin/snap_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.94987,
+     "files": [
+      "latin/snap_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.97361,
+     "files": [
+      "latin/snap_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/snap_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.clap": {
+   "name": "Hand Clap",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.24,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.62553,
+     "files": [
+      "latin/clap_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.88363,
+     "files": [
+      "latin/clap_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.94985,
+     "files": [
+      "latin/clap_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.96768,
+     "files": [
+      "latin/clap_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/clap_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.tamb": {
+   "name": "Tambourine",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.1,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.44586,
+     "files": [
+      "latin/tamb_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.62383,
+     "files": [
+      "latin/tamb_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.63752,
+     "files": [
+      "latin/tamb_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.84915,
+     "files": [
+      "latin/tamb_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/tamb_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.cowbell": {
+   "name": "Cowbell (Mambo)",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.42,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.72447,
+     "files": [
+      "latin/cowbell_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.75901,
+     "files": [
+      "latin/cowbell_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.83623,
+     "files": [
+      "latin/cowbell_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.84312,
+     "files": [
+      "latin/cowbell_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/cowbell_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.vibraslap": {
+   "name": "Vibraslap",
+   "cat": "perclong",
+   "channels": 1,
+   "pan": 0.2,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/vibraslap_v1_r1.flac",
+      "latin/vibraslap_v1_r2.flac",
+      "latin/vibraslap_v1_r3.flac"
+     ]
+    }
+   ]
+  },
+  "latin.bongohi": {
+   "name": "Bongo Hi",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.25,
+   "layers": [
+    {
+     "vel": 42,
+     "lo": 1,
+     "hi": 63,
+     "amp": 0.09619,
+     "files": [
+      "latin/bongohi_v1_r1.flac",
+      "latin/bongohi_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 85,
+     "lo": 64,
+     "hi": 106,
+     "amp": 0.26136,
+     "files": [
+      "latin/bongohi_v2_r1.flac",
+      "latin/bongohi_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 107,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/bongohi_v3_r1.flac",
+      "latin/bongohi_v3_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.bongolo": {
+   "name": "Bongo Lo",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.1,
+   "layers": [
+    {
+     "vel": 42,
+     "lo": 1,
+     "hi": 63,
+     "amp": 0.08303,
+     "files": [
+      "latin/bongolo_v1_r1.flac",
+      "latin/bongolo_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 85,
+     "lo": 64,
+     "hi": 106,
+     "amp": 0.368,
+     "files": [
+      "latin/bongolo_v2_r1.flac",
+      "latin/bongolo_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 107,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/bongolo_v3_r1.flac",
+      "latin/bongolo_v3_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.congamute": {
+   "name": "Conga Muted",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.15,
+   "layers": [
+    {
+     "vel": 64,
+     "lo": 1,
+     "hi": 95,
+     "amp": 0.2117,
+     "files": [
+      "latin/congamute_v1_r1.flac",
+      "latin/congamute_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 96,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/congamute_v2_r1.flac",
+      "latin/congamute_v2_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.congahi": {
+   "name": "Conga Open",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.11047,
+     "files": [
+      "latin/congahi_v1_r1.flac",
+      "latin/congahi_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.22018,
+     "files": [
+      "latin/congahi_v2_r1.flac",
+      "latin/congahi_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.40325,
+     "files": [
+      "latin/congahi_v3_r1.flac",
+      "latin/congahi_v3_r2.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.70484,
+     "files": [
+      "latin/congahi_v4_r1.flac",
+      "latin/congahi_v4_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/congahi_v5_r1.flac",
+      "latin/congahi_v5_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.congalo": {
+   "name": "Tumbadora",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.36,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.11031,
+     "files": [
+      "latin/congalo_v1_r1.flac",
+      "latin/congalo_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.24821,
+     "files": [
+      "latin/congalo_v2_r1.flac",
+      "latin/congalo_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.29259,
+     "files": [
+      "latin/congalo_v3_r1.flac",
+      "latin/congalo_v3_r2.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.69491,
+     "files": [
+      "latin/congalo_v4_r1.flac",
+      "latin/congalo_v4_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/congalo_v5_r1.flac",
+      "latin/congalo_v5_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.timbalehi": {
+   "name": "Timbale Hi",
+   "cat": "perc",
+   "channels": 2,
+   "pan": 0,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/timbalehi_v1_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.timbalelo": {
+   "name": "Timbale Lo",
+   "cat": "perc",
+   "channels": 2,
+   "pan": 0,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/timbalelo_v1_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.agogohi": {
+   "name": "Agogo Hi",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.3,
+   "layers": [
+    {
+     "vel": 42,
+     "lo": 1,
+     "hi": 63,
+     "amp": 0.12395,
+     "files": [
+      "latin/agogohi_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 85,
+     "lo": 64,
+     "hi": 106,
+     "amp": 0.40252,
+     "files": [
+      "latin/agogohi_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 107,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/agogohi_v3_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.agogolo": {
+   "name": "Agogo Lo",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.3,
+   "layers": [
+    {
+     "vel": 64,
+     "lo": 1,
+     "hi": 95,
+     "amp": 0.22775,
+     "files": [
+      "latin/agogolo_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 96,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/agogolo_v2_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.cabasa": {
+   "name": "Cabasa",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": -0.3,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/cabasa_v1_r1.flac",
+      "latin/cabasa_v1_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.maracas": {
+   "name": "Maracas",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": 0.48,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.35471,
+     "files": [
+      "latin/maracas_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.5011,
+     "files": [
+      "latin/maracas_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.70787,
+     "files": [
+      "latin/maracas_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.89122,
+     "files": [
+      "latin/maracas_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/maracas_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.guiroshort": {
+   "name": "Guiro Short",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": 0.25,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/guiroshort_v1_r1.flac",
+      "latin/guiroshort_v1_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.guirolong": {
+   "name": "Guiro Long",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": 0.25,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/guirolong_v1_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.claves": {
+   "name": "Claves",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.42,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.42885,
+     "files": [
+      "latin/claves_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.58111,
+     "files": [
+      "latin/claves_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.63231,
+     "files": [
+      "latin/claves_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.66159,
+     "files": [
+      "latin/claves_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/claves_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.woodblock": {
+   "name": "Woodblock",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.24,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.35472,
+     "files": [
+      "latin/woodblock_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.5011,
+     "files": [
+      "latin/woodblock_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.70787,
+     "files": [
+      "latin/woodblock_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.8912,
+     "files": [
+      "latin/woodblock_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/woodblock_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.trianglemute": {
+   "name": "Triangle Muted",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": 0.4,
+   "layers": [
+    {
+     "vel": 127,
+     "lo": 1,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/trianglemute_v1_r1.flac",
+      "latin/trianglemute_v1_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.triangle": {
+   "name": "Triangle Open",
+   "cat": "perclong",
+   "channels": 1,
+   "pan": 0.4,
+   "layers": [
+    {
+     "vel": 64,
+     "lo": 1,
+     "hi": 95,
+     "amp": 0.1491,
+     "files": [
+      "latin/triangle_v1_r1.flac",
+      "latin/triangle_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 96,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/triangle_v2_r1.flac",
+      "latin/triangle_v2_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.shaker": {
+   "name": "Shaker",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": -0.4,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.18588,
+     "files": [
+      "latin/shaker_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.60242,
+     "files": [
+      "latin/shaker_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.63592,
+     "files": [
+      "latin/shaker_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.64019,
+     "files": [
+      "latin/shaker_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/shaker_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.tambshake": {
+   "name": "Tambourine Shake",
+   "cat": "percsoft",
+   "channels": 1,
+   "pan": 0.4,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.22087,
+     "files": [
+      "latin/tambshake_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.54228,
+     "files": [
+      "latin/tambshake_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.91611,
+     "files": [
+      "latin/tambshake_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.9519,
+     "files": [
+      "latin/tambshake_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/tambshake_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.paila": {
+   "name": "Timbale Paila",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.35,
+   "layers": [
+    {
+     "vel": 64,
+     "lo": 1,
+     "hi": 95,
+     "amp": 0.30947,
+     "files": [
+      "latin/paila_v1_r1.flac",
+      "latin/paila_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 96,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/paila_v2_r1.flac",
+      "latin/paila_v2_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.quinto": {
+   "name": "Quinto",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.15,
+   "layers": [
+    {
+     "vel": 42,
+     "lo": 1,
+     "hi": 63,
+     "amp": 0.13198,
+     "files": [
+      "latin/quinto_v1_r1.flac",
+      "latin/quinto_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 85,
+     "lo": 64,
+     "hi": 106,
+     "amp": 0.33069,
+     "files": [
+      "latin/quinto_v2_r1.flac",
+      "latin/quinto_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 107,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/quinto_v3_r1.flac",
+      "latin/quinto_v3_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.tumba": {
+   "name": "Tumba",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.35,
+   "layers": [
+    {
+     "vel": 32,
+     "lo": 1,
+     "hi": 48,
+     "amp": 0.08089,
+     "files": [
+      "latin/tumba_v1_r1.flac",
+      "latin/tumba_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 64,
+     "lo": 49,
+     "hi": 79,
+     "amp": 0.26036,
+     "files": [
+      "latin/tumba_v2_r1.flac",
+      "latin/tumba_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 95,
+     "lo": 80,
+     "hi": 111,
+     "amp": 0.48859,
+     "files": [
+      "latin/tumba_v3_r1.flac",
+      "latin/tumba_v3_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 112,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/tumba_v4_r1.flac",
+      "latin/tumba_v4_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.cajonbass": {
+   "name": "Cajon Bass",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.33573,
+     "files": [
+      "latin/cajonbass_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.38518,
+     "files": [
+      "latin/cajonbass_v2_r1.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.64561,
+     "files": [
+      "latin/cajonbass_v3_r1.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.83911,
+     "files": [
+      "latin/cajonbass_v4_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/cajonbass_v5_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.cajonslap": {
+   "name": "Cajon Slap",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.32,
+   "layers": [
+    {
+     "vel": 25,
+     "lo": 1,
+     "hi": 38,
+     "amp": 0.11082,
+     "files": [
+      "latin/cajonslap_v1_r1.flac",
+      "latin/cajonslap_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 51,
+     "lo": 39,
+     "hi": 63,
+     "amp": 0.43034,
+     "files": [
+      "latin/cajonslap_v2_r1.flac",
+      "latin/cajonslap_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 76,
+     "lo": 64,
+     "hi": 89,
+     "amp": 0.72888,
+     "files": [
+      "latin/cajonslap_v3_r1.flac",
+      "latin/cajonslap_v3_r2.flac"
+     ]
+    },
+    {
+     "vel": 102,
+     "lo": 90,
+     "hi": 114,
+     "amp": 0.7575,
+     "files": [
+      "latin/cajonslap_v4_r1.flac",
+      "latin/cajonslap_v4_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 115,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/cajonslap_v5_r1.flac",
+      "latin/cajonslap_v5_r2.flac"
+     ]
+    }
+   ]
+  },
+  "latin.cowbell2": {
+   "name": "Cowbell (Cha-cha)",
+   "cat": "perc",
+   "channels": 1,
+   "pan": 0.3,
+   "layers": [
+    {
+     "vel": 64,
+     "lo": 1,
+     "hi": 95,
+     "amp": 0.32442,
+     "files": [
+      "latin/cowbell2_v1_r1.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 96,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/cowbell2_v2_r1.flac"
+     ]
+    }
+   ]
+  },
+  "latin.bongohimute": {
+   "name": "Bongo Hi Muted",
+   "cat": "perc",
+   "channels": 1,
+   "pan": -0.25,
+   "layers": [
+    {
+     "vel": 42,
+     "lo": 1,
+     "hi": 63,
+     "amp": 0.28214,
+     "files": [
+      "latin/bongohimute_v1_r1.flac",
+      "latin/bongohimute_v1_r2.flac"
+     ]
+    },
+    {
+     "vel": 85,
+     "lo": 64,
+     "hi": 106,
+     "amp": 0.70913,
+     "files": [
+      "latin/bongohimute_v2_r1.flac",
+      "latin/bongohimute_v2_r2.flac"
+     ]
+    },
+    {
+     "vel": 127,
+     "lo": 107,
+     "hi": 127,
+     "amp": 1,
+     "files": [
+      "latin/bongohimute_v3_r1.flac",
+      "latin/bongohimute_v3_r2.flac"
+     ]
+    }
+   ]
+  }
+ },
+ "keys": {
+  "21": {
+   "piece": "hhpedal",
+   "name": "Hat Foot Splash",
+   "group": "Hats",
+   "ch": "hihat",
+   "choke": 1,
+   "chokes": [
+    1
+   ],
+   "gain": 2
+  },
+  "23": {
+   "piece": "hhsemi",
+   "name": "Hat Half-Open",
+   "group": "Hats",
+   "ch": "hihat",
+   "choke": 1,
+   "chokes": [
+    1
+   ]
+  },
+  "24": {
+   "piece": "hhswish",
+   "name": "Hat Swish",
+   "group": "Hats",
+   "ch": "hihat",
+   "choke": 1,
+   "chokes": [
+    1
+   ]
+  },
+  "25": {
+   "piece": "snare",
+   "name": "Snare Flam",
+   "group": "Snare",
+   "ch": "snare",
+   "flam": true
+  },
+  "26": {
+   "piece": "snare",
+   "name": "Snare Ghost",
+   "group": "Snare",
+   "ch": "snare",
+   "velScale": 0.32
+  },
+  "29": {
+   "piece": "crashchoke",
+   "name": "Crash 1 Choke",
+   "group": "Cymbals",
+   "ch": "crash",
+   "chokes": [
+    2
+   ]
+  },
+  "30": {
+   "piece": "crash2choke",
+   "name": "Crash 2 Choke",
+   "group": "Cymbals",
+   "ch": "crash",
+   "chokes": [
+    3
+   ]
+  },
+  "31": {
+   "piece": "sticks",
+   "name": "Sticks",
+   "group": "Perc",
+   "ch": "perc"
+  },
+  "32": {
+   "piece": "crash3",
+   "name": "Crash 3",
+   "group": "Cymbals",
+   "ch": "crash"
+  },
+  "34": {
+   "piece": "latin.snap",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Finger Snap"
+  },
+  "35": {
+   "piece": "kick",
+   "name": "Kick 2",
+   "group": "Kick",
+   "ch": "kick"
+  },
+  "36": {
+   "piece": "kick",
+   "name": "Kick",
+   "group": "Kick",
+   "ch": "kick"
+  },
+  "37": {
+   "piece": "side",
+   "name": "Side Stick",
+   "group": "Snare",
+   "ch": "side"
+  },
+  "38": {
+   "piece": "snare",
+   "name": "Snare",
+   "group": "Snare",
+   "ch": "snare"
+  },
+  "39": {
+   "piece": "latin.clap",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Hand Clap"
+  },
+  "40": {
+   "piece": "edge",
+   "name": "Snare Edge",
+   "group": "Snare",
+   "ch": "snare"
+  },
+  "41": {
+   "piece": "ftom",
+   "name": "Floor Tom Lo",
+   "group": "Toms",
+   "ch": "tom4"
+  },
+  "42": {
+   "piece": "hh",
+   "name": "Closed Hat",
+   "group": "Hats",
+   "ch": "hihat",
+   "chokes": [
+    1
+   ]
+  },
+  "43": {
+   "piece": "ftom",
+   "name": "Floor Tom Hi",
+   "group": "Toms",
+   "ch": "tom3",
+   "tune": 2
+  },
+  "44": {
+   "piece": "hhpedal",
+   "name": "Pedal Hat",
+   "group": "Hats",
+   "ch": "hihat",
+   "chokes": [
+    1
+   ]
+  },
+  "45": {
+   "piece": "tom",
+   "name": "Tom Low",
+   "group": "Toms",
+   "ch": "tom2",
+   "tune": -3
+  },
+  "46": {
+   "piece": "hhsemi",
+   "name": "Open Hat",
+   "group": "Hats",
+   "ch": "hihat",
+   "choke": 1,
+   "chokes": [
+    1
+   ]
+  },
+  "47": {
+   "piece": "tom",
+   "name": "Tom Low-Mid",
+   "group": "Toms",
+   "ch": "tom2",
+   "tune": -1
+  },
+  "48": {
+   "piece": "tom",
+   "name": "Tom Hi-Mid",
+   "group": "Toms",
+   "ch": "tom1",
+   "tune": 1
+  },
+  "49": {
+   "piece": "crash",
+   "name": "Crash 1",
+   "group": "Cymbals",
+   "ch": "crash",
+   "choke": 2
+  },
+  "50": {
+   "piece": "tom",
+   "name": "Tom High",
+   "group": "Toms",
+   "ch": "tom1",
+   "tune": 3
+  },
+  "51": {
+   "piece": "ride",
+   "name": "Ride",
+   "group": "Cymbals",
+   "ch": "ride"
+  },
+  "52": {
+   "piece": "china",
+   "name": "China",
+   "group": "Cymbals",
+   "ch": "fx"
+  },
+  "53": {
+   "piece": "bell",
+   "name": "Ride Bell",
+   "group": "Cymbals",
+   "ch": "ride"
+  },
+  "54": {
+   "piece": "latin.tamb",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Tambourine"
+  },
+  "55": {
+   "piece": "splash",
+   "name": "Splash",
+   "group": "Cymbals",
+   "ch": "fx"
+  },
+  "56": {
+   "piece": "latin.cowbell",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Cowbell"
+  },
+  "57": {
+   "piece": "crash2",
+   "name": "Crash 2",
+   "group": "Cymbals",
+   "ch": "crash",
+   "choke": 3
+  },
+  "58": {
+   "piece": "latin.vibraslap",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Vibraslap"
+  },
+  "59": {
+   "piece": "rideshank",
+   "name": "Ride 2 (Edge)",
+   "group": "Cymbals",
+   "ch": "ride"
+  },
+  "60": {
+   "piece": "latin.bongohi",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Bongo Hi"
+  },
+  "61": {
+   "piece": "latin.bongolo",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Bongo Lo"
+  },
+  "62": {
+   "piece": "latin.congamute",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Conga Mute"
+  },
+  "63": {
+   "piece": "latin.congahi",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Conga Open"
+  },
+  "64": {
+   "piece": "latin.congalo",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Conga Low"
+  },
+  "65": {
+   "piece": "latin.timbalehi",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Timbale Hi"
+  },
+  "66": {
+   "piece": "latin.timbalelo",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Timbale Lo"
+  },
+  "67": {
+   "piece": "latin.agogohi",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Agogo Hi"
+  },
+  "68": {
+   "piece": "latin.agogolo",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Agogo Lo"
+  },
+  "69": {
+   "piece": "latin.cabasa",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Cabasa"
+  },
+  "70": {
+   "piece": "latin.maracas",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Maracas"
+  },
+  "73": {
+   "piece": "latin.guiroshort",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Guiro Short"
+  },
+  "74": {
+   "piece": "latin.guirolong",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Guiro Long"
+  },
+  "75": {
+   "piece": "latin.claves",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Claves"
+  },
+  "76": {
+   "piece": "latin.woodblock",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Woodblock Hi"
+  },
+  "77": {
+   "piece": "latin.woodblock",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Woodblock Lo",
+   "tune": -5
+  },
+  "80": {
+   "piece": "latin.trianglemute",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Triangle Mute",
+   "chokes": [
+    4
+   ]
+  },
+  "81": {
+   "piece": "latin.triangle",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Triangle Open",
+   "choke": 4,
+   "chokes": [
+    4
+   ]
+  },
+  "82": {
+   "piece": "latin.shaker",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Shaker"
+  },
+  "83": {
+   "piece": "latin.tambshake",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Tamb. Shake"
+  },
+  "84": {
+   "piece": "latin.paila",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Timbale Paila",
+   "tune": 4
+  },
+  "85": {
+   "piece": "latin.quinto",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Quinto"
+  },
+  "86": {
+   "piece": "latin.tumba",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Tumba"
+  },
+  "87": {
+   "piece": "latin.cajonbass",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Cajon Bass"
+  },
+  "88": {
+   "piece": "latin.cajonslap",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Cajon Slap"
+  },
+  "89": {
+   "piece": "latin.cowbell2",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Cowbell Cha-cha"
+  },
+  "90": {
+   "piece": "latin.bongohimute",
+   "group": "Perc",
+   "ch": "perc",
+   "name": "Bongo Hi Mute"
+  }
+ },
+ "pads": [
+  {
+   "name": "A",
+   "keys": [
+    49,
+    57,
+    51,
+    53,
+    48,
+    45,
+    43,
+    41,
+    42,
+    44,
+    46,
+    23,
+    36,
+    38,
+    37,
+    40
+   ]
+  },
+  {
+   "name": "B",
+   "keys": [
+    52,
+    55,
+    29,
+    59,
+    35,
+    26,
+    25,
+    22,
+    39,
+    54,
+    56,
+    82,
+    63,
+    64,
+    75,
+    65
+   ]
+  },
+  {
+   "name": "C",
+   "keys": [
+    60,
+    61,
+    62,
+    63,
+    64,
+    85,
+    86,
+    90,
+    65,
+    66,
+    84,
+    89,
+    73,
+    74,
+    70,
+    69
+   ]
+  }
+ ]
+}

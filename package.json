@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "build:native": "bash native/build.sh",
-    "test:native": "bash native/build.sh --test"
+    "test:native": "bash native/build.sh --test",
+    "drumkits": "node scripts/drumkits/build.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
