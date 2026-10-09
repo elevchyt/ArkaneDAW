@@ -5,12 +5,6 @@ plus its own family of instruments and effects, VST3 / VST2 / CLAP hosting, and 
 
 ![ArkaneDAW](docs/screenshot.png)
 
-### Demo
-
-[![Watch the 45-second demo](docs/demo-thumb.png)](docs/demo.mp4)
-
-*Click to watch: the demo project playing while we tour the channel rack, piano roll, mixer and several plugins.*
-
 ## Download
 
 Get the latest **AppImage** (Linux) or **Windows installer** from the
