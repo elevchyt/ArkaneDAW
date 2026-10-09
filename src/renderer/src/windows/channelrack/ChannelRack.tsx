@@ -16,7 +16,7 @@ import {
 } from '@/store/actions'
 import { patternLength } from '@/audio/sequence'
 import { Led, MiniKnob, Knob } from '@/components/controls'
-import { listPlugins } from '@/plugins/registry'
+import { groupPlugins, useAllPlugins } from '@/plugins/catalog'
 import { toggleChannelPlugin } from '../plugin/open'
 import { openPianoRoll } from '../pianoroll/open'
 import { cn } from '@/lib/utils'
@@ -132,24 +132,21 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
 }
 
 function AddChannelButton() {
-  const instruments = listPlugins('instrument')
-  const cats = [...new Set(instruments.map((m) => m.manifest.category))].sort()
+  const groups = groupPlugins(useAllPlugins('instrument'))
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex h-5 w-16 items-center justify-center rounded-sm border border-[#1d2326] bg-[#46525a] fl-bevel hover:bg-[#515e66]" title="Add channel">
         <Plus size={14} />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" className="max-h-[70vh] overflow-auto">
-        {cats.map((c) => (
+        {groups.map(([c, list]) => (
           <div key={c}>
             <DropdownMenuLabel>{c}</DropdownMenuLabel>
-            {instruments
-              .filter((m) => m.manifest.category === c)
-              .map((m) => (
-                <DropdownMenuItem key={m.manifest.id} onSelect={() => addInstrumentChannel(m.manifest.id)}>
-                  {m.manifest.name}
-                </DropdownMenuItem>
-              ))}
+            {list.map((m) => (
+              <DropdownMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
+                {m.name}
+              </DropdownMenuItem>
+            ))}
             <DropdownMenuSeparator />
           </div>
         ))}
@@ -173,7 +170,7 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
   const stepMode = isStepOnly(notes, root)
   const active = useMemo(() => new Set(notes.map((n) => n.pos / TICKS_PER_STEP)), [notes])
   const setHint = useUI((s) => s.setHint)
-  const instruments = listPlugins('instrument')
+  const instruments = useAllPlugins('instrument')
   const editing = useRef(false)
   const [renaming, setRenaming] = useState(false)
   const selectedIds = () => {
@@ -265,8 +262,8 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
             <ContextMenuSubTrigger>Replace</ContextMenuSubTrigger>
             <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
               {instruments.map((m) => (
-                <ContextMenuItem key={m.manifest.id} onSelect={() => replaceChannelPlugin(ch.id, m.manifest.id)}>
-                  {m.manifest.name}
+                <ContextMenuItem key={m.id} onSelect={() => replaceChannelPlugin(ch.id, m.id)}>
+                  {m.name}
                 </ContextMenuItem>
               ))}
             </ContextMenuSubContent>
@@ -275,8 +272,8 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
             <ContextMenuSubTrigger>Insert</ContextMenuSubTrigger>
             <ContextMenuSubContent className="max-h-[60vh] overflow-auto">
               {instruments.map((m) => (
-                <ContextMenuItem key={m.manifest.id} onSelect={() => addInstrumentChannel(m.manifest.id)}>
-                  {m.manifest.name}
+                <ContextMenuItem key={m.id} onSelect={() => addInstrumentChannel(m.id)}>
+                  {m.name}
                 </ContextMenuItem>
               ))}
             </ContextMenuSubContent>

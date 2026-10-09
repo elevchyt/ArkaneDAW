@@ -1,5 +1,6 @@
 // Undoable mixer operations used by the Mixer window. Everything goes through editProject so
 // knob/fader drags coalesce into one history step.
+import { getExternalPluginInfo } from '@/audio/vst'
 import { editProject, getProject } from '@/store/project'
 import { useUI } from '@/store/ui'
 import { newPluginState } from '@/store/actions'
@@ -225,7 +226,8 @@ export function linkChannels(track: number, startingFrom: boolean): void {
 
 // ── FX slots ───────────────────────────────────────────────────────────────────
 export function insertEffect(track: number, slot: number, pluginId: string): void {
-  if (getPlugin(pluginId)?.manifest.kind !== 'effect') {
+  const kind = getPlugin(pluginId)?.manifest.kind ?? getExternalPluginInfo(pluginId)?.kind
+  if (kind !== 'effect') {
     useUI.getState().setHint(`${pluginId} is not an effect`)
     return
   }

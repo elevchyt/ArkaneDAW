@@ -5,6 +5,7 @@ import { useUI } from './ui'
 import { defaultNote, makeChannel, makePattern, uid, CHANNEL_COLORS } from './factory'
 import { DEFAULT_NOTE_KEY, TICKS_PER_STEP, type Channel, type Clip, type FxSlot, type Note, type Pattern, type PluginInstanceState, type Project } from './types'
 import { getPlugin } from '../plugins/registry'
+import { pluginName } from '../plugins/catalog'
 import { defaultParams, presetParams } from '../plugins/sdk/module'
 import type { Preset } from '../plugins/sdk/types'
 
@@ -32,7 +33,7 @@ export function newPluginState(pluginId: string, preset?: Preset): PluginInstanc
 export function addInstrumentChannel(pluginId: string, opts: { name?: string; preset?: Preset; select?: boolean; mixerTrack?: number } = {}): string {
   const mod = getPlugin(pluginId)
   const p = getProject()
-  const ch = makeChannel(opts.name ?? mod?.manifest.name ?? pluginId, newPluginState(pluginId, opts.preset), {
+  const ch = makeChannel(opts.name ?? pluginName(pluginId), newPluginState(pluginId, opts.preset), {
     color: CHANNEL_COLORS[p.channels.length % CHANNEL_COLORS.length],
     mixerTrack: opts.mixerTrack ?? 0
   })
@@ -63,7 +64,7 @@ export function replaceChannelPlugin(channelId: string, pluginId: string): void 
     if (!c) return
     c.plugin = newPluginState(pluginId)
     c.kind = pluginId === 'sampler' ? 'sampler' : 'instrument'
-    if (mod) c.name = mod.manifest.name
+    c.name = pluginName(pluginId)
   })
 }
 

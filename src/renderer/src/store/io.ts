@@ -7,6 +7,7 @@ import { useTransport } from './transport'
 import { makeEmptyProject } from './factory'
 import type { Project } from './types'
 import { encodeWav, getBuffer } from '../audio/samples'
+import { flushVstStates } from '../audio/vst'
 
 export const PROJECT_EXT = 'arkane'
 
@@ -20,6 +21,8 @@ function migrate(raw: Project): Project {
 
 export async function saveProjectTo(path: string): Promise<void> {
   if (!host) throw new Error('Saving requires the desktop app')
+  // Pull the latest state chunks from running VST/CLAP instances into the project first.
+  await flushVstStates()
   const project = getProject()
   const dir = host.path.dirname(path)
   const base = host.path.basename(path).replace(/\.[^.]+$/, '')

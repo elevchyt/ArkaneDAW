@@ -1,6 +1,7 @@
 import { useUI } from '@/store/ui'
 import { getProject } from '@/store/project'
 import { getPlugin } from '@/plugins/registry'
+import { pluginName } from '@/plugins/catalog'
 
 const CHROME_H = 22 + 26 // title + preset strip
 
@@ -34,7 +35,7 @@ export function openFxPlugin(track: number, slot: number): void {
   const t = getProject().mixer[track]
   useUI.getState().openWindow(`fx:${track}:${slot}`, {
     kind: 'plugin',
-    title: `${mod?.manifest.name ?? s.plugin.pluginId} (${t.name})`,
+    title: `${pluginName(s.plugin.pluginId)} (${t.name})`,
     mixerTrack: track,
     slot,
     w,

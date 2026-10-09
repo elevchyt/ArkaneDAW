@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { MdiWindow } from './MdiWindow'
-import { listPlugins } from '@/plugins/registry'
+import { groupPlugins, useAllPlugins } from '@/plugins/catalog'
 import { useUI } from '@/store/ui'
 import { addInstrumentChannel } from '@/store/actions'
 import type { WindowProps } from '@/windows/types'
@@ -13,8 +13,7 @@ export function togglePluginPicker(): void {
 /** F8: all plugins as tiles; drag instruments to the channel rack, effects onto mixer slots. */
 export default function PluginPicker({ win, bounds }: WindowProps) {
   const [tab, setTab] = useState<'instrument' | 'effect'>('instrument')
-  const list = listPlugins(tab)
-  const cats = [...new Set(list.map((m) => m.manifest.category))].sort()
+  const groups = groupPlugins(useAllPlugins(tab))
   const setHint = useUI((s) => s.setHint)
   return (
     <MdiWindow win={win} bounds={bounds}>
@@ -27,25 +26,24 @@ export default function PluginPicker({ win, bounds }: WindowProps) {
           ))}
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-2">
-          {cats.map((c) => (
+          {groups.map(([c, list]) => (
             <div key={c} className="mb-3">
               <div className="mb-1 text-[10px] uppercase tracking-widest text-fl-dim">{c}</div>
               <div className="flex flex-wrap gap-2">
-                {list
-                  .filter((m) => m.manifest.category === c)
-                  .map((m) => (
-                    <div
-                      key={m.manifest.id}
-                      draggable
-                      onDragStart={(e) => e.dataTransfer.setData('application/x-arkane-plugin', m.manifest.id)}
-                      onDoubleClick={() => tab === 'instrument' && addInstrumentChannel(m.manifest.id)}
-                      onMouseEnter={() => setHint(`${m.manifest.name} – ${m.manifest.description ?? ''}`)}
-                      className="flex h-[64px] w-[104px] cursor-grab flex-col justify-end rounded-[4px] border border-[#1d2326] p-1.5 fl-bevel"
-                      style={{ background: `linear-gradient(160deg, ${m.manifest.color ?? '#5c676d'}55, #2f383c 70%)` }}
-                    >
-                      <span className="text-[11px] font-semibold leading-tight text-white">{m.manifest.name}</span>
-                    </div>
-                  ))}
+                {list.map((m) => (
+                  <div
+                    key={m.id}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData('application/x-arkane-plugin', m.id)}
+                    onDoubleClick={() => tab === 'instrument' && addInstrumentChannel(m.id)}
+                    onMouseEnter={() => setHint(`${m.name} – ${m.description ?? ''}`)}
+                    className="flex h-[64px] w-[104px] cursor-grab flex-col justify-end rounded-[4px] border border-[#1d2326] p-1.5 fl-bevel"
+                    style={{ background: `linear-gradient(160deg, ${m.color ?? (m.external ? '#8a7a5c' : '#5c676d')}55, #2f383c 70%)` }}
+                  >
+                    {m.external && <span className="mb-auto self-end text-[8px] font-bold text-fl-orange">{m.category.split(' ')[0]}</span>}
+                    <span className="text-[11px] font-semibold leading-tight text-white">{m.name}</span>
+                  </div>
+                ))}
               </div>
             </div>
           ))}

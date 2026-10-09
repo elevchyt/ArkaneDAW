@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { host } from '@/platform'
 import { useUI } from '@/store/ui'
 import { useProject } from '@/store/project'
-import { listPlugins } from '@/plugins/registry'
+import { allPlugins } from '@/plugins/catalog'
 import { addInstrumentChannel } from '@/store/actions'
 import { initAudio } from '@/audio/transport'
 import { decode } from '@/audio/samples'
@@ -136,20 +136,20 @@ function PluginDatabase() {
   return (
     <>
       {(['Generators', 'Effects'] as const).map((g) => {
-        const list = listPlugins(g === 'Generators' ? 'instrument' : 'effect')
+        const list = allPlugins(g === 'Generators' ? 'instrument' : 'effect')
         return (
           <div key={g}>
             <Row depth={1} open={open[g]} icon={<Plug size={12} className="text-fl-green" />} label={g} onClick={() => setOpen({ ...open, [g]: !open[g] })} />
             {open[g] &&
               list.map((m) => (
                 <Row
-                  key={m.manifest.id}
+                  key={m.id}
                   depth={2}
-                  icon={<Puzzle size={12} style={{ color: m.manifest.color }} />}
-                  label={m.manifest.name}
+                  icon={<Puzzle size={12} style={{ color: m.color ?? (m.external ? 'var(--fl-orange)' : undefined) }} />}
+                  label={m.external ? `${m.name} (${m.category.split(' ')[0]})` : m.name}
                   draggable
-                  onDragStart={(e) => e.dataTransfer.setData('application/x-arkane-plugin', m.manifest.id)}
-                  onDoubleClick={() => g === 'Generators' && addInstrumentChannel(m.manifest.id)}
+                  onDragStart={(e) => e.dataTransfer.setData('application/x-arkane-plugin', m.id)}
+                  onDoubleClick={() => g === 'Generators' && addInstrumentChannel(m.id)}
                 />
               ))}
           </div>

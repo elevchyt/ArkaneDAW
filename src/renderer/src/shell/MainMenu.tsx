@@ -1,7 +1,7 @@
 import { useProject } from '@/store/project'
 import { useTransport } from '@/store/transport'
 import { useUI } from '@/store/ui'
-import { listPlugins } from '@/plugins/registry'
+import { groupPlugins, useAllPlugins } from '@/plugins/catalog'
 import { addInstrumentChannel } from '@/store/actions'
 import { recentFiles } from '@/store/io'
 import {
@@ -37,7 +37,7 @@ export function MainMenu() {
   const undoTo = useProject((s) => s.undoTo)
   const t = useTransport()
   const typing = useUI((s) => s.typingKeyboard)
-  const instruments = listPlugins('instrument')
+  const instruments = useAllPlugins('instrument')
   const recent = recentFiles()
 
   return (
@@ -92,8 +92,15 @@ export function MainMenu() {
         <MenubarTrigger className={trig}>ADD</MenubarTrigger>
         <MenubarContent className="max-h-[70vh] overflow-auto">
           <MenubarLabel>Channel</MenubarLabel>
-          {instruments.map((m) => (
-            <Item key={m.manifest.id} label={m.manifest.name} onSelect={() => addInstrumentChannel(m.manifest.id)} />
+          {groupPlugins(instruments).map(([cat, list]) => (
+            <MenubarSub key={cat}>
+              <MenubarSubTrigger>{cat}</MenubarSubTrigger>
+              <MenubarSubContent className="max-h-[60vh] overflow-auto">
+                {list.map((m) => (
+                  <Item key={m.id} label={m.name} onSelect={() => addInstrumentChannel(m.id)} />
+                ))}
+              </MenubarSubContent>
+            </MenubarSub>
           ))}
         </MenubarContent>
       </MenubarMenu>

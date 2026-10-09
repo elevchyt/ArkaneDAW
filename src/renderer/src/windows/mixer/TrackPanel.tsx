@@ -19,7 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useProject } from '@/store/project'
 import { useUI } from '@/store/ui'
 import type { FxSlot, MixerTrack } from '@/store/types'
-import { getPlugin, listPlugins } from '@/plugins/registry'
+import { allPlugins, groupPlugins, pluginName, type PluginEntry } from '@/plugins/catalog'
 import type { PluginModule } from '@/plugins/sdk/module'
 import { openFxPlugin } from '@/windows/plugin/open'
 import { EQ_FREQ, EQ_GAIN_MAX, eqResponse, freqToNorm, normToFreq } from './eq'
@@ -29,14 +29,8 @@ const hint = (s: string) => useUI.getState().setHint(s)
 const SLOT_MIME = 'application/x-arkane-fxslot'
 const PLUGIN_MIME = 'application/x-arkane-plugin'
 
-function effectsByCategory(): [string, PluginModule[]][] {
-  const groups = new Map<string, PluginModule[]>()
-  for (const m of listPlugins('effect')) {
-    const c = m.manifest.category || 'Other'
-    if (!groups.has(c)) groups.set(c, [])
-    groups.get(c)!.push(m)
-  }
-  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+function effectsByCategory(): [string, PluginEntry[]][] {
+  return groupPlugins(allPlugins('effect'))
 }
 
 export function TrackPanel({ index }: { index: number }) {
@@ -138,8 +132,8 @@ function EffectMenuItems({ onPick, Item, Label, Sep }: { onPick: (id: string) =>
           {gi > 0 && <Sep />}
           <Label className="text-[10px] uppercase tracking-wide text-fl-dim">{cat}</Label>
           {mods.map((m) => (
-            <Item key={m.manifest.id} onSelect={() => onPick(m.manifest.id)}>
-              {m.manifest.name}
+            <Item key={m.id} onSelect={() => onPick(m.id)}>
+              {m.name}
             </Item>
           ))}
         </div>
@@ -150,7 +144,7 @@ function EffectMenuItems({ onPick, Item, Label, Sep }: { onPick: (id: string) =>
 
 function SlotRow({ track, slot, s, fxOn, trackLabel: tl }: { track: number; slot: number; s: FxSlot | null; fxOn: boolean; trackLabel: string }) {
   const [over, setOver] = useState(false)
-  const name = s ? getPlugin(s.plugin.pluginId)?.manifest.name ?? s.plugin.pluginId : ''
+  const name = s ? pluginName(s.plugin.pluginId) : ''
   const editorOpen = useUI((st) => !!st.windows[`fx:${track}:${slot}`]?.open)
 
   const dnd = {
