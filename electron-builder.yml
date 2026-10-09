@@ -1,0 +1,50 @@
+# Packaging: AppImage (Linux, primary) + NSIS installer (Windows x64).
+# Sample libraries (Concerto, Studio Drums) are NOT bundled — they're downloadable content packs.
+appId: com.elevchyt.arkanedaw
+productName: ArkaneDAW
+artifactName: ${productName}-${version}-${arch}.${ext}
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+extraResources:
+  - from: resources/icons
+    to: icons
+  - from: resources/native
+    to: native
+    filter: ['**/*']
+asar: true
+afterPack: scripts/release/after-pack.cjs
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: AudioVideo
+  icon: build/icons
+  synopsis: Pattern-based DAW with an FL Studio-style workflow
+  desktop:
+    entry:
+      Name: ArkaneDAW
+      Comment: Digital audio workstation
+      Categories: AudioVideo;Audio;Midi;
+      StartupWMClass: ArkaneDAW
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  # Built on Linux without Wine: skip rcedit/signing of the exe.
+  signAndEditExecutable: false
+nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: ArkaneDAW
+publish:
+  provider: github
+  owner: elevchyt
+  repo: ArkaneDAW
