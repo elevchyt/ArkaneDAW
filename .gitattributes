@@ -1,0 +1,4 @@
+resources/drumkits/**/*.flac filter=lfs diff=lfs merge=lfs -text
+resources/drumkits/**/*.ogg filter=lfs diff=lfs merge=lfs -text
+resources/drumkits/**/*.opus filter=lfs diff=lfs merge=lfs -text
+resources/drumkits/**/*.wav filter=lfs diff=lfs merge=lfs -text
