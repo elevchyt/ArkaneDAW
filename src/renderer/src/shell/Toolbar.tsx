@@ -30,6 +30,7 @@ import { Knob } from '@/components/controls'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { MainMenu } from './MainMenu'
 import { WindowControls } from './WindowControls'
+import { UpdateIndicator } from '@/system/UpdateDialog'
 import { openPianoRoll } from '@/windows/pianoroll/open'
 import { togglePluginPicker } from './PluginPicker'
 
@@ -360,8 +361,11 @@ export function Toolbar() {
   const dirty = useProject((s) => s.dirty)
   return (
     <div className="flex h-[62px] shrink-0 items-stretch gap-2 border-b border-[#14191b] bg-gradient-to-b from-[#435056] to-[#363f44] px-1.5 py-1" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-      <div className="flex w-[310px] shrink-0 flex-col justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <MainMenu />
+      <div className="flex w-[336px] shrink-0 flex-col justify-between" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <div className="flex items-center gap-1">
+          <img src="/icon.svg" alt="" className="h-4 w-4 shrink-0" draggable={false} />
+          <MainMenu />
+        </div>
         <div className="flex items-center gap-1">
           <span className="truncate text-[10px] text-fl-dim">{name}{dirty ? ' *' : ''}</span>
         </div>
@@ -385,6 +389,7 @@ export function Toolbar() {
         <WindowButtons />
       </div>
       <div className="flex-1" />
+      <UpdateIndicator />
       <WindowControls />
     </div>
   )

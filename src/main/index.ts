@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, session, shell } from 'electron'
 import { join, extname, normalize } from 'node:path'
 import { readFile } from 'node:fs/promises'
+import { startUpdater } from './updater'
+import { readRepoSlug, registerPackIpc } from './packs'
 
 // Audio apps need these: no autoplay gesture, and SharedArrayBuffer for the plugin bridge.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
@@ -53,6 +55,7 @@ function createWindow(): void {
     frame: false,
     backgroundColor: '#262d31',
     title: 'ArkaneDAW',
+    icon: app.isPackaged ? join(process.resourcesPath, 'icons/icon.png') : join(app.getAppPath(), 'resources/icons/icon.png'),
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -99,6 +102,13 @@ ipcMain.handle('app:paths', () => ({
   appPath: app.getAppPath(),
   resources: app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
 }))
+// Downloadable content packs (Concerto / Studio Drums samples) → <userData>/packs/<id>/
+registerPackIpc(ipcMain, () => win?.webContents, {
+  packsDir: join(app.getPath('userData'), 'packs'),
+  isPackaged: app.isPackaged,
+  resources: app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources'),
+  repo: readRepoSlug(app.getAppPath())
+})
 
 app.whenReady().then(() => {
   registerAppProtocol()
@@ -109,6 +119,7 @@ app.whenReady().then(() => {
     ['media', 'midi', 'midiSysex', 'clipboard-read', 'clipboard-sanitized-write'].includes(permission)
   )
   createWindow()
+  startUpdater(() => win)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
