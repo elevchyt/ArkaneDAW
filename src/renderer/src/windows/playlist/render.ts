@@ -485,3 +485,61 @@ export function drawRulerHead(ctx: CanvasRenderingContext2D, w: number, view: Vi
   ctx.closePath()
   ctx.fill()
 }
+
+/** Audio take being recorded right now: red-edged clip growing up to `endTick` with its live waveform. */
+export function drawLiveTake(
+  ctx: CanvasRenderingContext2D,
+  view: View,
+  offsets: Float64Array,
+  w: number,
+  take: { playlistTrack: number; startTick: number; tps: number; sampleRate: number; bucket: number; peaks: number[]; name: string; color: string },
+  endTick: number
+): void {
+  const x0 = tickToX(view, take.startTick)
+  const x1 = tickToX(view, Math.max(take.startTick, endTick))
+  if (x1 < 0 || x0 > w || take.playlistTrack + 1 >= offsets.length) return
+  const y = offsets[take.playlistTrack] - view.scrollY + 1
+  const th = offsets[take.playlistTrack + 1] - offsets[take.playlistTrack]
+  const ch = th - 2
+  const cw = Math.max(2, x1 - x0)
+  const hh = headerHeight(th)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(Math.max(x0, -2), y, Math.min(cw, w + 4), ch)
+  ctx.clip()
+  ctx.fillStyle = shade(take.color, -0.45, 0.92)
+  ctx.fillRect(x0, y, cw, ch)
+  // waveform: one bucket per pixel column at most
+  const bodyY = y + hh
+  const bodyH = ch - hh
+  if (bodyH > 3 && take.peaks.length) {
+    const ticksPerBucket = (take.bucket / take.sampleRate) * take.tps
+    const mid = bodyY + bodyH / 2
+    const amp = bodyH / 2 - 1
+    ctx.fillStyle = shade(take.color, 0.45, 0.9)
+    const from = Math.max(0, Math.floor(-x0))
+    const to = Math.min(Math.ceil(cw), Math.ceil(w - x0))
+    for (let px = from; px < to; px++) {
+      const b0 = Math.floor(px / view.ppt / ticksPerBucket)
+      const b1 = Math.max(b0 + 1, Math.floor((px + 1) / view.ppt / ticksPerBucket))
+      let v = 0
+      for (let b = b0; b < b1 && b < take.peaks.length; b++) if (take.peaks[b] > v) v = take.peaks[b]
+      if (b0 >= take.peaks.length) break
+      const hgt = Math.max(1, Math.min(1, v) * amp)
+      ctx.fillRect(x0 + px, mid - hgt, 1, hgt * 2)
+    }
+  }
+  if (hh > 0) {
+    ctx.fillStyle = '#c8352b'
+    ctx.fillRect(x0, y, cw, hh)
+    if (cw > 24) {
+      ctx.font = '10px "Segoe UI", "Noto Sans", Ubuntu, sans-serif'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#fff'
+      ctx.fillText(`● Recording ${take.name}`, Math.max(x0, 0) + 4, y + hh / 2 + 0.5, Math.max(0, cw - 8))
+    }
+  }
+  ctx.restore()
+  ctx.strokeStyle = '#ff4b3e'
+  ctx.strokeRect(Math.round(x0) + 0.5, Math.round(y) + 0.5, Math.max(1, Math.round(cw) - 1), ch - 1)
+}

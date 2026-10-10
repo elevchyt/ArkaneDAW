@@ -25,7 +25,8 @@ import {
 } from './geometry'
 import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceAt, slipClip, trimLeft } from './ops'
 import { addPoint, hitHandle, hitPoint, movePoint, removePoint, segmentAt, setTension, tensionFromDrag } from './automation'
-import { autoMapper, drawGrid, clipLabel } from './render'
+import { autoMapper, drawGrid, drawLiveTake, clipLabel } from './render'
+import { liveTakes, onLiveTakesChange } from '@/audio/audio-recording'
 import { effectiveSnap, getPl, mouse, setSelection, usePlaylist, viewport } from './state'
 import {
   clipMaxLen,
@@ -146,6 +147,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         return
       }
     }
+    for (const take of liveTakes().values()) drawLiveTake(ctx, v, offsetsRef.current, w, take, take.endTick ?? tick)
     if (x < -2 || x > w + 2) return
     ctx.fillStyle = 'rgba(125,255,60,0.18)'
     ctx.fillRect(Math.round(x) - 2, 0, 5, h)
@@ -184,6 +186,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     const un5 = useUI.subscribe((s, prev) => {
       if (s.globalSnap !== prev.globalSnap) requestPaint()
     })
+    const un6 = onLiveTakesChange(() => paintOverlay(playhead.tick))
     return () => {
       ro.disconnect()
       un1()
@@ -191,6 +194,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       un3()
       un4()
       un5()
+      un6()
       cancelAnimationFrame(raf.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

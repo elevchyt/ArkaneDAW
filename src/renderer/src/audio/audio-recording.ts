@@ -42,6 +42,53 @@ export const useAudioInputs = create<{ levels: Record<number, number>; error: st
   recordingTracks: []
 }))
 
+/**
+ * A take being recorded, drawn live in the playlist (song mode): grows with the playhead and shows the
+ * waveform as chunks arrive. Plain module state (read every animation frame), not React state.
+ */
+export interface LiveTake {
+  /** playlist track it will land on */
+  playlistTrack: number
+  startTick: number
+  /** song ticks per second at the take's tempo */
+  tps: number
+  sampleRate: number
+  startFrame: number
+  /** frames per peak bucket */
+  bucket: number
+  /** max |sample| per bucket */
+  peaks: number[]
+  name: string
+  color: string
+  /** set when recording stops (the playhead jumps back, the take must not shrink) */
+  endTick: number | null
+}
+const live = new Map<number, LiveTake>()
+const liveListeners = new Set<() => void>()
+export const liveTakes = (): ReadonlyMap<number, LiveTake> => live
+/** Called when takes appear / stop / disappear (peaks grow without notifications: redraw per frame). */
+export function onLiveTakesChange(cb: () => void): () => void {
+  liveListeners.add(cb)
+  return () => liveListeners.delete(cb)
+}
+const liveChanged = () => liveListeners.forEach((l) => l())
+
+function addPeaks(take: LiveTake, frame: number, data: Float32Array[]): void {
+  const n = data[0]?.length ?? 0
+  for (let i = 0; i < n; i++) {
+    const rel = frame + i - take.startFrame
+    if (rel < 0) continue
+    const b = Math.floor(rel / take.bucket)
+    let v = 0
+    for (const c of data) {
+      const a = Math.abs(c[i])
+      if (a > v) v = a
+    }
+    while (take.peaks.length <= b) take.peaks.push(0)
+    if (v > take.peaks[b]) take.peaks[b] = v
+  }
+}
+
 const inputs = new Map<number, Input>()
 const opening = new Map<number, Promise<Input | null>>()
 const moduleLoaded = new WeakSet<BaseAudioContext>()
@@ -134,7 +181,11 @@ async function openInput(t: MixerTrack): Promise<Input | null> {
   }
   node.port.onmessage = (e: MessageEvent<{ type: string; frame?: number; data?: Float32Array[]; peak?: number }>) => {
     const m = e.data
-    if (m.type === 'chunk' && m.data && inp.recording) inp.chunks.push({ frame: m.frame ?? 0, data: m.data })
+    if (m.type === 'chunk' && m.data && inp.recording) {
+      inp.chunks.push({ frame: m.frame ?? 0, data: m.data })
+      const take = live.get(inp.track)
+      if (take) addPeaks(take, m.frame ?? 0, m.data)
+    }
     else if (m.type === 'stopped') {
       inp.stopped?.(m.frame ?? 0)
       inp.stopped = null
@@ -223,6 +274,31 @@ function beginOn(inp: Input): void {
   inp.chunks = []
   inp.recording = true
   inp.node.port.postMessage({ type: 'start', fromFrame: inp.startFrame })
+  const again = live.get(inp.track)
+  if (again) again.startFrame = inp.startFrame
+  else if (pendingStart.mode === 'song') {
+    // reserve a playlist track that is free from the start position on (other live takes included)
+    const p = getProject()
+    const taken = [...live.values()].map((l) => ({ track: l.playlistTrack, start: l.startTick, length: Number.MAX_SAFE_INTEGER }))
+    const at = pendingStart.tick
+    const track = firstFreeTrack([...p.playlist.clips, ...taken], at, at + PPQ * 1e6, PLAYLIST_TRACKS, (i) => !!p.playlist.tracks[i]?.locked)
+    if (track >= 0) {
+      const mt = p.mixer[inp.track]
+      live.set(inp.track, {
+        playlistTrack: track,
+        startTick: at,
+        tps: (pendingStart.tempo * PPQ) / 60,
+        sampleRate: pendingStart.sampleRate,
+        startFrame: inp.startFrame,
+        bucket: Math.max(1, Math.round(pendingStart.sampleRate * 0.01)),
+        peaks: [],
+        name: mt?.name ?? `Insert ${inp.track}`,
+        color: mt?.color && mt.color !== '#5c676d' ? mt.color : '#ff4b3e',
+        endTick: null
+      })
+      liveChanged()
+    }
+  }
 }
 
 /**
@@ -259,11 +335,21 @@ export async function stopAudioRecording(): Promise<void> {
   pendingStart = null
   const active = [...inputs.values()].filter((i) => i.recording)
   useAudioInputs.setState({ recordingTracks: [] })
-  if (!start || !active.length) return
+  if (!start || !active.length) {
+    live.clear()
+    liveChanged()
+    return
+  }
   const engine = getEngine()
   const ctx = engine?.ctx as AudioContext | undefined
-  if (!ctx) return
+  if (!ctx) {
+    live.clear()
+    liveChanged()
+    return
+  }
   const endFrame = Math.round(ctx.currentTime * ctx.sampleRate)
+  for (const take of live.values()) take.endTick = take.startTick + (Math.max(0, endFrame - take.startFrame) / take.sampleRate) * take.tps
+  liveChanged()
   await Promise.all(
     active.map(
       (inp) =>
@@ -305,7 +391,10 @@ export async function stopAudioRecording(): Promise<void> {
     const at = start.mode === 'song' ? start.tick : 0
     const proj = getProject()
     const all = [...proj.playlist.clips, ...placed]
-    const track = toPlaylist ? firstFreeTrack(all, at, at + length, PLAYLIST_TRACKS, (i) => !!proj.playlist.tracks[i]?.locked) : -1
+    // the track it was drawn on while recording, unless something landed there meanwhile
+    const reserved = live.get(inp.track)?.playlistTrack
+    const free = (i: number) => !proj.playlist.tracks[i]?.locked && !all.some((c) => c.track === i && c.start < at + length && c.start + c.length > at)
+    const track = !toPlaylist ? -1 : reserved !== undefined && free(reserved) ? reserved : firstFreeTrack(all, at, at + length, PLAYLIST_TRACKS, (i) => !!proj.playlist.tracks[i]?.locked)
     const clip: Clip | null = toPlaylist && track >= 0 ? { id: uid(), kind: 'audio', ref: sample.id, track, start: at, length, offset: 0, muted: false, channelId: ch.id } : null
     if (clip) placed.push(clip)
     editProject(`Record audio (${name})`, (d) => {
@@ -313,6 +402,8 @@ export async function stopAudioRecording(): Promise<void> {
       if (clip) d.playlist.clips.push(clip)
     })
   }
+  live.clear()
+  liveChanged()
   if (placed.length || active.length) useUI.getState().setHint(placed.length ? `Recorded ${placed.length} audio clip${placed.length === 1 ? '' : 's'}` : 'Recording stopped')
   void syncInputs()
 }

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 // Recorder AudioWorklet (separate module from processor.ts). Registers 'arkane-recorder':
-//   input  → channel selection (stereo / left / right) → output (input monitoring path)
+//   input  → channel selection (mono / stereo / left / right) → output (input monitoring path)
 //   while recording, the selected signal is accumulated and posted to the main thread in
 //   ~100 ms frame-stamped chunks (buffers are transferred, no copying on the main side).
 // A 2 s pre-roll ring buffer lets a 'start' message ask for frames that were already rendered,
@@ -16,7 +16,7 @@ declare class AudioWorkletProcessor {
 
 interface RecorderOptions {
   channels: 1 | 2
-  select: 'stereo' | 'left' | 'right'
+  select: 'mono' | 'stereo' | 'left' | 'right'
 }
 
 type Msg = { type: 'start'; fromFrame: number } | { type: 'stop' } | { type: 'select'; select: RecorderOptions['select'] } | { type: 'dispose' }
@@ -122,6 +122,7 @@ class ArkaneRecorderProcessor extends AudioWorkletProcessor {
       let r = inR ? inR[i] : 0
       if (this.select === 'left') r = l
       else if (this.select === 'right') l = r
+      else if (this.select === 'mono') l = r = (l + r) * 0.5
       if (oL) oL[i] = l
       if (oR && oR !== oL) oR[i] = r
       const al = Math.abs(l)

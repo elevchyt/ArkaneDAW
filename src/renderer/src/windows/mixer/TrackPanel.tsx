@@ -77,15 +77,15 @@ export function TrackPanel({ index }: { index: number }) {
 }
 
 // ── I/O rows ───────────────────────────────────────────────────────────────────
-/** FL-style selector field: arrow, current value, grey caption on the right. A transparent
- *  native <select> sits on top so keyboard + OS list behaviour stay intact. */
+/** FL-style selector field: arrow, current value, grey caption on the right; opens the same dropdown menu
+ *  as the FX slots. */
 function IoField({
   value,
   display,
   caption,
   onChange,
   disabled,
-  children,
+  options,
   hintText,
   extra
 }: {
@@ -94,25 +94,29 @@ function IoField({
   caption: string
   onChange?: (v: string) => void
   disabled?: boolean
-  children: React.ReactNode
+  options: { value: string; label: string }[]
   hintText: string
   extra?: React.ReactNode
 }) {
   return (
     <div className="flex items-center gap-[3px]" onMouseEnter={(e) => (e.stopPropagation(), hint(hintText))}>
-      <div className="relative flex h-[18px] min-w-0 flex-1 items-center gap-1 rounded-[2px] border border-[#1b2124] bg-[#262e32] pl-[2px] pr-1.5 fl-inset">
-        <ChevronRight size={10} className="shrink-0 text-[#8b989e]" />
-        <span className="min-w-0 flex-1 truncate text-[10px] text-[#d3dadd]">{display}</span>
-        <span className="shrink-0 text-[10px] text-[#7d8a90]">{caption}</span>
-        <select
-          className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-default"
-          value={value}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger
           disabled={disabled}
-          onChange={(e) => onChange?.(e.target.value)}
+          className="flex h-[18px] min-w-0 flex-1 cursor-pointer items-center gap-1 rounded-[2px] border border-[#1b2124] bg-[#262e32] pl-[2px] pr-1.5 text-left outline-none fl-inset enabled:hover:bg-[#2b3438] disabled:cursor-default data-[state=open]:bg-[#2b3438]"
         >
-          {children}
-        </select>
-      </div>
+          <ChevronRight size={10} className="shrink-0 text-[#8b989e]" />
+          <span className="min-w-0 flex-1 truncate text-[10px] text-[#d3dadd]">{display}</span>
+          <span className="shrink-0 text-[10px] text-[#7d8a90]">{caption}</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-[60vh] min-w-[var(--radix-dropdown-menu-trigger-width)] max-w-[420px] overflow-auto">
+          {options.map((o) => (
+            <DropdownMenuItem key={o.value} onSelect={() => o.value !== value && onChange?.(o.value)} className={cn('truncate', o.value === value && 'text-fl-orange')}>
+              {o.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
       {extra}
     </div>
   )
@@ -140,38 +144,38 @@ function useAudioInputs(): MediaDeviceInfo[] {
 }
 
 const devLabel = (d: MediaDeviceInfo, i: number) => d.label || (d.deviceId === 'default' ? 'Default input' : `Input ${i + 1}`)
-const CHANNEL_NEXT: Record<MixerTrack['inputChannel'], MixerTrack['inputChannel']> = { stereo: 'left', left: 'right', right: 'stereo' }
-const CHANNEL_SHORT: Record<MixerTrack['inputChannel'], string> = { stereo: 'ST', left: 'L', right: 'R' }
+const CHANNEL_NEXT: Record<MixerTrack['inputChannel'], MixerTrack['inputChannel']> = { mono: 'stereo', stereo: 'left', left: 'right', right: 'mono' }
+const CHANNEL_SHORT: Record<MixerTrack['inputChannel'], string> = { mono: 'M', stereo: 'ST', left: 'L', right: 'R' }
+const CHANNEL_NAME: Record<MixerTrack['inputChannel'], string> = { mono: 'mono (left + right)', stereo: 'stereo', left: 'left only', right: 'right only' }
 
 function InputSelector({ t }: { t: MixerTrack }) {
   const devs = useAudioInputs()
   const di = devs.findIndex((d) => d.deviceId === t.inputDevice)
   const display = t.inputDevice === null ? '(none)' : di >= 0 ? devLabel(devs[di], di) : '(missing device)'
+  const options = [
+    { value: '', label: '(none)' },
+    ...devs.map((d, i) => ({ value: d.deviceId, label: devLabel(d, i) })),
+    ...(t.inputDevice !== null && di < 0 ? [{ value: t.inputDevice, label: '(missing device)' }] : [])
+  ]
   return (
     <IoField
       value={t.inputDevice ?? ''}
       display={display}
       caption="Audio Input"
-      onChange={(v) => setTrack(t.index, { inputDevice: v || null }, 'Change mixer input')}
+      options={options}
+      // picking an input arms the track for disk recording (FL does the same)
+      onChange={(v) => setTrack(t.index, v ? { inputDevice: v, armed: true } : { inputDevice: null }, 'Change mixer input')}
       hintText={`${trackLabel(t)} audio input (for recording)`}
       extra={
         <button
           className="h-[18px] w-[22px] shrink-0 rounded-[2px] border border-[#1b2124] bg-[#3e494f] text-[9px] font-semibold text-[#cfd7db] hover:bg-[#4a565c]"
           onClick={() => setTrack(t.index, { inputChannel: CHANNEL_NEXT[t.inputChannel] }, 'Change mixer input channel')}
-          onMouseEnter={(e) => (e.stopPropagation(), hint(`Input channel: ${t.inputChannel} (click to change)`))}
+          onMouseEnter={(e) => (e.stopPropagation(), hint(`Input channel: ${CHANNEL_NAME[t.inputChannel]} (click: mono › stereo › left › right)`))}
         >
           {CHANNEL_SHORT[t.inputChannel]}
         </button>
       }
-    >
-      <option value="">(none)</option>
-      {devs.map((d, i) => (
-        <option key={d.deviceId || i} value={d.deviceId}>
-          {devLabel(d, i)}
-        </option>
-      ))}
-      {t.inputDevice !== null && di < 0 && <option value={t.inputDevice}>(missing device)</option>}
-    </IoField>
+    />
   )
 }
 
@@ -180,9 +184,7 @@ function OutputSelector({ t }: { t: MixerTrack }) {
   const label = trackLabel(t)
   if (t.index === 0) {
     return (
-      <IoField value="default" display="Default output" caption="Audio Output" disabled hintText="Master output: default audio device">
-        <option value="default">Default output</option>
-      </IoField>
+      <IoField value="default" display="Default output" caption="Audio Output" disabled options={[]} hintText="Master output: default audio device" />
     )
   }
   const value = t.sends.length === 1 ? String(t.sends[0].target) : t.sends.length === 0 ? 'none' : 'multi'
@@ -204,17 +206,12 @@ function OutputSelector({ t }: { t: MixerTrack }) {
         if (v === 'none') setTrack(t.index, { sends: [] }, 'Unroute mixer track')
         else if (v !== 'multi') routeOnly(t.index, Number(v))
       }}
-    >
-      <option value="none">(none)</option>
-      {value === 'multi' && <option value="multi">{display}</option>}
-      {mixer
-        .filter((m) => m.index !== t.index)
-        .map((m) => (
-          <option key={m.index} value={m.index}>
-            {m.index === 0 ? 'Master' : trackLabel(m)}
-          </option>
-        ))}
-    </IoField>
+      options={[
+        { value: 'none', label: '(none)' },
+        ...(value === 'multi' ? [{ value: 'multi', label: display }] : []),
+        ...mixer.filter((m) => m.index !== t.index).map((m) => ({ value: String(m.index), label: m.index === 0 ? 'Master' : trackLabel(m) }))
+      ]}
+    />
   )
 }
 

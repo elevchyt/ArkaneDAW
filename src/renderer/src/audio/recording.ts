@@ -289,8 +289,15 @@ function installTransportHooks(): void {
   origStop = transport.stop
   origPause = transport.pause
   transport.play = async () => {
-    const t = useTransport.getState()
+    let t = useTransport.getState()
     if (t.playing) return origPlay!()
+    if (t.recording && !waiting && !counting && getProject().mixer.some((m) => m.armed && m.index > 0)) {
+      // Audio takes are recorded into the playlist: switch to song mode and show it.
+      if (t.mode === 'pattern') transport.setMode('song')
+      const ui = useUI.getState()
+      if (!ui.windows.playlist?.open || ui.windows.playlist.minimized) ui.openWindow('playlist', { kind: 'playlist', title: 'Playlist - Arrangement' })
+      t = useTransport.getState()
+    }
     if (waiting || counting) {
       // pressing play again while armed-and-waiting starts immediately (FL) — count-in skips ahead too
       cancelRecordStart()

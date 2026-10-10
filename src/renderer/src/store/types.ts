@@ -138,7 +138,8 @@ export interface MixerTrack {
   solo: boolean
   armed: boolean // armed for recording
   inputDevice: string | null // audio input device id for recording
-  inputChannel: 'stereo' | 'left' | 'right'
+  /** mono = left + right summed to one channel (default) */
+  inputChannel: 'mono' | 'stereo' | 'left' | 'right'
   phaseInvert: boolean
   swapLR: boolean
   slots: (FxSlot | null)[]

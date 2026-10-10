@@ -109,6 +109,8 @@ class Scheduler {
       return { start: 0, end: pat ? patternLength(pat, p) : barTicks(p) }
     }
     if (t.loop) return t.loop
+    // Recording in song mode runs on past the last clip (an empty playlist would otherwise loop bar 1).
+    if (t.recording) return { start: 0, end: Number.POSITIVE_INFINITY }
     return { start: 0, end: songLength(p) }
   }
 
