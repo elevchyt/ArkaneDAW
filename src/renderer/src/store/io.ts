@@ -11,11 +11,15 @@ import { flushVstStates } from '../audio/vst'
 
 export const PROJECT_EXT = 'arkane'
 
-function migrate(raw: Project): Project {
+export function migrate(raw: Project): Project {
   const base = makeEmptyProject()
   const p: Project = { ...base, ...raw }
   while (p.mixer.length < base.mixer.length) p.mixer.push(base.mixer[p.mixer.length])
   while (p.playlist.tracks.length < base.playlist.tracks.length) p.playlist.tracks.push(base.playlist.tracks[p.playlist.tracks.length])
+  // "Chiptune Drums" was folded into Chiptune (its Drums mode).
+  p.channels = p.channels.map((c) =>
+    c.plugin?.pluginId === 'chiptunedrums' ? { ...c, plugin: { ...c.plugin, pluginId: 'chiptune', params: { ...c.plugin.params, mode: 1 } } } : c
+  )
   return p
 }
 

@@ -77,5 +77,9 @@ export const PRESETS: Preset[] = [
   mk('Arcade Kit', 'Drums', { mode: 1, 'drum.kit': 2, 'out.rate': 3 }),
   mk('NES Kit Tight', 'Drums', { mode: 1, 'drum.kit': 0, 'drum.decay': 0.6 }),
   mk('Lo-Fi 8k Kit', 'Drums', { mode: 1, 'drum.kit': 0, 'out.rate': 6, 'out.lpf': 6000 }),
-  mk('Smooth Kit (Band-limited)', 'Drums', { mode: 1, 'drum.kit': 0, 'osc.authentic': 0, 'env.quant': 0 })
+  mk('Smooth Kit (Band-limited)', 'Drums', { mode: 1, 'drum.kit': 0, 'osc.authentic': 0, 'env.quant': 0 }),
+  mk('Famicom DAC Kit', 'Drums', { mode: 1, 'drum.kit': 0, 'out.dac': 1 }),
+  mk('Game Boy Pocket Kit', 'Drums', { mode: 1, 'drum.kit': 1, 'out.rate': 4, 'drum.decay': 0.8 }),
+  mk('Arcade Crunch Kit', 'Drums', { mode: 1, 'drum.kit': 2, 'out.rate': 5, 'drum.tune': 2 }),
+  mk('Boss Battle Kit', 'Drums', { mode: 1, 'drum.kit': 2, 'drum.decay': 1.3 })
 ]
