@@ -14,6 +14,16 @@ const host = {
     minimize: () => ipcRenderer.invoke('win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),
     close: () => ipcRenderer.invoke('win:close'),
+    /** Close without asking again (after the unsaved-changes prompt). */
+    forceClose: () => ipcRenderer.invoke('win:forceClose'),
+    /** The user asked to close the window (title bar, Alt+F4, quit): answer with forceClose() or ignore. */
+    onCloseRequest: (cb: () => void) => {
+      const h = () => cb()
+      ipcRenderer.on('win:closeRequest', h)
+      return () => {
+        ipcRenderer.off('win:closeRequest', h)
+      }
+    },
     isMaximized: () => ipcRenderer.invoke('win:isMaximized') as Promise<boolean>,
     setTitle: (t: string) => ipcRenderer.invoke('win:setTitle', t),
     nativeHandle: () => ipcRenderer.invoke('win:nativeHandle') as Promise<number | undefined>,

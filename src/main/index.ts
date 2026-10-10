@@ -45,8 +45,11 @@ function registerAppProtocol(): void {
 }
 
 let win: BrowserWindow | null = null
+/** Set once the renderer agreed to close (no unsaved changes, or the user chose Save / Don't save). */
+let allowClose = false
 
 function createWindow(): void {
+  allowClose = false
   win = new BrowserWindow({
     width: 1600,
     height: 960,
@@ -72,6 +75,15 @@ function createWindow(): void {
     win?.maximize()
     win?.show()
   })
+  // Closing asks the renderer first so it can prompt about unsaved changes; it answers with win:forceClose.
+  win.on('close', (e) => {
+    if (allowClose || !win || win.webContents.isCrashed() || win.webContents.isLoading()) return
+    e.preventDefault()
+    win.webContents.send('win:closeRequest')
+  })
+  win.webContents.on('render-process-gone', () => {
+    allowClose = true
+  })
   win.on('maximize', () => win?.webContents.send('win:state', { maximized: true }))
   win.on('unmaximize', () => win?.webContents.send('win:state', { maximized: false }))
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -85,6 +97,10 @@ function createWindow(): void {
 ipcMain.handle('win:minimize', () => win?.minimize())
 ipcMain.handle('win:toggleMaximize', () => (win?.isMaximized() ? win.unmaximize() : win?.maximize()))
 ipcMain.handle('win:close', () => win?.close())
+ipcMain.handle('win:forceClose', () => {
+  allowClose = true
+  win?.close()
+})
 ipcMain.handle('win:isMaximized', () => win?.isMaximized() ?? false)
 ipcMain.handle('win:setTitle', (_e, title: string) => win?.setTitle(title))
 // X11 window id of the main window: bridged plugin editors (audio/vst) are made transient for it.

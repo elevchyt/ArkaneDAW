@@ -10,12 +10,15 @@ import { useProject } from '@/store/project'
 import { initAudio } from '@/audio/transport'
 import { host } from '@/platform'
 import { SystemChecks } from '@/system/SystemChecks'
+import { UnsavedDialog } from '@/system/UnsavedDialog'
+import { startAutosave } from '@/store/autosave'
 
 export default function App() {
   const browser = useUI((s) => s.browserVisible)
   useGlobalShortcuts()
   useEffect(() => installHintTracking(), [])
   useEffect(() => installMiddleClickReset(), [])
+  useEffect(() => startAutosave(), [])
 
   useEffect(() => {
     // Boot audio right away in Electron; in a browser wait for the first gesture.
@@ -43,6 +46,7 @@ export default function App() {
         </div>
       </div>
       <SystemChecks />
+      <UnsavedDialog />
     </TooltipProvider>
   )
 }

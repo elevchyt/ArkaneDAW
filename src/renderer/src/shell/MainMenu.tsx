@@ -7,6 +7,7 @@ import { guardPack, openSoundLibraries } from '@/packs/guard'
 import { PackBadge } from '@/packs/PackBadge'
 import { PackDialogHost } from '@/packs/PackDialog'
 import { recentFiles } from '@/store/io'
+import { useAutosave } from '@/store/autosave'
 import {
   Menubar,
   MenubarContent,
@@ -41,6 +42,7 @@ export function MainMenu() {
   const undoTo = useProject((s) => s.undoTo)
   const instruments = useAllPlugins('instrument')
   const recent = recentFiles()
+  const autosave = useAutosave((s) => s.last)
 
   return (
     <>
@@ -60,6 +62,11 @@ export function MainMenu() {
               ))}
             </MenubarSubContent>
           </MenubarSub>
+          <Item
+            label={autosave ? `Recover last autosave (${autosave.name}, ${new Date(autosave.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })})` : 'Recover last autosave'}
+            onSelect={commands.recoverAutosave}
+            disabled={!autosave}
+          />
           <MenubarSeparator />
           <Item label="Save" shortcut="Ctrl+S" onSelect={commands.save} />
           <Item label="Save as..." shortcut="Ctrl+Shift+S" onSelect={commands.saveAs} />

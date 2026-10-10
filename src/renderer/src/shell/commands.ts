@@ -10,12 +10,18 @@ import { nextEmptyPattern, addPattern, clonePattern, deletePattern, currentPatte
 import { openExportWizard } from '@/windows/export/open'
 import type { ExportFormat } from '@/windows/export/core'
 import { defaultTemplate } from '@/store/templates'
+import { confirmUnsaved } from '@/system/UnsavedDialog'
+import { recoverAutosave } from '@/store/autosave'
+
+/** Run `fn` once unsaved changes are saved or discarded (no prompt when the project is clean). */
+const guarded = (action: string, fn: () => void) => () => void confirmUnsaved(action).then((ok) => ok && fn())
 
 export const commands = {
-  newProject: () => newProject(defaultTemplate),
-  newEmptyProject: () => newProject(),
-  open: () => void openProject(),
-  openRecent: (p: string) => void openProjectFrom(p),
+  newProject: guarded('starting a new project', () => newProject(defaultTemplate)),
+  newEmptyProject: guarded('starting a new project', () => newProject()),
+  open: guarded('opening another project', () => void openProject()),
+  openRecent: (p: string) => guarded('opening another project', () => void openProjectFrom(p))(),
+  recoverAutosave: guarded('recovering the autosave', () => void recoverAutosave()),
   save: () => void saveProject(false),
   saveAs: () => void saveProject(true),
   saveNewVersion: () => void saveNewVersion(),
