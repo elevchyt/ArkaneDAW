@@ -61,13 +61,13 @@ export function NoteProps({ ctl }: { ctl: PianoRollController }) {
     <Dialog open={!!note && !!draft} onOpenChange={(o) => !o && close()}>
       <DialogContent
         showCloseButton={false}
-        className="w-[340px] gap-0 rounded-[3px] border border-[#11161a] bg-fl-panel p-0 text-[11px] text-fl-text shadow-[0_8px_30px_rgba(0,0,0,.6)] sm:max-w-[340px]"
+        className="flex w-[360px] flex-col gap-0 overflow-hidden rounded-[3px] border border-[#11161a] bg-fl-panel p-0 text-[11px] text-fl-text shadow-[0_8px_30px_rgba(0,0,0,.6)] sm:max-w-[360px]"
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !(e.target instanceof HTMLInputElement)) accept()
           e.stopPropagation()
         }}
       >
-        <div className="flex h-[22px] items-center bg-fl-title-active px-2 text-[11px] text-[#eef2f4]">
+        <div className="flex h-[22px] shrink-0 items-center bg-fl-title-active px-2 text-[11px] text-[#eef2f4]">
           <DialogTitle className="text-[11px] font-medium">
             {note ? `${noteName(note.key)} – note properties${multi ? ` (${ctl.sel.size} notes)` : ''}` : 'Note properties'}
           </DialogTitle>
@@ -83,20 +83,22 @@ export function NoteProps({ ctl }: { ctl: PianoRollController }) {
               <Knob size={34} label="Mod Y" bipolar value={draft.modY} onChange={(v) => set({ modY: v })} onReset={() => set({ modY: 0.5 })} hint={`Mod Y: ${pct(draft.modY)}`} />
               <Knob size={34} label="Pitch" bipolar value={(draft.fine + 120) / 240} onChange={(v) => set({ fine: Math.round(v * 240 - 120) })} onReset={() => set({ fine: 0 })} hint={`Fine pitch: ${draft.fine} cents`} />
             </div>
-            <div className="flex items-center gap-1">
-              <span className="w-12 text-fl-dim">Color</span>
-              {NOTE_COLORS.map((c, i) => (
-                <button
-                  key={c}
-                  title={`Color group ${i + 1}`}
-                  className={cn('h-3.5 w-3.5 rounded-[2px] border', draft.color === i ? 'border-white' : 'border-[#1b2124]')}
-                  style={{ background: c }}
-                  onClick={() => set({ color: i })}
-                />
-              ))}
+            <div className="flex items-center gap-2">
+              <span className="w-12 shrink-0 text-fl-dim">Color</span>
+              <div className="grid min-w-0 flex-1 grid-cols-[repeat(16,minmax(0,1fr))] gap-[3px]">
+                {NOTE_COLORS.map((c, i) => (
+                  <button
+                    key={c}
+                    title={`Color group ${i + 1}`}
+                    className={cn('aspect-square rounded-[2px] border', draft.color === i ? 'border-white' : 'border-[#1b2124]')}
+                    style={{ background: c }}
+                    onClick={() => set({ color: i })}
+                  />
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-12 text-fl-dim">Mode</span>
+              <span className="w-12 shrink-0 text-fl-dim">Mode</span>
               <Toggle on={draft.slide} onClick={() => set({ slide: !draft.slide })}>
                 Slide
               </Toggle>
@@ -105,7 +107,7 @@ export function NoteProps({ ctl }: { ctl: PianoRollController }) {
               </Toggle>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-12 text-fl-dim">Time</span>
+              <span className="w-12 shrink-0 text-fl-dim">Time</span>
               <input
                 disabled={multi}
                 value={multi ? '(multiple)' : time}

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useUI } from '@/store/ui'
 import { useTransport } from '@/store/transport'
-import { useProject, getProject } from '@/store/project'
+import { getProject } from '@/store/project'
 import { initAudio, transport } from '@/audio/transport'
 import { cloneChannels, deleteChannels, moveChannels, routeToFreeInserts, selectPattern, nextEmptyPattern, addPattern } from '@/store/actions'
 import { commands } from './commands'
@@ -182,22 +182,6 @@ export function useGlobalShortcuts(): void {
         case /^Numpad[1-9]$/.test(e.code): {
           const n = getProject().patterns[Number(e.code.slice(6)) - 1]
           if (n) selectPattern(n.id)
-          break
-        }
-        case /^Digit[0-9]$/.test(e.code) && !e.altKey && !e.shiftKey: {
-          // 1..9,0: mute first 10 channels; Ctrl: solo
-          const idx = e.code === 'Digit0' ? 9 : Number(e.code.slice(5)) - 1
-          const ch = getProject().channels[idx]
-          if (!ch) break
-          useProject.getState().edit(ctrl ? 'Solo channel' : 'Mute channel', (d) => {
-            if (ctrl) {
-              const solo = d.channels.every((c) => (c.id === ch.id ? !c.muted : c.muted))
-              for (const c of d.channels) c.muted = solo ? false : c.id !== ch.id
-            } else {
-              const c = d.channels[idx]
-              c.muted = !c.muted
-            }
-          })
           break
         }
         default:

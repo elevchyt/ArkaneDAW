@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { trackOneShot } from '@/audio/oneshots'
 import { ChevronRight, File, Folder, FolderOpen, Music, Plug, Puzzle, Waves, Box } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { host } from '@/platform'
@@ -62,6 +63,7 @@ async function preview(path: string): Promise<void> {
   src.buffer = buf
   src.connect(engine.masterOut)
   src.start()
+  trackOneShot(src)
   previewSrc = src
 }
 

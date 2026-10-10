@@ -1,5 +1,6 @@
 // Live playback: look-ahead scheduler (25 ms tick, ~120 ms horizon) driving the AudioEngine.
 import { useProject, getProject } from '../store/project'
+import { stopOneShots } from './oneshots'
 import { useTransport, playhead } from '../store/transport'
 import { useUI } from '../store/ui'
 import { PPQ, type Automation, type AutomationTarget, type Project } from '../store/types'
@@ -331,11 +332,16 @@ export const transport = {
     useTransport.getState().set({ playing: true, paused: false })
     scheduler.start(from)
   },
+  /** Stop playback. Pressed again while nothing plays, it cuts every sound at once (tails, held notes, previews). */
   stop(): void {
     const t = useTransport.getState()
     scheduler.stop()
     useTransport.getState().set({ playing: false, paused: false })
     playhead.set(t.startTick)
+    if (!t.playing) {
+      engine?.panic(true)
+      stopOneShots()
+    }
   },
   pause(): void {
     if (!useTransport.getState().playing) return
