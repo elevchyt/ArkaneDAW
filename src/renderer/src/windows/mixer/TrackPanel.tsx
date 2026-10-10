@@ -144,7 +144,8 @@ function useAudioInputs(): MediaDeviceInfo[] {
 }
 
 const devLabel = (d: MediaDeviceInfo, i: number) => d.label || (d.deviceId === 'default' ? 'Default input' : `Input ${i + 1}`)
-const CHANNEL_NEXT: Record<MixerTrack['inputChannel'], MixerTrack['inputChannel']> = { mono: 'stereo', stereo: 'left', left: 'right', right: 'mono' }
+// left / right only survive in older projects: the button toggles stereo <-> mono
+const CHANNEL_NEXT: Record<MixerTrack['inputChannel'], MixerTrack['inputChannel']> = { mono: 'stereo', stereo: 'mono', left: 'stereo', right: 'stereo' }
 const CHANNEL_SHORT: Record<MixerTrack['inputChannel'], string> = { mono: 'M', stereo: 'ST', left: 'L', right: 'R' }
 const CHANNEL_NAME: Record<MixerTrack['inputChannel'], string> = { mono: 'mono (left + right)', stereo: 'stereo', left: 'left only', right: 'right only' }
 
@@ -170,7 +171,7 @@ function InputSelector({ t }: { t: MixerTrack }) {
         <button
           className="h-[18px] w-[22px] shrink-0 rounded-[2px] border border-[#1b2124] bg-[#3e494f] text-[9px] font-semibold text-[#cfd7db] hover:bg-[#4a565c]"
           onClick={() => setTrack(t.index, { inputChannel: CHANNEL_NEXT[t.inputChannel] }, 'Change mixer input channel')}
-          onMouseEnter={(e) => (e.stopPropagation(), hint(`Input channel: ${CHANNEL_NAME[t.inputChannel]} (click: mono › stereo › left › right)`))}
+          onMouseEnter={(e) => (e.stopPropagation(), hint(`Input channel: ${CHANNEL_NAME[t.inputChannel]} (click to switch stereo / mono)`))}
         >
           {CHANNEL_SHORT[t.inputChannel]}
         </button>

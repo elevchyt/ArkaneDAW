@@ -80,7 +80,7 @@ export function makeMixerTrack(index: number): MixerTrack {
     solo: false,
     armed: false,
     inputDevice: null,
-    inputChannel: 'mono',
+    inputChannel: 'stereo',
     phaseInvert: false,
     swapLR: false,
     slots: Array.from({ length: FX_SLOTS }, () => null),
