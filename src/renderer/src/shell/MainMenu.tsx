@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/menubar'
 import { commands } from './commands'
 import { checkForUpdatesNow } from '@/system/update'
+import { version } from '../../../../package.json'
 
 const trig = 'h-[18px] rounded-sm px-1.5 py-0 text-[11px] font-semibold tracking-wide text-[#d4dbde] data-[state=open]:bg-fl-orange data-[state=open]:text-[#1b1f22]'
 
@@ -165,7 +166,7 @@ export function MainMenu() {
       <MenubarMenu>
         <MenubarTrigger className={trig}>HELP</MenubarTrigger>
         <MenubarContent>
-          <MenubarLabel>ArkaneDAW 0.1</MenubarLabel>
+          <MenubarLabel>ArkaneDAW {version}</MenubarLabel>
           <MenubarSeparator />
           <Item label="Check for updates…" onSelect={() => void checkForUpdatesNow()} />
         </MenubarContent>
