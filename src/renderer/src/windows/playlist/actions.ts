@@ -1,5 +1,6 @@
 // Playlist editing operations that touch the project (all undoable through editProject).
 import { editProject, getProject } from '@/store/project'
+import { autoCrossfade, clampFades } from '@/audio/fades'
 import { uid, makeChannel, makePlaylistTrack, CHANNEL_COLORS, PATTERN_COLORS } from '@/store/factory'
 import { PPQ, PLAYLIST_TRACKS, type Automation, type AutomationTarget, type Clip, type Project, type Sample } from '@/store/types'
 import { useUI } from '@/store/ui'
@@ -14,6 +15,8 @@ export const ticksPerSecond = (p: Pick<Project, 'tempo'>): number => (p.tempo * 
 
 /** Commit a preview clip array as one undo step (only the differences are written). */
 export function commitClips(label: string, before: readonly Clip[], after: readonly Clip[]): void {
+  // audio clips: fades stay inside resized clips; new overlaps on a track become crossfades
+  after = autoCrossfade(before, after.map(clampFades))
   const diff = diffClips(before, after)
   if (!diff.removed.size && !diff.upserts.length) return
   const r = withAudioChannels(diff.upserts)

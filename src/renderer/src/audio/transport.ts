@@ -1,5 +1,6 @@
 // Live playback: look-ahead scheduler (25 ms tick, ~120 ms horizon) driving the AudioEngine.
 import { useProject, getProject } from '../store/project'
+import { hasFades, scheduleClipFades } from './fades'
 import { stopOneShots } from './oneshots'
 import { useTransport, playhead } from '../store/transport'
 import { useUI } from '../store/ui'
@@ -212,12 +213,19 @@ class Scheduler {
     const src = ctx.createBufferSource()
     src.buffer = buf
     const strip = clip.channelId ? e.channels.get(clip.channelId) : null
-    src.connect(strip ? strip.input : e.mixer[0]!.input)
+    const dest = strip ? strip.input : e.mixer[0]!.input
     const tps = this.tps()
     const offsetSec = (clip.offset + intoTicks) / tps
     const durSec = (clip.length - intoTicks) / tps
     if (offsetSec >= buf.duration) return
-    src.start(Math.max(when, ctx.currentTime), offsetSec, durSec)
+    const startAt = Math.max(when, ctx.currentTime)
+    if (hasFades(clip)) {
+      const g = ctx.createGain()
+      scheduleClipFades(g.gain, clip, startAt, intoTicks, tps)
+      src.connect(g).connect(dest)
+      src.addEventListener('ended', () => g.disconnect(), { once: true })
+    } else src.connect(dest)
+    src.start(startAt, offsetSec, durSec)
     this.sources.add(src)
     src.onended = () => this.sources.delete(src)
   }

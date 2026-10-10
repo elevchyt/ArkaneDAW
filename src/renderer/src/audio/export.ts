@@ -5,6 +5,7 @@
 //   exportProject()  plans the files (single mix / playlist stems / mixer stems), renders each, applies the tail
 //                    mode, normalize/mono/dither, and encodes (WAV in-process, MP3/OGG/FLAC through system ffmpeg).
 import { getProject } from '../store/project'
+import { hasFades, scheduleClipFades } from './fades'
 import { useUI } from '../store/ui'
 import { PPQ, type Project } from '../store/types'
 import { host } from '../platform'
@@ -181,7 +182,12 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
           const src = ctx.createBufferSource()
           src.buffer = buf
           const strip = clip.channelId ? engine.channels.get(clip.channelId) : null
-          src.connect(strip ? strip.input : engine.mixer[0]!.input)
+          const dest = strip ? strip.input : engine.mixer[0]!.input
+          if (hasFades(clip)) {
+            const g = ctx.createGain()
+            scheduleClipFades(g.gain, clip, at(clip.start), 0, tps)
+            src.connect(g).connect(dest)
+          } else src.connect(dest)
           src.start(at(clip.start), clip.offset / tps, clip.length / tps)
         } else if (clip.kind === 'automation') {
           // Same sampling as the live scheduler (transport.ts scheduleAutomation): every 1/16 beat.

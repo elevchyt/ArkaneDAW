@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useProject, getProject } from '@/store/project'
 import { useUI, type Tool } from '@/store/ui'
 import { useTransport, playhead } from '@/store/transport'
-import { PLAYLIST_TRACKS, type AutomationPoint, type Clip } from '@/store/types'
+import { PLAYLIST_TRACKS, PPQ, type AutomationPoint, type Clip } from '@/store/types'
 import { barTicks } from '@/audio/sequence'
 import { transport } from '@/audio/transport'
 import { uid } from '@/store/factory'
@@ -20,6 +20,8 @@ import {
   trackAtY,
   xToTick,
   zoomAround,
+  fadeZone,
+  type FadeZone,
   type View,
   type Zone
 } from './geometry'
@@ -56,6 +58,7 @@ type Drag =
   | { kind: 'pan'; sx: number; sy: number; scrollTick: number; scrollY: number }
   | { kind: 'auto'; clip: Clip; autoId: string; before: AutomationPoint[]; points: AutomationPoint[]; index: number; mode: 'point' | 'tension'; orig: number; downY: number; bh: number; by: number }
   | { kind: 'scrub' }
+  | { kind: 'fade'; zone: FadeZone; clip: Clip; before: Clip[]; downY: number; preview: Clip[] }
 
 interface Hit {
   clip: Clip
@@ -66,6 +69,8 @@ interface Hit {
   h: number
   th: number
 }
+
+const isFadeZone = (z: Zone): z is FadeZone => z === 'fadeIn' || z === 'fadeOut' || z === 'fadeInCurve' || z === 'fadeOutCurve'
 
 const TOOL_CURSOR: Partial<Record<Tool, string>> = {
   delete: 'not-allowed',
@@ -250,13 +255,22 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     const cy = y + v.scrollY
     if (cy < 0 || cy >= off[off.length - 1]) return null
     const track = trackAtY(off, cy)
-    const clip = clipAt(clips, xToTick(v, x), track)
+    const tick = xToTick(v, x)
+    const clip = clipAt(clips, tick, track)
     if (!clip) return null
-    const cx = tickToX(v, clip.start)
     const top = off[track] - v.scrollY + 1
     const th = off[track + 1] - off[track]
-    const w = clip.length * v.ppt
-    return { clip, zone: hitZone(x - cx, y - top, w, th - 2), x: cx, y: top, w, h: th - 2, th }
+    const rect = (c: Clip) => ({ x: tickToX(v, c.start), y: top, w: c.length * v.ppt, h: th - 2, th })
+    // fade handles of every audio clip under the pointer (crossfades overlap: the lower clip's fade-out too)
+    for (let i = clips.length - 1; i >= 0; i--) {
+      const c = clips[i]
+      if (c.track !== track || c.kind !== 'audio' || tick < c.start - 8 / v.ppt || tick > c.start + c.length + 8 / v.ppt) continue
+      const r = rect(c)
+      const fz = fadeZone(c, x - r.x, y - top, r.w, r.h, th, v.ppt)
+      if (fz) return { clip: c, zone: fz, ...r }
+    }
+    const r = rect(clip)
+    return { clip, zone: hitZone(x - r.x, y - top, r.w, r.h), ...r }
   }
 
   const gridSize = (alt: boolean): number => (alt ? 1 : snapTicks(effectiveSnap(), getPl().ppt, barTicks(getProject())))
@@ -317,6 +331,11 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       return start({ kind: 'delete', before: clips, removed, preview: clips.filter((c) => !removed.has(c.id)) })
     }
     if (e.button !== 0) return
+
+    // audio clip fade handles (any editing tool)
+    if (hit && isFadeZone(hit.zone) && (tool === 'draw' || tool === 'paint' || tool === 'select')) {
+      return start({ kind: 'fade', zone: hit.zone, clip: hit.clip, before: clips, downY: y, preview: clips })
+    }
 
     switch (tool) {
       case 'zoom':
@@ -530,6 +549,23 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       case 'scrub':
         transport.seek(Math.max(0, tick))
         return
+      case 'fade': {
+        const c = d.clip
+        let next: Clip
+        if (d.zone === 'fadeIn') next = { ...c, fadeIn: Math.round(Math.max(0, Math.min(c.length - (c.fadeOut ?? 0), tick - c.start))) }
+        else if (d.zone === 'fadeOut') next = { ...c, fadeOut: Math.round(Math.max(0, Math.min(c.length - (c.fadeIn ?? 0), c.start + c.length - tick))) }
+        else {
+          const key = d.zone === 'fadeInCurve' ? 'fadeInTension' : 'fadeOutTension'
+          next = { ...c, [key]: Math.max(-1, Math.min(1, (c[key] ?? 0) - (y - d.downY) / 70)) }
+        }
+        d.preview = d.before.map((x) => (x.id === c.id ? next : x))
+        const tps = (p.tempo * PPQ) / 60
+        const ms = (t: number | undefined) => `${Math.round(((t ?? 0) / tps) * 1000)} ms`
+        if (d.zone === 'fadeIn') useUI.getState().setHint(`Fade in: ${ms(next.fadeIn)}`)
+        else if (d.zone === 'fadeOut') useUI.getState().setHint(`Fade out: ${ms(next.fadeOut)}`)
+        else useUI.getState().setHint(`Fade curve: ${Math.round(((d.zone === 'fadeInCurve' ? next.fadeInTension : next.fadeOutTension) ?? 0) * 100)}%`)
+        break
+      }
       case 'auto': {
         const m = autoMapper(v, d.clip, d.by, d.bh)
         if (d.mode === 'point') {
@@ -593,6 +629,9 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       case 'scrub':
         transport.stop()
         break
+      case 'fade':
+        commitClips(d.zone === 'fadeIn' ? 'Fade in' : d.zone === 'fadeOut' ? 'Fade out' : 'Fade curve', d.before, d.preview)
+        break
       case 'auto':
         if (d.points !== d.before) setAutomationPoints(d.autoId, d.points, d.mode === 'tension' ? 'Automation tension' : 'Edit automation')
         break
@@ -610,7 +649,18 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     const hit = hitAt(x, y, p.playlist.clips)
     let cursor = TOOL_CURSOR[tool] ?? 'default'
     if (hit) {
-      if ((tool === 'draw' || tool === 'paint' || tool === 'select') && (hit.zone === 'left' || hit.zone === 'right')) cursor = 'ew-resize'
+      const editing = tool === 'draw' || tool === 'paint' || tool === 'select'
+      if (editing && isFadeZone(hit.zone)) {
+        cursor = hit.zone === 'fadeIn' || hit.zone === 'fadeOut' ? 'ew-resize' : 'ns-resize'
+        useUI.getState().setHint(
+          hit.zone === 'fadeIn' || hit.zone === 'fadeOut'
+            ? `Drag to ${hit.zone === 'fadeIn' ? 'fade in' : 'fade out'} (overlapping audio clips crossfade automatically)`
+            : 'Drag up / down to bend the fade curve · double-click to reset'
+        )
+        if (cv.style.cursor !== cursor) cv.style.cursor = cursor
+        return
+      }
+      if (editing && (hit.zone === 'left' || hit.zone === 'right')) cursor = 'ew-resize'
       else if (hit.zone === 'header' && x - Math.max(hit.x, 0) < 12) cursor = 'context-menu'
       else if (tool === 'draw' || tool === 'paint') cursor = hit.clip.kind === 'automation' && hit.zone === 'body' && hit.th >= 40 ? 'crosshair' : 'move'
       const bar = barTicks(p)
@@ -625,6 +675,12 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     const { x, y } = local(e)
     const hit = hitAt(x, y, getProject().playlist.clips)
     if (!hit) return
+    if (hit.zone === 'fadeInCurve' || hit.zone === 'fadeOutCurve') {
+      const clips = getProject().playlist.clips
+      const key = hit.zone === 'fadeInCurve' ? 'fadeInTension' : 'fadeOutTension'
+      commitClips('Reset fade curve', clips, clips.map((c) => (c.id === hit.clip.id ? { ...c, [key]: 0 } : c)))
+      return
+    }
     if (hit.clip.kind === 'pattern') openPatternEditor(hit.clip.ref)
   }
 

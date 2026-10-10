@@ -1,5 +1,6 @@
 // Pure clip-editing operations. All functions return new objects and never mutate inputs.
 import type { Clip } from '@/store/types'
+import { splitFades } from '@/audio/fades'
 
 export type IdGen = () => string
 
@@ -72,10 +73,7 @@ export function slipClip(c: Clip, dTick: number, origOffset: number, wrap = 0, m
 export function sliceClip(c: Clip, at: number, gen: IdGen = seqId): [Clip, Clip] | null {
   if (at <= c.start || at >= c.start + c.length) return null
   const leftLen = at - c.start
-  return [
-    { ...c, length: leftLen },
-    { ...c, id: gen(), start: at, length: c.length - leftLen, offset: c.offset + leftLen }
-  ]
+  return splitFades({ ...c, length: leftLen }, { ...c, id: gen(), start: at, length: c.length - leftLen, offset: c.offset + leftLen })
 }
 
 /** Slice every clip on tracks [tr0, tr1] crossing `at`. */
@@ -101,7 +99,11 @@ export function chopClip(c: Clip, size: number, gen: IdGen = seqId): Clip[] {
   const out: Clip[] = []
   for (let s = 0; s < c.length; s += size) {
     const len = Math.min(size, c.length - s)
-    out.push({ ...c, id: s === 0 ? c.id : gen(), start: c.start + s, length: len, offset: c.offset + s })
+    const piece: Clip = { ...c, id: s === 0 ? c.id : gen(), start: c.start + s, length: len, offset: c.offset + s }
+    // only the first piece keeps the fade-in and only the last the fade-out
+    if (s > 0 && piece.fadeIn !== undefined) piece.fadeIn = 0
+    if (s + len < c.length && piece.fadeOut !== undefined) piece.fadeOut = 0
+    out.push(piece)
   }
   return out
 }
@@ -131,9 +133,7 @@ export function deleteSpace(clips: readonly Clip[], from: number, to: number, ge
     else if (c.start >= from && end <= to) continue // fully inside: removed
     else if (c.start < from && end > to) {
       // spans the whole range: keep head, shift tail
-      const head = { ...c, length: from - c.start }
-      const tail = { ...c, id: gen(), start: from, length: end - to, offset: c.offset + (to - c.start) }
-      out.push(head, tail)
+      out.push(...splitFades({ ...c, length: from - c.start }, { ...c, id: gen(), start: from, length: end - to, offset: c.offset + (to - c.start) }))
     } else if (c.start < from) out.push({ ...c, length: from - c.start })
     else out.push({ ...c, start: from, length: end - to, offset: c.offset + (to - c.start) })
   }

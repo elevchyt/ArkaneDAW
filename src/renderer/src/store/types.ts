@@ -95,6 +95,12 @@ export interface Clip {
   muted: boolean
   /** Audio clips: which channel (kind 'audio') owns playback settings. */
   channelId?: ID
+  /** Audio clips: fade-in / fade-out length in ticks (overlapping clips get them as a crossfade). */
+  fadeIn?: number
+  fadeOut?: number
+  /** Fade curve tension -1..1 (0 = linear, + = fast start, - = slow start). */
+  fadeInTension?: number
+  fadeOutTension?: number
 }
 
 export interface PlaylistTrack {
@@ -138,7 +144,7 @@ export interface MixerTrack {
   solo: boolean
   armed: boolean // armed for recording
   inputDevice: string | null // audio input device id for recording
-  /** mono = left + right summed to one channel (default) */
+  /** stereo (default) or mono (left + right summed); left / right only in older projects */
   inputChannel: 'mono' | 'stereo' | 'left' | 'right'
   phaseInvert: boolean
   swapLR: boolean

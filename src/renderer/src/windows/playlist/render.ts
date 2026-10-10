@@ -2,7 +2,8 @@
 import { PPQ, type Automation, type Clip, type Pattern, type Project } from '@/store/types'
 import { automationValue, patternLength } from '@/audio/sequence'
 import { getBuffer, loadSample } from '@/audio/samples'
-import { headerHeight, lineTicks, tickToX, type View } from './geometry'
+import { FADE_HANDLE_PX, fadeGeom, headerHeight, lineTicks, tickToX, type View } from './geometry'
+import { clipGainAt, hasFades } from '@/audio/fades'
 import { peakRange, peaksFor } from './peaks'
 import { handlePos } from './automation'
 import { sourceColor, sourceName, ticksPerSecond } from './actions'
@@ -223,6 +224,7 @@ function drawClips(s: GridScene, t0: number, t1: number): void {
         if (pat) drawPatternNotes(ctx, view, c, pat, project, bodyY, bodyH, color, w)
       } else if (c.kind === 'audio') {
         drawWaveform(ctx, view, c, project, bodyY, bodyH, color, w, s.onAsset)
+        drawFadeCurves(ctx, view, c, x, y, cw, ch, th)
       } else {
         const a = autos.get(c.ref)
         if (a) {
@@ -262,6 +264,93 @@ function drawClips(s: GridScene, t0: number, t1: number): void {
     ctx.lineWidth = selected ? 1.5 : 1
     ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.max(1, Math.round(cw) - 1), ch - 1)
     ctx.lineWidth = 1
+    if (c.kind === 'audio' && !muted) drawFadeHandles(ctx, view, c, x, y, cw, ch, th, selected)
+  }
+  // crossfades: a later clip covers the earlier one's fade-out, so draw that curve and its handles on top
+  for (const c of s.clips) {
+    if (c.kind !== 'audio' || !c.fadeOut || c.track < t0 || c.track > t1) continue
+    const end = c.start + c.length
+    if (!s.clips.some((o) => o !== c && o.kind === 'audio' && o.track === c.track && o.start > c.start && o.start < end)) continue
+    if (c.start > tEnd || end < tStart) continue
+    const x = tickToX(view, c.start)
+    const cw = Math.max(1, c.length * view.ppt)
+    const y = offsets[c.track] - view.scrollY + 1
+    const th = offsets[c.track + 1] - offsets[c.track]
+    const ch = th - 2
+    const g = fadeGeom(c, cw, ch, th, view.ppt)
+    const bottom = y + g.top + g.height
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.setLineDash([3, 2])
+    ctx.beginPath()
+    const n = Math.max(2, Math.min(96, Math.ceil(cw - g.outX)))
+    for (let i = 0; i <= n; i++) {
+      const px = g.outX + ((cw - g.outX) * i) / n
+      const py = bottom - clipGainAt(c, px / view.ppt) * g.height
+      if (i) ctx.lineTo(x + px, py)
+      else ctx.moveTo(x + px, py)
+    }
+    ctx.stroke()
+    ctx.restore()
+    drawFadeHandles(ctx, view, c, x, y, cw, ch, th, s.selected.has(c.id), 'out')
+  }
+}
+
+/** Shade the faded-out part of an audio clip and draw the fade curves. */
+function drawFadeCurves(ctx: CanvasRenderingContext2D, view: View, c: Clip, x: number, y: number, cw: number, ch: number, th: number): void {
+  if (!hasFades(c)) return
+  const g = fadeGeom(c, cw, ch, th, view.ppt)
+  const bottom = y + g.top + g.height
+  const yOf = (gain: number) => bottom - gain * g.height
+  const curve = (x0: number, x1: number, gainAt: (px: number) => number) => {
+    const pts: [number, number][] = []
+    const n = Math.max(2, Math.min(96, Math.ceil(x1 - x0)))
+    for (let i = 0; i <= n; i++) {
+      const px = x0 + ((x1 - x0) * i) / n
+      pts.push([x + px, yOf(gainAt(px))])
+    }
+    return pts
+  }
+  const shapes: [number, number][][] = []
+  if (g.inX >= 1) shapes.push(curve(0, g.inX, (px) => clipGainAt(c, px / view.ppt)))
+  if (cw - g.outX >= 1) shapes.push(curve(g.outX, cw, (px) => clipGainAt(c, px / view.ppt)))
+  for (const pts of shapes) {
+    // darken above the curve (the attenuated part)
+    ctx.fillStyle = 'rgba(0,0,0,0.42)'
+    ctx.beginPath()
+    ctx.moveTo(pts[0][0], y + g.top)
+    for (const [px, py] of pts) ctx.lineTo(px, py)
+    ctx.lineTo(pts[pts.length - 1][0], y + g.top)
+    ctx.closePath()
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.beginPath()
+    pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)))
+    ctx.stroke()
+  }
+}
+
+/** FL-style fade handles: small squares at the top corners of the body, plus tension dots on the curves. */
+function drawFadeHandles(ctx: CanvasRenderingContext2D, view: View, c: Clip, x: number, y: number, cw: number, ch: number, th: number, selected: boolean, only?: 'out'): void {
+  if (cw < 16 || ch - headerHeight(th) < 10) return
+  const g = fadeGeom(c, cw, ch, th, view.ppt)
+  const sz = FADE_HANDLE_PX
+  ctx.fillStyle = selected ? '#ffd36b' : 'rgba(238,242,244,0.9)'
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)'
+  const box = (cx: number) => {
+    const bx = Math.round(x + Math.min(cw - sz, Math.max(0, cx - sz / 2)))
+    const by = Math.round(y + g.handleY - sz / 2)
+    ctx.fillRect(bx, by, sz, sz)
+    ctx.strokeRect(bx + 0.5, by + 0.5, sz - 1, sz - 1)
+  }
+  if (!only) box(g.inX)
+  box(g.outX)
+  for (const m of only ? [g.outMid] : [g.inMid, g.outMid]) {
+    if (!m) continue
+    ctx.beginPath()
+    ctx.arc(x + m.x, y + m.y, 3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
   }
 }
 

@@ -1,5 +1,6 @@
 // Pure layout / snapping / hit-testing helpers for the Playlist. No DOM, no stores.
 import { PPQ, TICKS_PER_STEP, type Clip } from '@/store/types'
+import { fadeIn, fadeOut, fadeShape } from '@/audio/fades'
 import type { Snap } from '@/store/ui'
 
 /** Viewport of the clip grid. Horizontal position is in ticks so zooming keeps a stable anchor. */
@@ -114,7 +115,8 @@ export function clipsInRect(clips: readonly Clip[], t0: number, t1: number, tr0:
   return clips.filter((c) => c.track >= lo && c.track <= hi && c.start < b && c.start + c.length > a)
 }
 
-export type Zone = 'left' | 'right' | 'header' | 'body'
+export type Zone = 'left' | 'right' | 'header' | 'body' | FadeZone
+export type FadeZone = 'fadeIn' | 'fadeOut' | 'fadeInCurve' | 'fadeOutCurve'
 
 export const HEADER_H = 13
 export const EDGE_PX = 6
@@ -157,4 +159,54 @@ export function formatPos(tick: number, bar: number): string {
   const step = Math.floor(inBar / TICKS_PER_STEP) + 1
   const t = Math.round(inBar % TICKS_PER_STEP)
   return `${b}:${String(step).padStart(2, '0')}:${String(t).padStart(2, '0')}`
+}
+
+// ── audio clip fades ─────────────────────────────────────────────────────────
+/** Fade handles sit at the top corners of the clip body (below the title strip, clear of the menu arrow). */
+export const FADE_HANDLE_PX = 6
+
+export interface FadeGeom {
+  /** body top / height (local px) the fade curves span */
+  top: number
+  height: number
+  inX: number
+  outX: number
+  handleY: number
+  /** curve middle points (tension handles), null when the fade is too short to grab */
+  inMid: { x: number; y: number } | null
+  outMid: { x: number; y: number } | null
+}
+
+/** Local-px layout of an audio clip's fades. `w`/`h` = clip size, `th` = track height, `ppt` = px per tick. */
+export function fadeGeom(c: Clip, w: number, h: number, th: number, ppt: number): FadeGeom {
+  const top = headerHeight(th)
+  const height = Math.max(1, h - top)
+  const fi = Math.min(w, fadeIn(c) * ppt)
+  const fo = Math.min(w, fadeOut(c) * ppt)
+  const midY = (g: number) => top + height - g * height
+  return {
+    top,
+    height,
+    inX: fi,
+    outX: w - fo,
+    handleY: top + FADE_HANDLE_PX / 2 + 1,
+    inMid: fi >= 14 ? { x: fi / 2, y: midY(fadeShape(0.5, c.fadeInTension ?? 0)) } : null,
+    outMid: fo >= 14 ? { x: w - fo / 2, y: midY(fadeShape(0.5, c.fadeOutTension ?? 0)) } : null
+  }
+}
+
+/** Which fade handle (if any) a local point hits on an audio clip wide/tall enough to show them. */
+export function fadeZone(c: Clip, px: number, py: number, w: number, h: number, th: number, ppt: number): FadeZone | null {
+  if (c.kind !== 'audio' || w < 16 || h - headerHeight(th) < 10) return null
+  const g = fadeGeom(c, w, h, th, ppt)
+  const near = (x: number, y: number, r: number) => Math.abs(px - x) <= r && Math.abs(py - y) <= r
+  if (g.inMid && near(g.inMid.x, g.inMid.y, 5)) return 'fadeInCurve'
+  if (g.outMid && near(g.outMid.x, g.outMid.y, 5)) return 'fadeOutCurve'
+  // with both handles at the same spot (fades meet), grab the one on the side of the pointer
+  const dIn = Math.abs(px - Math.max(g.inX, FADE_HANDLE_PX / 2))
+  const dOut = Math.abs(px - Math.min(g.outX, w - FADE_HANDLE_PX / 2))
+  if (Math.abs(py - g.handleY) > 6) return null
+  if (dIn <= 6 && (dIn < dOut || (dIn === dOut && px < w / 2))) return 'fadeIn'
+  if (dOut <= 6) return 'fadeOut'
+  return null
 }
