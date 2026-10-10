@@ -21,6 +21,12 @@ export interface PluginEditorProps {
   postToDSP: (msg: unknown) => void
   /** Audition a note on this instrument (instrument editors only). */
   previewNote?: (key: number, velocity: number, on: boolean) => void
+  /**
+   * Instruments only: keys the user is holding on this channel right now, from any source (typing keyboard,
+   * MIDI controller, piano roll, this editor's own keyboard). Calls back immediately and on every change.
+   * Use `useHeldKeys(p)` from sdk/ui to light up an on-screen keyboard.
+   */
+  liveKeys?: (cb: (keys: ReadonlySet<number>) => void) => () => void
   /** Report a hovered control for the main window hint bar. */
   hint: (text: string) => void
   /**

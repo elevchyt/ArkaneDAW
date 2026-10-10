@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { PluginEditorProps } from '../sdk/module'
+import { useHeldKeys } from '../sdk/ui'
 import { ALGORITHMS, CURVE_NAMES, PITCHENV_TAB } from './tables'
 import { algoLayout } from './layout'
 
@@ -315,6 +316,8 @@ const BLACK = [1, 3, -1, 6, 8, 10, -1]
 export function MiniKeys({ p, low = 48, octaves = 3, width = 232, height = 52 }: { p: P; low?: number; octaves?: number; width?: number; height?: number }) {
   const cur = useRef<number | null>(null)
   const [down, setDown] = useState<number | null>(null)
+  const live = useHeldKeys(p)
+  const lit = (k: number) => down === k || live.has(k)
   const ww = width / (octaves * 7 + 1)
   const play = (k: number | null) => {
     if (cur.current === k) return
@@ -341,10 +344,10 @@ export function MiniKeys({ p, low = 48, octaves = 3, width = 232, height = 52 }:
       if (o === octaves && i > 0) break
       const k = low + o * 12 + WHITE[i]
       const x = (o * 7 + i) * ww
-      whites.push(<rect key={`w${k}`} x={x} y={0} width={ww - 1} height={height} rx={1.5} fill={down === k ? C.op : '#efe6da'} stroke="#2a1512" {...keyHandlers(k)} />)
+      whites.push(<rect key={`w${k}`} x={x} y={0} width={ww - 1} height={height} rx={1.5} fill={lit(k) ? C.op : '#efe6da'} stroke="#2a1512" {...keyHandlers(k)} />)
       if (o < octaves && BLACK[i] >= 0) {
         const kb = low + o * 12 + BLACK[i]
-        blacks.push(<rect key={`b${kb}`} x={x + ww * 0.65} y={0} width={ww * 0.7} height={height * 0.6} rx={1} fill={down === kb ? C.op : '#1f1210'} stroke="#000" {...keyHandlers(kb)} />)
+        blacks.push(<rect key={`b${kb}`} x={x + ww * 0.65} y={0} width={ww * 0.7} height={height * 0.6} rx={1} fill={lit(kb) ? C.op : '#1f1210'} stroke="#000" {...keyHandlers(kb)} />)
       }
     }
   }

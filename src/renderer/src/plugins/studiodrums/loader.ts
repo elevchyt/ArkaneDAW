@@ -22,8 +22,10 @@ export type KitLoadState =
 const status = new Map<string, KitLoadState>()
 const listeners = new Set<() => void>()
 
+/** One shared object: kitStatus() feeds useSyncExternalStore, whose snapshots must be stable between calls. */
+const IDLE: KitLoadState = { state: 'idle' }
 export function kitStatus(kit: string): KitLoadState {
-  return status.get(kit) ?? { state: 'idle' }
+  return status.get(kit) ?? IDLE
 }
 export function subscribeKitStatus(cb: () => void): () => void {
   listeners.add(cb)

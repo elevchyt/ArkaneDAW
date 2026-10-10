@@ -22,6 +22,8 @@ import { defaultNote } from '@/store/factory'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { WindowProps } from '../types'
 import { getExternalEditor } from '@/audio/vst'
+import { liveKeys } from '@/audio/liveKeys'
+import { EditorBoundary } from './EditorBoundary'
 
 /** Generic plugin wrapper window (FL's "plugin wrapper"): preset strip + the plugin's editor. */
 export default function PluginWindow({ win, bounds }: WindowProps) {
@@ -91,6 +93,7 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
               }
             })
           },
+      liveKeys: isFx ? undefined : (cb) => liveKeys.subscribe(win.channelId!, cb),
       hint: setHint,
       insertNotes: isFx
         ? undefined
@@ -203,7 +206,9 @@ export default function PluginWindow({ win, bounds }: WindowProps) {
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {props ? (
-            <Editor {...props} />
+            <EditorBoundary name={mod?.manifest.name ?? state.pluginId}>
+              <Editor {...props} />
+            </EditorBoundary>
           ) : External ? (
             <External
               pluginId={state.pluginId}

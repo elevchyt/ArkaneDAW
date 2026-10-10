@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Knob } from '@/components/controls'
 import type { PluginEditorProps } from '../sdk/module'
 import type { ParamDef } from '../sdk/types'
-import { PK, PSelect, PToggle } from '../sdk/ui'
+import { PK, PSelect, PToggle, useHeldKeys } from '../sdk/ui'
 import { formatParam, normalize, denormalize } from '../sdk/params'
 import { WAVES } from './waves'
 import { CATEGORIES } from './presets'
@@ -208,6 +208,8 @@ function WavePreview({ wave, keyNum }: { wave: number; keyNum: number }) {
 function MiniKeys({ p, octave, setOctave }: { p: PluginEditorProps; octave: number; setOctave: (o: number) => void }) {
   const down = useRef<number | null>(null)
   const [held, setHeld] = useState<number | null>(null)
+  const live = useHeldKeys(p)
+  const lit = (k: number) => held === k || live.has(k)
   const base = 12 * (octave + 1)
   const whites: number[] = []
   const blacks: { key: number; x: number }[] = []
@@ -260,7 +262,7 @@ function MiniKeys({ p, octave, setOctave }: { p: PluginEditorProps; octave: numb
             key={k}
             {...keyProps(k)}
             className="absolute top-0 h-full rounded-b-[3px] border border-[#1a1d1f]"
-            style={{ left: i * KW, width: KW - 1, background: held === k ? `linear-gradient(180deg,#d8f5ef,${TEAL})` : 'linear-gradient(180deg,#e8ecec,#c9cfd0)' }}
+            style={{ left: i * KW, width: KW - 1, background: lit(k) ? `linear-gradient(180deg,#d8f5ef,${TEAL})` : 'linear-gradient(180deg,#e8ecec,#c9cfd0)' }}
           >
             {k % 12 === 0 && <span className="absolute bottom-0.5 left-1 text-[8px] text-[#5c6669]">{noteName(k)}</span>}
           </div>
@@ -270,7 +272,7 @@ function MiniKeys({ p, octave, setOctave }: { p: PluginEditorProps; octave: numb
             key={key}
             {...keyProps(key)}
             className="absolute top-0 z-10 h-[32px] rounded-b-[2px] border border-[#000]"
-            style={{ left: x, width: 18, background: held === key ? TEAL : 'linear-gradient(180deg,#2a2f31,#121516)' }}
+            style={{ left: x, width: 18, background: lit(key) ? TEAL : 'linear-gradient(180deg,#2a2f31,#121516)' }}
           />
         ))}
       </div>

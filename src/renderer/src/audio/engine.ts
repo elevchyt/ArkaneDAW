@@ -8,6 +8,7 @@ import type { Channel, FxSlot, MixerTrack, Project } from '../store/types'
 import type { ScheduledEvent } from '../plugins/sdk/types'
 import { createPluginNode, type PluginHostNode } from './plugin-node'
 import { getPlugin } from '../plugins/registry'
+import { liveKeys } from './liveKeys'
 
 export const faderToGain = (v: number, ref = 0.8): number => (v <= 0 ? 0 : Math.pow(v / ref, 1.6))
 export const gainToDb = (g: number): number => (g <= 0.00001 ? -Infinity : 20 * Math.log10(g))
@@ -425,14 +426,17 @@ export class AudioEngine {
         note: { id, key, vel, pan: 0, fine: 0, rel: 0.5, modX: 0.5, modY: 0.5, porta: false, slide: false, color: 0, length: 0, ...extra }
       }
     ])
+    if (!extra.length) liveKeys.on(channelId, id, key)
     return id
   }
 
   noteOff(channelId: string, id: number, key: number): void {
     this.channels.get(channelId)?.instrument?.schedule([{ kind: 'off', time: 0, id, key, rel: 0.5 }])
+    liveKeys.off(channelId, id)
   }
 
   panic(hard = true): void {
+    liveKeys.clear()
     for (const ch of this.channels.values()) {
       ch.instrument?.clearScheduled()
       ch.instrument?.panic(hard)

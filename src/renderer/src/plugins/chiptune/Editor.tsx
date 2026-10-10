@@ -1,7 +1,7 @@
 // Chiptune editor: pixel-art / NES flavoured panel inside the FL-style plugin window (800 x 460).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PluginEditorProps } from '../sdk/module'
-import { PK } from '../sdk/ui'
+import { PK, useHeldKeys } from '../sdk/ui'
 import { Knob } from '@/components/controls'
 import { ChipOsc, DUTIES, W, WAVE_NAMES, WAVE_SHORT, isNoise, waveTable } from './chip'
 import { normalizeData, WAVE_PRESETS, type ChipData, type DrumTweak, type SeqKind } from './data'
@@ -46,7 +46,7 @@ function Header({ p }: { p: PluginEditorProps }) {
         <PixelText text="CHIPTUNE" scale={3} color={NES.red} shadow={NES.white} />
         <PixelText text="8-BIT" scale={1.5} color={NES.yellow} />
       </div>
-      <div style={{ display: p.manifest.id === 'chiptunedrums' ? 'none' : 'flex', gap: 2, marginLeft: 8 }}>
+      <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
         <PixButton active={!drums} color={NES.cyan} style={{ padding: '4px 10px' }} onClick={() => p.setParam('mode', 0)} onHover={() => p.hint('Mode: Synth (pulse / triangle / noise / GB wave)')}>
           ♪ Synth
         </PixButton>
@@ -322,6 +322,7 @@ function DrumView({ p }: { p: PluginEditorProps }) {
   const defs = [...map.values()].sort((a, b) => a.key - b.key)
   const [sel, setSel] = useState(36)
   const [hit, setHit] = useState<number | null>(null)
+  const live = useHeldKeys(p)
   const [data, update] = useChipData(p)
   const def = map.get(sel)
   const tw: DrumTweak = data.drums[String(sel)] ?? { tune: 0, decay: 1, level: 1 }
@@ -340,6 +341,7 @@ function DrumView({ p }: { p: PluginEditorProps }) {
           {defs.map((d) => {
             const c = GROUP_COLOR[d.group]
             const active = sel === d.key
+            const struck = hit === d.key || live.has(d.key)
             return (
               <button
                 key={d.key}
@@ -357,9 +359,9 @@ function DrumView({ p }: { p: PluginEditorProps }) {
                 onContextMenu={(e) => e.preventDefault()}
                 style={{
                   height: 64,
-                  background: hit === d.key ? c : active ? '#3a3f4b' : '#262a33',
+                  background: struck ? c : active ? '#3a3f4b' : '#262a33',
                   border: `2px solid ${NES.black}`,
-                  boxShadow: `inset 0 -5px 0 ${c}${hit === d.key ? 'ff' : '99'}, inset 0 0 0 1px ${active ? NES.white : '#ffffff10'}`,
+                  boxShadow: `inset 0 -5px 0 ${c}${struck ? 'ff' : '99'}, inset 0 0 0 1px ${active ? NES.white : '#ffffff10'}`,
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',

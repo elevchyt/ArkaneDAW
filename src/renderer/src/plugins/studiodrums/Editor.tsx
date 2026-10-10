@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { ParamKnob } from '@/components/controls'
 import type { PluginEditorProps } from '../sdk/module'
 import { formatParam } from '../sdk/params'
+import { useHeldKeys } from '../sdk/ui'
 import { KITS } from './kits.gen'
 import { KitView } from './KitView'
 import { DEFAULT_KIT } from './manifest'
@@ -41,6 +42,7 @@ export function StudioDrumsEditor(p: PluginEditorProps) {
   const padBank = banks[Math.min(bank, banks.length - 1)]
 
   const play = useCallback((key: number, vel: number, on: boolean) => p.previewNote?.(key, vel, on), [p])
+  const live = useHeldKeys(p)
 
   return (
     <div className="flex h-full w-full flex-col gap-1.5 bg-gradient-to-b from-[#3a3f42] to-[#25292b] p-2 text-fl-text" style={{ fontSize: 11 }}>
@@ -84,7 +86,7 @@ export function StudioDrumsEditor(p: PluginEditorProps) {
       {/* middle: kit view · pads · grooves */}
       <div className="flex h-[262px] shrink-0 gap-1.5">
         <div className="w-[300px] shrink-0 overflow-hidden rounded-[4px] border border-[#1b2023] bg-[#1d2224]">
-          <KitView kit={kit} onPlay={play} onHint={p.hint} />
+          <KitView kit={kit} onPlay={play} onHint={p.hint} live={live} />
         </div>
         <div className="flex w-[236px] shrink-0 flex-col gap-1 rounded-[4px] border border-[#1b2023] bg-[#1f2427] p-1.5">
           <div className="flex items-center gap-1">

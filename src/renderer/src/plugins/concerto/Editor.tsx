@@ -6,6 +6,7 @@ import { Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ParamKnob } from '@/components/controls'
 import type { PluginEditorProps } from '../sdk/module'
+import { useHeldKeys } from '../sdk/ui'
 import { ENSEMBLES, INSTRUMENTS, SECTIONS } from './instruments.gen'
 import { instStatus, subscribeStatus, type LoadState } from './loader'
 import { presets } from './manifest'
@@ -426,6 +427,8 @@ function Keyboard({ p, data }: { p: PluginEditorProps; data: ConcertoData }) {
   const [shift, setShift] = useState(0)
   const [down, setDown] = useState<number | null>(null)
   const downRef = useRef<number | null>(null)
+  const live = useHeldKeys(p)
+  const lit = (k: number) => down === k || live.has(k)
   const lo = KB_LO + shift * 12
   const play = useCallback(
     (k: number | null, vel: number) => {
@@ -505,7 +508,7 @@ function Keyboard({ p, data }: { p: PluginEditorProps; data: ConcertoData }) {
           const r = inRange(k)
           return (
             <g key={k}>
-              <rect x={i * ww + 0.5} y={2} width={ww - 1} height={H} rx={2} fill={down === k ? '#e9c98a' : r ? '#f3ead8' : '#8c8478'} stroke="#2a1f1a" />
+              <rect x={i * ww + 0.5} y={2} width={ww - 1} height={H} rx={2} fill={lit(k) ? '#e9c98a' : r ? '#f3ead8' : '#8c8478'} stroke="#2a1f1a" />
               {k % 12 === 0 && (
                 <text x={i * ww + ww / 2} y={H - 4} fontSize={7.5} textAnchor="middle" fill="#6d5a45">
                   C{Math.floor(k / 12) - 1}
@@ -519,7 +522,7 @@ function Keyboard({ p, data }: { p: PluginEditorProps; data: ConcertoData }) {
           .map((k) => {
             const wi = whites.findIndex((w) => w > k)
             const r = inRange(k)
-            return <rect key={k} x={wi * ww - ww * 0.31} y={2} width={ww * 0.62} height={H * 0.6} rx={1.5} fill={down === k ? '#b8925a' : r ? '#1c1414' : '#4a4440'} stroke="#000" />
+            return <rect key={k} x={wi * ww - ww * 0.31} y={2} width={ww * 0.62} height={H * 0.6} rx={1.5} fill={lit(k) ? '#b8925a' : r ? '#1c1414' : '#4a4440'} stroke="#000" />
           })}
       </svg>
     </div>

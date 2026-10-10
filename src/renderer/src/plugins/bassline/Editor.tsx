@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { PluginEditorProps } from '../sdk/module'
-import { PK, PluginPanel, PSelect, Readout } from '../sdk/ui'
+import { PK, PluginPanel, PSelect, Readout, useHeldKeys } from '../sdk/ui'
 import { formatParam } from '../sdk/params'
 import { ENG, ENGINES, FM_ALGOS } from './params'
 
@@ -135,6 +135,8 @@ const KB_HI = 48
 function MiniKeyboard({ p, color }: { p: PluginEditorProps; color: string }) {
   const down = useRef<number | null>(null)
   const [held, setHeld] = useState<number | null>(null)
+  const live = useHeldKeys(p)
+  const lit = (k: number) => held === k || live.has(k)
   const whites: number[] = []
   for (let k = KB_LO; k <= KB_HI; k++) if (![1, 3, 6, 8, 10].includes(k % 12)) whites.push(k)
   const WW = 19
@@ -166,7 +168,7 @@ function MiniKeyboard({ p, color }: { p: PluginEditorProps; color: string }) {
           onMouseDown={(e) => press(k, e, H)}
           onMouseEnter={(e) => enter(k, e, H)}
           className="absolute top-0 rounded-b-[3px] border border-[#1a1f22]"
-          style={{ left: i * WW, width: WW - 1, height: H, background: held === k ? color : 'linear-gradient(#e9eef0,#c9d0d3)' }}
+          style={{ left: i * WW, width: WW - 1, height: H, background: lit(k) ? color : 'linear-gradient(#e9eef0,#c9d0d3)' }}
         >
           {k % 12 === 0 && <span className="absolute bottom-0.5 left-0 right-0 text-center text-[8px] text-[#3a454b]">{noteName(k)}</span>}
         </div>
@@ -180,7 +182,7 @@ function MiniKeyboard({ p, color }: { p: PluginEditorProps; color: string }) {
             onMouseDown={(e) => press(b, e, H * 0.6)}
             onMouseEnter={(e) => enter(b, e, H * 0.6)}
             className="absolute top-0 z-10 rounded-b-[2px] border border-[#0d1012]"
-            style={{ left: i * WW + WW * 0.62, width: WW * 0.72, height: H * 0.6, background: held === b ? color : 'linear-gradient(#3a4448,#15191b)' }}
+            style={{ left: i * WW + WW * 0.62, width: WW * 0.72, height: H * 0.6, background: lit(b) ? color : 'linear-gradient(#3a4448,#15191b)' }}
           />
         )
       })}

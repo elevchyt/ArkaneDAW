@@ -1,10 +1,21 @@
 // Shared building blocks for plugin editors so every built-in plugin looks like part of one family
 // (the way FL's "Fruity" plugins do): dark rounded panel, small caps labels, colored knob arcs.
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ParamKnob } from '@/components/controls'
 import type { ParamDef, PluginManifest } from './types'
 import type { PluginEditorProps } from './module'
 import { formatParam } from './params'
+
+const NO_KEYS: ReadonlySet<number> = new Set()
+
+/** Keys held on this instrument's channel right now (typing keyboard, MIDI, clicks): for on-screen keyboards. */
+export function useHeldKeys(p: Pick<PluginEditorProps, 'liveKeys'>): ReadonlySet<number> {
+  const [keys, setKeys] = useState(NO_KEYS)
+  const sub = p.liveKeys
+  useEffect(() => (sub ? sub(setKeys) : undefined), [sub])
+  return keys
+}
 
 export function PluginPanel({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (

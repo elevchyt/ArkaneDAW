@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { PK } from '../sdk/ui'
+import { PK, useHeldKeys } from '../sdk/ui'
 import type { PluginEditorProps } from '../sdk/module'
 import { formatParam } from '../sdk/params'
 import { Viz, type VizState } from './Viz'
@@ -117,6 +117,8 @@ const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(k % 12)
 function Keyboard({ p, width }: { p: PluginEditorProps; width: number }) {
   const [held, setHeld] = useState<Set<number>>(new Set())
   const [latch, setLatch] = useState(false)
+  const live = useHeldKeys(p)
+  const lit = (k: number) => held.has(k) || live.has(k)
   const down = useRef<number | null>(null)
   const heldRef = useRef(held)
   heldRef.current = held
@@ -188,7 +190,7 @@ function Keyboard({ p, width }: { p: PluginEditorProps; width: number }) {
             onMouseDown={() => press(k)}
             onMouseEnter={() => enter(k)}
             className="absolute top-0 h-full rounded-b-[2px] border-r border-[#2a2840]"
-            style={{ left: i * ww, width: ww, background: held.has(k) ? C.violet : k === 60 ? '#d8d4ec' : '#c8c5dc' }}
+            style={{ left: i * ww, width: ww, background: lit(k) ? C.violet : k === 60 ? '#d8d4ec' : '#c8c5dc' }}
           />
         ))}
         {(() => {
@@ -205,7 +207,7 @@ function Keyboard({ p, width }: { p: PluginEditorProps; width: number }) {
                 onMouseDown={() => press(k)}
                 onMouseEnter={() => enter(k)}
                 className="absolute top-0 z-10 rounded-b-[2px]"
-                style={{ left: wi * ww - ww * 0.3, width: ww * 0.6, height: 16, background: held.has(k) ? C.teal : '#1a1828' }}
+                style={{ left: wi * ww - ww * 0.3, width: ww * 0.6, height: 16, background: lit(k) ? C.teal : '#1a1828' }}
               />
             )
           }

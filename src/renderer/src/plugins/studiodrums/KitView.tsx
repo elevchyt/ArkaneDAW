@@ -51,7 +51,7 @@ const LATIN: Piece[] = [
   { key: 81, edgeKey: 80, x: 92, y: 40, r: 12, kind: 'bell', label: 'Triangle' }
 ]
 
-export function KitView({ kit, onPlay, onHint }: { kit: KitMeta | undefined; onPlay: (key: number, vel: number, on: boolean) => void; onHint: (t: string) => void }) {
+export function KitView({ kit, onPlay, onHint, live }: { kit: KitMeta | undefined; onPlay: (key: number, vel: number, on: boolean) => void; onHint: (t: string) => void; live?: ReadonlySet<number> }) {
   const [down, setDown] = useState<number | null>(null)
   const layout = kit?.id === 'latin' ? LATIN : DRUMSET
   const has = (k?: number) => k !== undefined && !!kit?.keys[k]
@@ -96,7 +96,8 @@ export function KitView({ kit, onPlay, onHint }: { kit: KitMeta | undefined; onP
       <rect x="0" y="0" width="340" height="250" rx="4" fill="#20272a" />
       {order.map((pc) => {
         const enabled = has(pc.key)
-        const active = down !== null && (down === pc.key || down === pc.edgeKey || down === pc.bellKey || (pc.key === 42 && down === 44))
+        const hit = (k: number | null) => k !== null && (k === pc.key || k === pc.edgeKey || k === pc.bellKey || (pc.key === 42 && k === 44))
+        const active = hit(down) || (!!live?.size && [...live].some(hit))
         const fill = pc.kind === 'cym' || pc.kind === 'hat' ? 'url(#sd-cym)' : pc.kind === 'kick' ? 'url(#sd-kick)' : pc.kind === 'bell' ? '#9aa3a8' : pc.kind === 'block' || pc.kind === 'shaker' ? 'url(#sd-wood)' : 'url(#sd-head)'
         return (
           <g

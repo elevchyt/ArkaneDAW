@@ -8,7 +8,7 @@ import { Knob, ParamKnob, useVerticalDrag } from '@/components/controls'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { PluginEditorProps } from '../sdk/module'
 import type { ParamDef, Preset } from '../sdk/types'
-import { PK, PSelect, PToggle } from '../sdk/ui'
+import { PK, PSelect, PToggle, useHeldKeys } from '../sdk/ui'
 import { formatParam } from '../sdk/params'
 import {
   DRAWBARS,
@@ -803,6 +803,8 @@ const isBlack = (k: number) => [1, 3, 6, 8, 10].includes(k % 12)
 
 function MiniKeyboard({ p, data, sel }: { p: PluginEditorProps; data: WSData; sel: number }) {
   const [down, setDown] = useState<number | null>(null)
+  const live = useHeldKeys(p)
+  const lit = (k: number) => down === k || live.has(k)
   const ref = useRef<HTMLDivElement>(null)
   const whites: number[] = []
   for (let k = LO; k <= HI; k++) if (!isBlack(k)) whites.push(k)
@@ -851,7 +853,7 @@ function MiniKeyboard({ p, data, sel }: { p: PluginEditorProps; data: WSData; se
             style={{
               left: `${pos(k)}%`,
               width: `${W}%`,
-              background: down === k ? GOLD : k === 60 ? 'linear-gradient(#f4f4ef,#dcdcd2)' : 'linear-gradient(#fbfbf7,#e2e2da)'
+              background: lit(k) ? GOLD : k === 60 ? 'linear-gradient(#f4f4ef,#dcdcd2)' : 'linear-gradient(#fbfbf7,#e2e2da)'
             }}
           >
             {k % 12 === 0 && <span className="absolute bottom-0 left-0 w-full text-center text-[7.5px] text-[#667]">{midiName(k)}</span>}
@@ -871,7 +873,7 @@ function MiniKeyboard({ p, data, sel }: { p: PluginEditorProps; data: WSData; se
                 if (e.buttons & 1) play(k, velFromEvent(e, true))
               }}
               className="absolute top-0 z-10 rounded-b-[2px]"
-              style={{ left: `${pos(k - 1) + W * 0.68}%`, width: `${W * 0.64}%`, height: '62%', background: down === k ? GOLD : 'linear-gradient(#3a3f42,#111)' }}
+              style={{ left: `${pos(k - 1) + W * 0.68}%`, width: `${W * 0.64}%`, height: '62%', background: lit(k) ? GOLD : 'linear-gradient(#3a3f42,#111)' }}
             />
           ))}
       </div>
