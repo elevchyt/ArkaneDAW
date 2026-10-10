@@ -1,7 +1,7 @@
 {
   "name": "arkane-daw",
   "productName": "ArkaneDAW",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "ArkaneDAW - a pattern-based digital audio workstation",
   "main": "./out/main/index.js",
   "license": "UNLICENSED",
