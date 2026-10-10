@@ -592,6 +592,9 @@ class Concerto implements InstrumentDSP {
   private releaseVoice(v: Voice): void {
     if (v.released) return
     v.released = true
+    // stop any fade-in (attack / legato crossfade): attack and release fighting each other settle near full
+    // level and the note never dies
+    v.atkStep = 0
     if (v.kind === KIND_RING) return
     const t = v.kind === KIND_DECAY ? Math.min(v.art?.damp ?? 0.15, this.release) : this.release
     v.relCoef = Math.exp(-6.9 / Math.max(1, t * this.sr))
@@ -805,7 +808,7 @@ class Concerto implements InstrumentDSP {
         l1 = l2 = x
         q1 = q2 = y
       }
-      if (atk > 0 && env < 1) {
+      if (atk > 0 && env < 1 && rel === 1) {
         env += atk
         if (env > 1) env = 1
       }

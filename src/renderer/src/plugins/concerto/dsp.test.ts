@@ -177,6 +177,23 @@ describe.skipIf(!ok)('Concerto DSP', () => {
     expect(rms(poly.L, SR * 1.4, SR * 1.7)).toBeGreaterThan(rms(x, SR * 1.4, SR * 1.7) * 1.15)
   })
 
+  it('legato + glide: notes released during the legato crossfade still die out (no stuck sustain)', () => {
+    // Baroque Trumpet solo preset: legato on, 70 ms glide. Short overlapping notes are released while the
+    // new note is still fading in; the envelope used to keep re-attacking and hang near full level forever.
+    const params = { ...DRY, legato: 1, glide: 70 }
+    const dsp = mkDsp(data.trumpet, params)
+    const ev: [number, 'on' | 'off', NoteOn][] = []
+    const keys = [60, 62, 64, 65, 67]
+    keys.forEach((k, i) => {
+      const n = note(k, { id: 100 + i, vel: 0.8 })
+      ev.push([i * 0.15, 'on', n], [i * 0.15 + 0.17, 'off', n])
+    })
+    const r = renderEvents(dsp, ev, 4)
+    const playing = rms(r.L, SR * 0.2, SR * 0.6)
+    expect(playing).toBeGreaterThan(1e-4)
+    expect(rms(r.L, SR * 3.4, SR * 4)).toBeLessThan(playing * 0.01)
+  })
+
   it('harpsichord: note-off damps the string and plays the jack release sample', () => {
     const held = renderInstrument(factory, { data: data.harpsichord, params: DRY, seconds: 1.6, notes: [{ at: 0, dur: 1.5, note: note(60, { vel: 0.8 }) }] })
     const short = renderInstrument(factory, { data: data.harpsichord, params: DRY, seconds: 1.6, notes: [{ at: 0, dur: 0.4, note: note(60, { vel: 0.8 }) }] })

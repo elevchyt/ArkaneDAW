@@ -1,10 +1,10 @@
 {
   "concerto": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "source": "resources/concerto",
-    "sizeBytes": 189467648,
+    "sizeBytes": 189519872,
     "files": 1488,
-    "sha256": "4d89a24ea81c6298e96fc271214ac20fabd6836e8a62f981ae6e75179e9f5004"
+    "sha256": "a86a1b13d845e6887ade30f3b83d8e8f07a01403544f402f9b7f7b602c2a5d31"
   },
   "studiodrums": {
     "version": "1.0.0",

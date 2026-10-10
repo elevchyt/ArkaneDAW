@@ -447,7 +447,7 @@ async function buildArticulation(inst, art) {
       const its = byR.get(r).sort((a, b) => a.rr - b.rr).slice(0, 2)
       const files = its.map((it, ri) => {
         let ch = trimStart(it.ch, { db: -40 })
-        ch = trimTail(ch, { maxLen: 1.2, floorDb: -54 })
+        ch = trimTail(ch, { maxLen: art.releaseMaxLen ?? 1.2, floorDb: -54 })
         const g = Math.min(relTarget / (attackLoudness(ch) || 1e-6), 0.9 / (peakOf(ch) || 1))
         applyGain(ch, g)
         const f = `${inst.id}/${art.id}_rel_${r}_r${ri + 1}.flac`

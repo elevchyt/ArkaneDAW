@@ -494,7 +494,7 @@ export const INSTRUMENTS: InstrumentMeta[] = [
   "id": "harpsichord",
   "name": "Harpsichord",
   "section": "Keys",
-  "description": "English (Zuckermann) harpsichord (VCSL): 8′ and lute stop, with release (jack) samples.",
+  "description": "Flemish harpsichord, far-miked (VCSL) for the 8′ stop and an English (Zuckermann) lute stop, with release (jack) samples.",
   "range": [
    29,
    89

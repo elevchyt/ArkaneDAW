@@ -15,7 +15,8 @@
 //   ring    — one-shot that ignores note-off (staccato, pizzicato, harp, timpani, glockenspiel)
 //
 // Options: layers (indices of the source's velocity layers to keep, soft → loud), rr (max round robins),
-//          every (keep every n-th root), keys [lo, hi] (root filter), maxLen (s), gainDb, mono (downmix)
+//          every (keep every n-th root), keys [lo, hi] (root filter), maxLen (s), gainDb, mono (downmix),
+//          releaseMaxLen (s, release samples of decay articulations; default 1.2)
 
 const vsco = (sfz, o = {}) => ({ type: 'vsco', sfz, ...o })
 const vcsl = (dir, re, o = {}) => ({ type: 'vcsl', dir, re, ...o })
@@ -190,11 +191,14 @@ export const INSTRUMENTS = [
   // ───────── Keys ─────────
   {
     id: 'harpsichord', name: 'Harpsichord', section: 'Keys', range: [29, 89], stage: { pan: 0, width: 0.7 },
-    description: 'English (Zuckermann) harpsichord (VCSL): 8′ and lute stop, with release (jack) samples.',
+    description: 'Flemish harpsichord, far-miked (VCSL) for the 8′ stop and an English (Zuckermann) lute stop, with release (jack) samples.',
     arts: [
-      D('normal', '8′ Stop', vcsl('Chordophones/Zithers/Harpsichord, English/Sustains/Normal', `^ZuckermannKitHarpsi_Normal_Sus_${NOTE}_rr(?<rr>\\d)\\.wav$`, { octave: 1 }), {
-        maxLen: 4.5, damp: 0.12,
-        release: vcsl('Chordophones/Zithers/Harpsichord, English/Releases/Normal', `^ZuckermannKitHarpsi_Normal_Rel_${NOTE}_rr(?<rr>\\d)\\.wav$`)
+      // The close-miked English 8′ samples had a loud jack/plectrum click on every note: the Flemish far-mic
+      // recordings keep the pluck but at about a third of the transient level.
+      D('normal', '8′ Stop', vcsl('Chordophones/Zithers/Harpsichord, Flemish/Sustains/Low', `^HarpsiRH_Low_Far_${NOTE}_rr(?<rr>\\d)\\.wav$`), {
+        // far-mic releases carry ~1 s of room / string ring: keep just the damper thunk
+        maxLen: 4.5, damp: 0.12, releaseMaxLen: 0.35,
+        release: vcsl('Chordophones/Zithers/Harpsichord, Flemish/Releases/Low', `^HarpsiRH_LowRel_Far_${NOTE}_rr(?<rr>\\d)\\.wav$`)
       }),
       D('lute', 'Lute Stop', vcsl('Chordophones/Zithers/Harpsichord, English/Sustains/Lute', `^ZuckermannKitHarpsi_Lute_Sus_${NOTE}_rr(?<rr>\\d)\\.wav$`, { octave: 1 }), {
         maxLen: 3.0, damp: 0.1,
