@@ -14,8 +14,6 @@ import { Grid } from './Grid'
 import { Ruler } from './Ruler'
 import { TrackHeaders, HEADER_W } from './TrackHeaders'
 import { Picker } from './Picker'
-import { PopupMenuHost } from './PopupMenu'
-import { PromptHost } from './Prompt'
 import { trackOffsets } from './geometry'
 import { getPl, usePlaylist } from './state'
 import { currentSource, sourceColor, sourceName } from './actions'
@@ -70,8 +68,6 @@ export default function Playlist({ win, bounds }: WindowProps) {
           </div>
         </div>
       </div>
-      <PopupMenuHost />
-      <PromptHost />
     </MdiWindow>
   )
 }

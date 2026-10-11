@@ -12,7 +12,7 @@ import { host } from '../platform'
 import { AudioEngine, usedMixerTracks } from './engine'
 import { prepareContext } from './context'
 import { automationValue, patternHits, patternLength, songHits, songLength } from './sequence'
-import { getBuffer, loadSample } from './samples'
+import { clipBuffer, getBuffer, loadSample } from './samples'
 import { applyAutomation } from './transport'
 import { useTransport } from '../store/transport'
 import type { ScheduledEvent } from '../plugins/sdk/types'
@@ -177,7 +177,9 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
       for (const clip of p.playlist.clips) {
         if (clip.muted || p.playlist.tracks[clip.track]?.muted) continue
         if (clip.kind === 'audio') {
-          const buf = getBuffer(clip.ref)
+          const raw = getBuffer(clip.ref)
+          const owner = clip.channelId ? p.channels.find((c) => c.id === clip.channelId) : undefined
+          const buf = raw && clipBuffer(raw, clip.ref, owner?.plugin?.pluginId === 'sampler' ? owner.plugin.params : undefined)
           if (!buf || clip.offset / tps >= buf.duration) continue
           const src = ctx.createBufferSource()
           src.buffer = buf

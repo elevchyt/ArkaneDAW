@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, Plus, Ruler } from 'lucide-react'
 import { MdiWindow } from '@/shell/MdiWindow'
 import { useProject } from '@/store/project'
 import { useUI } from '@/store/ui'
-import { DEFAULT_NOTE_KEY, TICKS_PER_STEP, type Channel, type Note } from '@/store/types'
+import { DEFAULT_NOTE_KEY, TICKS_PER_STEP, type Channel, type Note, type Pattern } from '@/store/types'
 import {
   addInstrumentChannel,
   cloneChannels,
@@ -14,7 +14,8 @@ import {
   toggleStep,
   updateChannel
 } from '@/store/actions'
-import { patternLength } from '@/audio/sequence'
+import { barTicks, patternLength } from '@/audio/sequence'
+import { useTransport, playhead } from '@/store/transport'
 import { Led, MiniKnob, Knob } from '@/components/controls'
 import { groupPlugins, useAllPlugins } from '@/plugins/catalog'
 import { guardPack } from '@/packs/guard'
@@ -41,6 +42,8 @@ import type { WindowProps } from '../types'
 
 const ROW_H = 26
 const STEP_W = 17
+/** Step sequencer limit (FL: longer patterns go in the piano roll). */
+const MAX_STEPS = 512
 
 /** True when a channel's notes are plain steps (so the rack shows buttons, not a piano-roll preview). */
 function isStepOnly(notes: Note[], root: number): boolean {
@@ -54,10 +57,21 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
   const filter = useUI((s) => s.channelFilter)
   const patternId = currentPattern ?? project.patterns[0]?.id
   const pattern = project.patterns.find((p) => p.id === patternId)
-  const steps = pattern ? Math.max(16, Math.ceil(patternLength(pattern, project) / TICKS_PER_STEP)) : 16
   const channels = project.channels.filter((c) => filter === 'All' || c.filterGroup === filter)
   const paint = useRef<{ on: boolean; channelId: string } | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const rackRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const fitSteps = useFitSteps(scrollRef)
+  const barSteps = Math.max(1, Math.round(barTicks(project) / TICKS_PER_STEP))
+  const stepsPerBeat = Math.max(1, 16 / project.timeSig[1])
+  // Explicit length: exactly that many steps. Auto: the content (whole bars), or as many bars as fit the window.
+  const steps = !pattern
+    ? barSteps
+    : pattern.length > 0
+      ? Math.min(MAX_STEPS, Math.max(1, Math.round(pattern.length / TICKS_PER_STEP)))
+      : Math.min(MAX_STEPS, Math.max(Math.ceil(patternLength(pattern, project) / TICKS_PER_STEP), Math.floor(fitSteps / barSteps) * barSteps, barSteps))
+  useStepIndicator(rackRef, pattern)
 
   const select = (id: string, e: React.MouseEvent) => {
     const ui = useUI.getState()
@@ -84,7 +98,7 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="flex items-center gap-1 text-[10px] text-fl-dim" title="Swing">
+      <div className="flex items-center gap-1 text-[10px] text-fl-dim" title="Swing" data-nodrag>
         <Knob
           size={16}
           value={project.swing}
@@ -95,12 +109,15 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
         />
         SWING
       </div>
+      <div className="flex-1" />
+      {pattern && <PatternLength pattern={pattern} />}
     </div>
   )
 
   return (
     <MdiWindow win={win} bounds={bounds} titleExtra={titleExtra} minW={420}>
       <div
+        ref={rackRef}
         className={cn('flex h-full flex-col bg-[#2f383d]', dragOver && 'outline outline-2 -outline-offset-2 outline-fl-orange')}
         onDragOver={(e) => {
           e.preventDefault()
@@ -112,13 +129,14 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
           void handleChannelRackDrop(e)
         }}
       >
-        <div className="min-h-0 flex-1 overflow-auto py-1" onPointerUp={() => (paint.current = null)}>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto py-1" onPointerUp={() => (paint.current = null)}>
           {channels.map((ch) => (
             <ChannelRow
               key={ch.id}
               ch={ch}
               notes={pattern?.notes[ch.id] ?? []}
               steps={steps}
+              stepsPerBeat={stepsPerBeat}
               selected={selected.includes(ch.id)}
               onSelect={select}
               patternId={patternId}
@@ -166,13 +184,14 @@ interface RowProps {
   ch: Channel
   notes: Note[]
   steps: number
+  stepsPerBeat: number
   selected: boolean
   patternId: string
   onSelect: (id: string, e: React.MouseEvent) => void
   paint: React.MutableRefObject<{ on: boolean; channelId: string } | null>
 }
 
-function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: RowProps) {
+function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSelect, paint }: RowProps) {
   const root = ch.rootNote ?? DEFAULT_NOTE_KEY
   const stepMode = isStepOnly(notes, root)
   const active = useMemo(() => new Set(notes.map((n) => n.pos / TICKS_PER_STEP)), [notes])
@@ -339,14 +358,15 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
         title="Select"
       />
       {stepMode ? (
-        <div className="flex gap-[2px] pl-1" onPointerLeave={() => (editing.current = false)}>
+        <div className="flex gap-[2px] pl-1" data-steps onPointerLeave={() => (editing.current = false)}>
           {Array.from({ length: steps }, (_, i) => {
             const on = active.has(i)
-            const group = Math.floor(i / 4) % 2
+            const group = Math.floor(i / stepsPerBeat) % 2
             return (
               <div
                 key={i}
-                className={cn('h-[20px] rounded-[2px] border border-[#1b2124]', (i + 1) % 4 === 0 && 'mr-[3px]')}
+                data-step={i}
+                className="h-[20px] rounded-[2px] border border-[#1b2124]"
                 style={{
                   width: STEP_W - 2,
                   background: on
@@ -380,7 +400,7 @@ function ChannelRow({ ch, notes, steps, selected, patternId, onSelect, paint }: 
 
 /** Mini piano-roll preview drawn in place of the steps (FL shows this once notes aren't plain steps). */
 function PianoPreview({ notes, steps, onOpen }: { notes: Note[]; steps: number; onOpen: () => void }) {
-  const width = steps * STEP_W + Math.floor(steps / 4) * 3
+  const width = steps * STEP_W - 2
   const keys = notes.map((n) => n.key)
   const lo = Math.min(...keys)
   const hi = Math.max(...keys)
@@ -419,6 +439,121 @@ function MixerTrackBox({ ch }: { ch: Channel }) {
       onWheel={(e) => updateChannel(ch.id, { mixerTrack: Math.max(0, Math.min(125, ch.mixerTrack - Math.sign(e.deltaY))) }, 'Route channel', `route:${ch.id}`)}
     >
       {ch.mixerTrack <= 0 ? 'M' : ch.mixerTrack}
+    </div>
+  )
+}
+
+/** How many steps fit in the rack's step area at its current width (Auto pattern length shows at least that). */
+function useFitSteps(scrollRef: React.RefObject<HTMLDivElement | null>): number {
+  const [fit, setFit] = useState(0)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const measure = () => {
+      // where the step buttons start inside a row (fallback: the usual header width)
+      const first = el.querySelector<HTMLElement>('[data-steps]')
+      const left = first ? first.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft : 230
+      setFit(Math.max(0, Math.floor((el.clientWidth - left - 6) / STEP_W)))
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    measure()
+    return () => ro.disconnect()
+  }, [scrollRef])
+  return fit
+}
+
+/** Step in `pattern` the playhead is on, or -1 (not playing, or the pattern isn't under the song position). */
+function playingStep(pattern: Pattern): number {
+  const t = useTransport.getState()
+  if (!t.playing) return -1
+  const tick = playhead.tick
+  if (t.mode === 'pattern') return Math.floor(tick / TICKS_PER_STEP)
+  const p = useProject.getState().project
+  const clip = p.playlist.clips.find((c) => c.kind === 'pattern' && c.ref === pattern.id && !c.muted && tick >= c.start && tick < c.start + c.length)
+  if (!clip) return -1
+  const len = patternLength(pattern, p)
+  return Math.floor((((tick - clip.start + clip.offset) % len) + len) % len / TICKS_PER_STEP)
+}
+
+/**
+ * FL's step indicator: the column of step buttons under the playhead lights up. Done with a scoped style rule
+ * rewritten once per step, so the rows don't re-render every frame.
+ */
+function useStepIndicator(rackRef: React.RefObject<HTMLDivElement | null>, pattern: Pattern | undefined): void {
+  useEffect(() => {
+    const rack = rackRef.current
+    if (!rack || !pattern) return
+    const scope = `rack-${Math.random().toString(36).slice(2, 8)}`
+    rack.dataset.rack = scope
+    const style = document.createElement('style')
+    document.head.appendChild(style)
+    let last = -2
+    const update = () => {
+      const step = playingStep(pattern)
+      if (step === last) return
+      last = step
+      style.textContent =
+        step < 0
+          ? ''
+          : `[data-rack="${scope}"] [data-step="${step}"] { filter: brightness(1.55) saturate(1.2); border-color: #c8d3d8 !important; box-shadow: 0 0 5px rgba(255,255,255,.35) !important; }`
+    }
+    update()
+    const offPlayhead = playhead.subscribe(update)
+    const offTransport = useTransport.subscribe(update)
+    return () => {
+      offPlayhead()
+      offTransport()
+      style.remove()
+    }
+  }, [rackRef, pattern])
+}
+
+/** Title-bar Pattern length control: Auto, or 1..512 steps. Drag up/down or use the mouse wheel; double-click = Auto. */
+function PatternLength({ pattern }: { pattern: Pattern }) {
+  const timeSig = useProject((s) => s.project.timeSig)
+  const setHint = useUI((s) => s.setHint)
+  const drag = useRef<{ y: number; v: number } | null>(null)
+  const steps = Math.round(pattern.length / TICKS_PER_STEP)
+  const barSteps = (16 * timeSig[0]) / timeSig[1]
+  const describe = (n: number) => {
+    if (n <= 0) {
+      const auto = Math.ceil(patternLength({ ...pattern, length: 0 }, { timeSig }) / TICKS_PER_STEP)
+      return `Auto (${auto} steps)`
+    }
+    const bars = n / barSteps
+    return `${n} step${n === 1 ? '' : 's'} (${Number.isInteger(bars) ? bars : bars.toFixed(2)} bar${bars === 1 ? '' : 's'})`
+  }
+  // read the stored value, not the render's: wheel events can outrun re-renders
+  const current = () => Math.round((useProject.getState().project.patterns.find((x) => x.id === pattern.id)?.length ?? 0) / TICKS_PER_STEP)
+  const set = (n: number) => {
+    const v = Math.max(0, Math.min(MAX_STEPS, Math.round(n)))
+    if (v !== current()) editProject('Pattern length', (d) => void (d.patterns.find((x) => x.id === pattern.id)!.length = v * TICKS_PER_STEP), { coalesceKey: `patlen:${pattern.id}` })
+    setHint(`Pattern length: ${describe(v)} – drag or wheel, double-click for Auto`)
+  }
+  return (
+    <div
+      data-nodrag
+      className="flex h-4 shrink-0 cursor-ns-resize select-none items-center gap-1 rounded-sm bg-fl-well px-1.5 text-[10px] text-fl-text fl-inset"
+      title="Pattern length"
+      onMouseEnter={() => setHint(`Pattern length: ${describe(steps)} – drag or wheel, double-click for Auto`)}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        e.stopPropagation()
+        drag.current = { y: e.clientY, v: steps }
+        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current
+        if (d) set(d.v + Math.round((d.y - e.clientY) / 4))
+      }}
+      onPointerUp={() => (drag.current = null)}
+      onPointerCancel={() => (drag.current = null)}
+      onWheel={(e) => set(current() - Math.sign(e.deltaY))}
+      onDoubleClick={() => set(0)}
+    >
+      <Ruler size={10} className="text-fl-dim" />
+      <span className={cn('min-w-[26px] text-right font-mono', steps > 0 ? 'text-[#9fe870]' : 'text-fl-dim')}>{steps > 0 ? steps : 'Auto'}</span>
     </div>
   )
 }

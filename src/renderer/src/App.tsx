@@ -11,6 +11,9 @@ import { initAudio } from '@/audio/transport'
 import { host } from '@/platform'
 import { SystemChecks } from '@/system/SystemChecks'
 import { UnsavedDialog } from '@/system/UnsavedDialog'
+import { ConfirmDialog } from '@/system/ConfirmDialog'
+import { PopupMenuHost } from '@/windows/playlist/PopupMenu'
+import { PromptHost } from '@/windows/playlist/Prompt'
 import { startAutosave } from '@/store/autosave'
 
 export default function App() {
@@ -47,6 +50,9 @@ export default function App() {
       </div>
       <SystemChecks />
       <UnsavedDialog />
+      <ConfirmDialog />
+      <PopupMenuHost />
+      <PromptHost />
     </TooltipProvider>
   )
 }

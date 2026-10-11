@@ -110,6 +110,9 @@ ipcMain.handle('win:nativeHandle', () => {
 })
 ipcMain.handle('dialog:open', (_e, opts: Electron.OpenDialogOptions) => dialog.showOpenDialog(win!, opts))
 ipcMain.handle('dialog:save', (_e, opts: Electron.SaveDialogOptions) => dialog.showSaveDialog(win!, opts))
+// Browser context menu: reveal a file in the OS file manager / move it to the trash.
+ipcMain.handle('shell:showItem', (_e, path: string) => shell.showItemInFolder(path))
+ipcMain.handle('shell:trash', (_e, path: string) => shell.trashItem(path))
 ipcMain.handle('app:paths', () => ({
   home: app.getPath('home'),
   userData: app.getPath('userData'),

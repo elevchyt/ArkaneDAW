@@ -1,6 +1,9 @@
 import type { PluginManifest } from '../sdk/types'
+import { DECLICK_MODES } from './process'
 
-/** The channel sampler: what you get when you drop an audio file in the channel rack. */
+const ONOFF = ['Off', 'On']
+
+/** The channel sampler (FL "Sampler Channel Settings"): what you get when you drop an audio file in the channel rack. */
 export const manifest: PluginManifest = {
   id: 'sampler',
   name: 'Sampler',
@@ -10,11 +13,27 @@ export const manifest: PluginManifest = {
   color: '#9fd27a',
   params: [
     { id: 'root', name: 'Root note', min: 0, max: 127, default: 60, step: 1 },
-    { id: 'pitchToKey', name: 'Key tracking', min: 0, max: 1, default: 1, options: ['Off', 'On'] },
-    { id: 'oneShot', name: 'One shot', min: 0, max: 1, default: 1, options: ['Off', 'On'] },
-    { id: 'reverse', name: 'Reverse', min: 0, max: 1, default: 0, options: ['Off', 'On'] },
-    { id: 'loop', name: 'Loop', min: 0, max: 1, default: 0, options: ['Off', 'On'] },
-    { id: 'start', name: 'Start', min: 0, max: 1, default: 0, unit: '%' },
+    { id: 'pitchToKey', name: 'Key tracking', min: 0, max: 1, default: 1, options: ONOFF },
+    { id: 'oneShot', name: 'One shot', min: 0, max: 1, default: 1, options: ONOFF },
+    // playback / looping
+    { id: 'start', name: 'Start offset', min: 0, max: 1, default: 0, unit: '%' },
+    { id: 'loop', name: 'Use loop points', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'pingPong', name: 'Ping pong loop', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'loopStart', name: 'Loop start', min: 0, max: 1, default: 0, unit: '%' },
+    { id: 'loopEnd', name: 'Loop end', min: 0, max: 1, default: 1, unit: '%' },
+    { id: 'declick', name: 'Declicking', min: 0, max: DECLICK_MODES.length - 1, default: 0, options: [...DECLICK_MODES] },
+    // time stretching / pitch shifting (resample mode)
+    { id: 'pitch', name: 'Pitch', min: -1200, max: 1200, default: 0, unit: 'ct', step: 1 },
+    { id: 'mul', name: 'Length multiplier', min: 0.25, max: 4, default: 1, unit: 'x', curve: 'exp' },
+    // precomputed effects
+    { id: 'removeDC', name: 'Remove DC offset', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'normalize', name: 'Normalize', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'polarity', name: 'Reverse polarity', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'swapStereo', name: 'Swap stereo', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'reverse', name: 'Reverse', min: 0, max: 1, default: 0, options: ONOFF },
+    { id: 'fadeIn', name: 'Fade in', min: 0, max: 2, default: 0, unit: 's', curve: 'exp' },
+    { id: 'fadeOut', name: 'Fade out', min: 0, max: 2, default: 0, unit: 's', curve: 'exp' },
+    // envelope / filter / amp (FL's INS tab)
     { id: 'attack', name: 'Attack', min: 0, max: 2, default: 0, unit: 's', curve: 'exp' },
     { id: 'decay', name: 'Decay', min: 0.01, max: 8, default: 8, unit: 's', curve: 'exp' },
     { id: 'sustain', name: 'Sustain', min: 0, max: 1, default: 1, unit: '%' },

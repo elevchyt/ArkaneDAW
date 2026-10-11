@@ -4,7 +4,7 @@ import { useUI, type Tool } from '@/store/ui'
 import { useTransport, playhead } from '@/store/transport'
 import { PLAYLIST_TRACKS } from '@/store/types'
 import { uid } from '@/store/factory'
-import { barTicks, songLength } from '@/audio/sequence'
+import { barTicks, beatTicks, songLength } from '@/audio/sequence'
 import { transport } from '@/audio/transport'
 import { clampMove, cloneShifted, deleteSpace, duplicateRight, insertSpace, moveClips, sliceAt, span } from './ops'
 import { addMarker, commitClips, deleteClips, setClipsMuted } from './actions'
@@ -82,7 +82,7 @@ export function playlistKey(e: KeyboardEvent): boolean {
         const cb = pl.clipboard
         const s = cb && span(cb)
         if (!cb || !s) return true
-        const grid = snapTicks(effectiveSnap(), pl.ppt, bar)
+        const grid = snapTicks(effectiveSnap(), pl.ppt, bar, beatTicks(p))
         const at = Math.round(songPos() / Math.max(1, grid)) * Math.max(1, grid)
         const copies = cloneShifted(cb, at - s.start, 0, uid)
         commitClips('Paste clips', clips, [...clips, ...copies])
@@ -164,7 +164,7 @@ export function playlistKey(e: KeyboardEvent): boolean {
       case 'ArrowDown': {
         const sel = selectedClips()
         if (!sel.length) return true
-        const grid = Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar))
+        const grid = Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar, beatTicks(p)))
         const raw = { dTick: e.code === 'ArrowLeft' ? -grid : e.code === 'ArrowRight' ? grid : 0, dTrack: e.code === 'ArrowUp' ? -1 : e.code === 'ArrowDown' ? 1 : 0 }
         const { dTick, dTrack } = clampMove(sel, raw.dTick, raw.dTrack, PLAYLIST_TRACKS)
         commitClips('Move clips', clips, moveClips(clips, pl.selected, dTick, dTrack))
@@ -181,7 +181,7 @@ export function playlistKey(e: KeyboardEvent): boolean {
       return true
     case 'Insert': {
       // slice at the mouse cursor (selected clips, or the clip track under the mouse)
-      const at = Math.round(mouse.tick / Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar))) * Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar))
+      const at = Math.round(mouse.tick / Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar, beatTicks(p)))) * Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar, beatTicks(p)))
       if (pl.selected.size) {
         const sel = new Set(pl.selected)
         const other = clips.filter((c) => !sel.has(c.id))

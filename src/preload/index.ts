@@ -39,6 +39,12 @@ const host = {
     open: (opts: Electron.OpenDialogOptions) => ipcRenderer.invoke('dialog:open', opts) as Promise<Electron.OpenDialogReturnValue>,
     save: (opts: Electron.SaveDialogOptions) => ipcRenderer.invoke('dialog:save', opts) as Promise<Electron.SaveDialogReturnValue>
   },
+  shell: {
+    /** Open the OS file manager with this file or folder selected. */
+    showItem: (path: string) => ipcRenderer.invoke('shell:showItem', path) as Promise<void>,
+    /** Move a file or folder to the OS trash (recoverable). */
+    trash: (path: string) => ipcRenderer.invoke('shell:trash', path) as Promise<void>
+  },
   /** Absolute path of a File dropped from the OS (File.path was removed from Electron). */
   pathForFile: (f: File) => webUtils.getPathForFile(f),
   paths: () => ipcRenderer.invoke('app:paths') as Promise<Record<string, string>>,

@@ -18,6 +18,14 @@ describe('snapping', () => {
     expect(lineTicks(0.02, 384)).toBe(768) // bar = 7.7 px -> 2 bars
     expect(snapTicks('line', 0.1, 384)).toBe(96)
   })
+  it('follows the time signature', () => {
+    // 3/4: no half-bar (2-beat) lines, they would not line up with the bars
+    expect(lineTicks(0.06, 288)).toBe(288)
+    expect(lineTicks(0.1, 288)).toBe(96)
+    // 6/8: beats are eighths
+    expect(snapTicks('beat', 1, 288, 48)).toBe(48)
+    expect(lineTicks(0.2, 288, 9, 48)).toBe(48)
+  })
   it('rounds and floors', () => {
     expect(snapRound(140, 96)).toBe(96)
     expect(snapRound(150, 96)).toBe(192)

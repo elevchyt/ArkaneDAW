@@ -8,7 +8,7 @@ import { commands } from './commands'
 import { dispatchWindowKey } from './keys'
 import { recordLiveNote } from '@/audio/recording'
 
-// FL's typing keyboard layout: Z-row = lower octave, Q-row = upper octave.
+// FL's typing keyboard layout: Q-row = the typing octave (C5, the sample's own pitch), Z-row = one octave below.
 const TYPING: Record<string, number> = {
   KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11, Comma: 12, KeyL: 13, Period: 14, Semicolon: 15, Slash: 16,
   KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23, KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28, BracketLeft: 29, Equal: 30, BracketRight: 31
@@ -30,7 +30,7 @@ function typingNote(e: KeyboardEvent, down: boolean): boolean {
   if (!channelId) return true
   if (down) {
     if (e.repeat || held.has(e.code)) return true
-    const key = ui.typingOctave * 12 + off
+    const key = (ui.typingOctave - 1) * 12 + off
     void initAudio().then((engine) => {
       const id = engine.noteOn(channelId, key, 0.78)
       held.set(e.code, { id, key, channelId })

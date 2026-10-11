@@ -59,7 +59,8 @@ export function resetTrack(i: number): void {
     const fresh = makeMixerTrack(i)
     const t = d.mixer[i]
     if (!t) return
-    Object.assign(t, { ...fresh, id: t.id, name: t.name, color: t.color, sends: t.sends, slots: t.slots })
+    // name and color go back to the defaults too; only effects and routing survive
+    Object.assign(t, { ...fresh, id: t.id, sends: t.sends, slots: t.slots })
   })
 }
 

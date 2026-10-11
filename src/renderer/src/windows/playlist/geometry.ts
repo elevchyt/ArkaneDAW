@@ -25,23 +25,23 @@ export const xToTick = (v: View, x: number): number => v.scrollTick + x / v.ppt
  * Spacing (ticks) of the finest grid line visible at this zoom: FL's "Line" snap.
  * Candidates go from 1/4 step up to many bars; the first one at least `minPx` wide wins.
  */
-export function lineTicks(ppt: number, bar: number, minPx = 9): number {
-  const beat = PPQ
-  const cands = [TICKS_PER_STEP / 4, TICKS_PER_STEP / 2, TICKS_PER_STEP, beat, beat * 2, bar, bar * 2, bar * 4, bar * 8, bar * 16, bar * 32, bar * 64]
+export function lineTicks(ppt: number, bar: number, minPx = 9, beat = PPQ): number {
+  // below a bar only spacings that divide the bar (3/4: no half-bar lines)
+  const sub = [TICKS_PER_STEP / 4, TICKS_PER_STEP / 2, TICKS_PER_STEP, beat, beat * 2].filter((t) => t < bar && bar % t === 0)
+  const cands = [...sub, bar, bar * 2, bar * 4, bar * 8, bar * 16, bar * 32, bar * 64]
   for (const c of cands) if (c * ppt >= minPx) return c
   return cands[cands.length - 1]
 }
 
 /** Resolve a snap setting to a grid size in ticks (1 = free). `snap` must not be 'main'. */
-export function snapTicks(snap: Snap, ppt: number, bar: number): number {
-  const beat = PPQ
+export function snapTicks(snap: Snap, ppt: number, bar: number, beat = PPQ): number {
   switch (snap) {
     case 'none':
       return 1
     case 'line':
     case 'cell':
     case 'main':
-      return lineTicks(ppt, bar)
+      return lineTicks(ppt, bar, 9, beat)
     case '1/6step':
       return TICKS_PER_STEP / 6
     case '1/4step':

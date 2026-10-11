@@ -2,6 +2,8 @@
 import { PPQ, TICKS_PER_STEP, type Automation, type AutomationPoint, type Clip, type Note, type Pattern, type Project } from '../store/types'
 
 export const barTicks = (p: Pick<Project, 'timeSig'>): number => (PPQ * 4 * p.timeSig[0]) / p.timeSig[1]
+/** One beat of the time signature (a quarter in x/4, an eighth in x/8). */
+export const beatTicks = (p: Pick<Project, 'timeSig'>): number => (PPQ * 4) / p.timeSig[1]
 
 /** FL-style automatic pattern length: content rounded up to whole bars, at least one bar. */
 export function patternLength(pattern: Pattern, project: Pick<Project, 'timeSig'>): number {

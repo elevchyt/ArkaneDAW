@@ -384,7 +384,7 @@ export async function stopAudioRecording(): Promise<void> {
     const ch = makeChannel(name, null, {
       kind: 'audio',
       color: mt?.color && mt.color !== '#5c676d' ? mt.color : CHANNEL_COLORS[(p0.channels.length + placed.length) % CHANNEL_COLORS.length],
-      mixerTrack: inp.track,
+      mixerTrack: 0, // like any new channel; the take was already recorded through its insert
       sampler: { sampleId: sample.id, rootKey: 60, reverse: false, loop: false, attack: 0, decay: 0, sustain: 1, release: 0, startOffset: 0, oneShot: true, pitchToKey: false }
     })
     const toPlaylist = start.mode === 'song' || s.patternAudioToPlaylist

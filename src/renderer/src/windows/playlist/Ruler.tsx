@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useProject, getProject, editProject } from '@/store/project'
 import { useTransport, playhead } from '@/store/transport'
 import { useUI } from '@/store/ui'
-import { barTicks } from '@/audio/sequence'
+import { barTicks, beatTicks } from '@/audio/sequence'
 import { transport } from '@/audio/transport'
 import { formatPos, snapRound, snapTicks, tickToX, xToTick, zoomAround, type View } from './geometry'
 import { drawRuler, drawRulerHead, RULER_BARS_H, RULER_H } from './render'
@@ -11,7 +11,10 @@ import { effectiveSnap, getPl, usePlaylist } from './state'
 import { openMenu } from './PopupMenu'
 import { askText } from './Prompt'
 
-type Drag = { kind: 'sel'; x0: number; t0: number; moved: boolean } | { kind: 'marker'; id: string; dx: number; moved: boolean }
+type Drag =
+  | { kind: 'sel'; x0: number; t0: number; moved: boolean }
+  | { kind: 'pos'; x0: number; moved: boolean }
+  | { kind: 'marker'; id: string; dx: number; moved: boolean }
 
 export function setTimeSelection(sel: { start: number; end: number } | null): void {
   getPl().set({ timeSel: sel })
@@ -87,7 +90,7 @@ export function Ruler() {
     const y = e.clientY - r.top
     return { x, y, tick: Math.max(0, xToTick(view(), x)) }
   }
-  const grid = (alt: boolean) => (alt ? 1 : snapTicks(effectiveSnap(), getPl().ppt, barTicks(getProject())))
+  const grid = (alt: boolean) => (alt ? 1 : snapTicks(effectiveSnap(), getPl().ppt, barTicks(getProject()), beatTicks(getProject())))
   const markerAt = (x: number) => {
     const v = view()
     const ms = getProject().markers
@@ -129,7 +132,8 @@ export function Ruler() {
       drag.current = { kind: 'marker', id: m.id, dx: tick - m.pos, moved: false }
       return
     }
-    drag.current = { kind: 'sel', x0: x, t0: tick, moved: false }
+    // Ctrl+drag: time selection (Ctrl+click without dragging clears it). Plain click/drag: song position.
+    drag.current = e.ctrlKey || e.metaKey ? { kind: 'sel', x0: x, t0: tick, moved: false } : { kind: 'pos', x0: x, moved: false }
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -138,7 +142,7 @@ export function Ruler() {
     const p = getProject()
     if (!d) {
       const m = y >= RULER_BARS_H ? markerAt(x) : null
-      useUI.getState().setHint(m ? `Marker: ${m.name} (drag to move, right-click for menu, double-click to rename)` : `Timeline ${formatPos(tick, barTicks(p))} — click: set song position, drag: time selection, right-click: clear`)
+      useUI.getState().setHint(m ? `Marker: ${m.name} (drag to move, right-click for menu, double-click to rename)` : `Timeline ${formatPos(tick, barTicks(p))} — click / drag: set song position, Ctrl+drag: time selection, Ctrl+click / right-click: clear it`)
       return
     }
     const g = grid(e.altKey)
@@ -149,6 +153,10 @@ export function Ruler() {
       const b = snapRound(tick, g)
       if (a !== b) setTimeSelection({ start: Math.min(a, b), end: Math.max(a, b) })
       useUI.getState().setHint(`Time selection ${formatPos(Math.min(a, b), barTicks(p))} – ${formatPos(Math.max(a, b), barTicks(p))}`)
+    } else if (d.kind === 'pos') {
+      if (!d.moved && Math.abs(x - d.x0) < 4) return
+      d.moved = true
+      seek(snapRound(tick, g))
     } else {
       d.moved = true
       const np = Math.max(0, snapRound(tick - d.dx, g))
@@ -164,7 +172,8 @@ export function Ruler() {
     const d = drag.current
     drag.current = null
     if (!d) return
-    if (d.kind === 'sel' && !d.moved) seek(snapRound(pos(e).tick, grid(e.altKey)))
+    if (d.kind === 'sel' && !d.moved) setTimeSelection(null)
+    if (d.kind === 'pos' && !d.moved) seek(snapRound(pos(e).tick, grid(e.altKey)))
     if (d.kind === 'marker' && !d.moved) {
       const m = getProject().markers.find((q) => q.id === d.id)
       if (m) seek(m.pos)
@@ -172,14 +181,9 @@ export function Ruler() {
   }
 
   const onDoubleClick = (e: React.MouseEvent) => {
-    const { x, y, tick } = pos(e)
-    if (y < RULER_BARS_H) {
-      // FL: double-click the timeline selects that bar as time selection
-      const bar = barTicks(getProject())
-      const s = Math.floor(tick / bar) * bar
-      setTimeSelection({ start: s, end: s + bar })
-      return
-    }
+    // (time selections are made with Ctrl+drag only, never by double-clicking)
+    const { x, y } = pos(e)
+    if (y < RULER_BARS_H) return
     const m = markerAt(x)
     if (m) void askText('Marker name', m.name, e).then((v) => v && editProject('Rename marker', (d) => void (d.markers.find((q) => q.id === m.id)!.name = v)))
   }

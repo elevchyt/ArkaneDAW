@@ -4,7 +4,7 @@ import { useProject, getProject } from '@/store/project'
 import { useUI, type Tool } from '@/store/ui'
 import { useTransport, playhead } from '@/store/transport'
 import { PLAYLIST_TRACKS, PPQ, type AutomationPoint, type Clip } from '@/store/types'
-import { barTicks } from '@/audio/sequence'
+import { barTicks, beatTicks } from '@/audio/sequence'
 import { transport } from '@/audio/transport'
 import { uid } from '@/store/factory'
 import {
@@ -44,6 +44,7 @@ import {
 import { openClipMenu } from './menus'
 import { openPatternEditor } from './open'
 import { handleGridDrop } from './drop'
+import { setTimeSelection } from './Ruler'
 
 type Drag =
   | { kind: 'move'; before: Clip[]; moving: Clip[]; add: boolean; anchor: Clip; downTick: number; downTrack: number; label: string; preview: Clip[] }
@@ -52,7 +53,8 @@ type Drag =
   | { kind: 'delete'; before: Clip[]; removed: Set<string>; preview: Clip[] }
   | { kind: 'mute'; before: Clip[]; touched: Set<string>; to: boolean; preview: Clip[] }
   | { kind: 'paint'; before: Clip[]; proto: Clip; added: Clip[]; preview: Clip[] }
-  | { kind: 'rubber'; x0: number; y0: number; x1: number; y1: number; base: Set<string> }
+  /** time: Ctrl+drag, which also sets the time selection (Ctrl+click without dragging clears it) */
+  | { kind: 'rubber'; x0: number; y0: number; x1: number; y1: number; base: Set<string>; time?: boolean }
   | { kind: 'slice'; x: number; y0: number; y1: number }
   | { kind: 'zoomRect'; x0: number; x1: number; moved: boolean }
   | { kind: 'pan'; sx: number; sy: number; scrollTick: number; scrollY: number }
@@ -273,7 +275,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     return { clip, zone: hitZone(x - r.x, y - top, r.w, r.h), ...r }
   }
 
-  const gridSize = (alt: boolean): number => (alt ? 1 : snapTicks(effectiveSnap(), getPl().ppt, barTicks(getProject())))
+  const gridSize = (alt: boolean): number => (alt ? 1 : snapTicks(effectiveSnap(), getPl().ppt, barTicks(getProject()), beatTicks(getProject())))
 
   // ── pointer handlers ────────────────────────────────────────────────────────
   const onPointerDown = (e: React.PointerEvent) => {
@@ -305,7 +307,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
       const base = e.shiftKey ? new Set(pl.selected) : new Set<string>()
       if (!e.shiftKey) setSelection([])
-      return start({ kind: 'rubber', x0: x, y0: y, x1: x, y1: y, base })
+      return start({ kind: 'rubber', x0: x, y0: y, x1: x, y1: y, base, time: true })
     }
 
     if (e.button === 2) {
@@ -631,6 +633,14 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         break
       case 'fade':
         commitClips(d.zone === 'fadeIn' ? 'Fade in' : d.zone === 'fadeOut' ? 'Fade out' : 'Fade curve', d.before, d.preview)
+        break
+      case 'rubber':
+        if (d.time) {
+          const g = gridSize(e.altKey)
+          const a = snapRound(xToTick(v, Math.min(d.x0, d.x1)), g)
+          const b = snapRound(xToTick(v, Math.max(d.x0, d.x1)), g)
+          setTimeSelection(Math.abs(d.x1 - d.x0) > 4 && b > a ? { start: Math.max(0, a), end: b } : null)
+        }
         break
       case 'auto':
         if (d.points !== d.before) setAutomationPoints(d.autoId, d.points, d.mode === 'tension' ? 'Automation tension' : 'Edit automation')

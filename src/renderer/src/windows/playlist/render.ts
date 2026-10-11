@@ -122,8 +122,9 @@ export function drawGrid(s: GridScene): void {
     ctx.fillStyle = tracks[i]?.muted ? COLORS.bgMuted : i % 2 ? COLORS.bgAlt : COLORS.bg
     ctx.fillRect(0, y, w, offsets[i + 1] - offsets[i])
   }
-  // alternate bar-group shading (FL shades every other 4-bar block lightly)
-  const group = bar * 4
+  // alternate bar-group shading: blocks of as many bars as the time signature has beats (4/4: 4 bars, 3/4: 3)
+  const beat = (PPQ * 4) / project.timeSig[1]
+  const group = bar * Math.max(1, project.timeSig[0])
   const firstG = Math.floor(view.scrollTick / group)
   for (let g = firstG; ; g++) {
     const x = tickToX(view, g * group)
@@ -134,12 +135,12 @@ export function drawGrid(s: GridScene): void {
     }
   }
   // vertical lines
-  const line = lineTicks(view.ppt, bar, 7)
+  const line = lineTicks(view.ppt, bar, 7, beat)
   const startT = Math.floor(view.scrollTick / line) * line
   for (let t = startT; ; t += line) {
     const x = Math.round(tickToX(view, t)) + 0.5
     if (x > w) break
-    ctx.strokeStyle = t % bar === 0 ? COLORS.lineBar : t % PPQ === 0 ? COLORS.lineBeat : COLORS.lineStep
+    ctx.strokeStyle = t % bar === 0 ? COLORS.lineBar : t % beat === 0 ? COLORS.lineBeat : COLORS.lineStep
     ctx.beginPath()
     ctx.moveTo(x, 0)
     ctx.lineTo(x, h)
@@ -523,7 +524,7 @@ export function drawRuler(s: RulerScene): void {
   const barPx = bar * view.ppt
   let every = 1
   while (every * barPx < 28) every *= 2
-  const tickLine = lineTicks(view.ppt, bar, 7)
+  const tickLine = lineTicks(view.ppt, bar, 7, (PPQ * 4) / project.timeSig[1])
   ctx.font = '10px "Segoe UI", "Noto Sans", Ubuntu, sans-serif'
   ctx.textBaseline = 'middle'
   const startT = Math.floor(view.scrollTick / tickLine) * tickLine

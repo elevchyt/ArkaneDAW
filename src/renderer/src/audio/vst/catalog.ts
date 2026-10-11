@@ -74,6 +74,8 @@ interface CatalogState {
   removeSearchPath: (p: string) => void
   toggleDefault: (p: string) => void
   toggleFavorite: (id: string) => void
+  /** Display name shown in pickers and the browser. */
+  rename: (id: string, name: string) => void
   setBlacklisted: (path: string, blacklisted: boolean) => void
   forget: (path: string) => void
 }
@@ -326,6 +328,10 @@ export const useVstCatalog = create<CatalogState>((set, get) => ({
   },
   toggleFavorite(id) {
     set({ entries: get().entries.map((e) => (e.id === id ? { ...e, favorite: !e.favorite || undefined } : e)) })
+    void save(get())
+  },
+  rename(id, name) {
+    set({ entries: get().entries.map((e) => (e.id === id ? { ...e, name } : e)) })
     void save(get())
   },
   setBlacklisted(path, blacklisted) {

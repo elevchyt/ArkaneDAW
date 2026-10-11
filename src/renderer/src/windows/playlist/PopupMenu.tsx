@@ -32,7 +32,7 @@ export const usePopupMenu = create<MenuState>((set) => ({
 export const openMenu = (e: { clientX: number; clientY: number }, items: MenuItem[], title?: string): void =>
   usePopupMenu.getState().open(e.clientX, e.clientY, items, title)
 
-/** Render once (inside the Playlist). */
+/** Render once (App). */
 export function PopupMenuHost() {
   const menu = usePopupMenu((s) => s.menu)
   const close = usePopupMenu((s) => s.close)

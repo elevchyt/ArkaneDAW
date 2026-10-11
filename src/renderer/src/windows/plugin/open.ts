@@ -1,5 +1,6 @@
 import { useUI } from '@/store/ui'
-import { getProject } from '@/store/project'
+import { editProject, getProject } from '@/store/project'
+import { newPluginState } from '@/store/actions'
 import { getPlugin } from '@/plugins/registry'
 import { pluginName } from '@/plugins/catalog'
 
@@ -11,8 +12,24 @@ function size(pluginId: string | undefined): { w: number; h: number } {
   return { w: s.width + 2, h: s.height + CHROME_H + 2 }
 }
 
+/**
+ * Audio clip / recording channels start without a plugin. Like FL (where they are samplers too), they get a
+ * Sampler playing their sample the first time their settings are opened.
+ */
+function ensureSampler(channelId: string): void {
+  const ch = getProject().channels.find((c) => c.id === channelId)
+  if (!ch || ch.plugin || !ch.sampler?.sampleId) return
+  const state = newPluginState('sampler')
+  state.data = { sampleId: ch.sampler.sampleId }
+  editProject('Sampler settings', (d) => {
+    const c = d.channels.find((x) => x.id === channelId)
+    if (c && !c.plugin) c.plugin = state
+  }, { undoable: false })
+}
+
 /** Open (or focus) an instrument channel's plugin window. */
 export function openChannelPlugin(channelId: string): void {
+  ensureSampler(channelId)
   const ch = getProject().channels.find((c) => c.id === channelId)
   if (!ch) return
   const { w, h } = size(ch.plugin?.pluginId)

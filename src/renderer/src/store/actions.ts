@@ -243,6 +243,21 @@ export function deletePattern(id: string): void {
   if (!findPattern(p, useUI.getState().currentPattern)) selectPattern(p.patterns[0].id)
 }
 
+/** Remove a pool sample with its audio clips and the channels that play it. */
+export function deleteSample(id: string): void {
+  const p = getProject()
+  const uses = (c: Channel) => c.sampler?.sampleId === id || (c.plugin?.data as { sampleId?: unknown } | undefined)?.sampleId === id
+  const gone = new Set(p.channels.filter(uses).map((c) => c.id))
+  editProject('Delete sample', (d) => {
+    d.samples = d.samples.filter((s) => s.id !== id)
+    d.playlist.clips = d.playlist.clips.filter((c) => !(c.kind === 'audio' && c.ref === id) && !(c.channelId && gone.has(c.channelId)))
+    d.channels = d.channels.filter((c) => !gone.has(c.id))
+    for (const pat of d.patterns) for (const cid of gone) delete pat.notes[cid]
+  })
+  const sel = useUI.getState().selectedChannels
+  if (sel.some((c) => gone.has(c))) useUI.getState().set({ selectedChannels: sel.filter((c) => !gone.has(c)) })
+}
+
 // ── playlist ──────────────────────────────────────────────────────────────────
 export function addClip(clip: Omit<Clip, 'id'>): string {
   const id = uid()

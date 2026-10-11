@@ -8,7 +8,7 @@ import { PPQ, type Automation, type AutomationTarget, type Project } from '../st
 import { AudioEngine, faderToGain } from './engine'
 import { ensureAudio } from './context'
 import { automationValue, barTicks, patternHits, patternLength, songHits, songLength, type NoteHit } from './sequence'
-import { getBuffer, loadSample } from './samples'
+import { clipBuffer, getBuffer, loadSample } from './samples'
 import { getPlugin } from '../plugins/registry'
 import { denormalize } from '../plugins/sdk/params'
 import { getAudioSettings } from '../windows/settings/settings-store'
@@ -203,12 +203,14 @@ class Scheduler {
 
   private playClip(p: Project, clip: import('../store/types').Clip, when: number, intoTicks: number): void {
     const e = engine!
-    const buf = getBuffer(clip.ref)
-    if (!buf) {
+    const raw = getBuffer(clip.ref)
+    if (!raw) {
       const s = p.samples.find((x) => x.id === clip.ref)
       if (s) void loadSample(s)
       return
     }
+    const owner = clip.channelId ? p.channels.find((c) => c.id === clip.channelId) : undefined
+    const buf = clipBuffer(raw, clip.ref, owner?.plugin?.pluginId === 'sampler' ? owner.plugin.params : undefined)
     const ctx = e.ctx
     const src = ctx.createBufferSource()
     src.buffer = buf
@@ -342,12 +344,16 @@ export const transport = {
     useTransport.getState().set({ playing: true, paused: false })
     scheduler.start(from)
   },
-  /** Stop playback. Pressed again while nothing plays, it cuts every sound at once (tails, held notes, previews). */
+  /**
+   * Stop playback. Pressed again while nothing plays, it cuts every sound at once (tails, held notes, previews)
+   * and, in song mode, sends the start marker back to the start of the time selection (or of the song).
+   */
   stop(): void {
     const t = useTransport.getState()
     scheduler.stop()
-    useTransport.getState().set({ playing: false, paused: false })
-    playhead.set(t.startTick)
+    const home = !t.playing && !t.paused && t.mode === 'song' ? (t.loop?.start ?? 0) : t.startTick
+    useTransport.getState().set({ playing: false, paused: false, startTick: home })
+    playhead.set(home)
     if (!t.playing) {
       engine?.panic(true)
       stopOneShots()

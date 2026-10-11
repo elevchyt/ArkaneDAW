@@ -27,6 +27,7 @@ import { PPQ, TICKS_PER_STEP } from '@/store/types'
 import { transport, getEngine } from '@/audio/transport'
 import { addPattern, selectPattern } from '@/store/actions'
 import { Knob } from '@/components/controls'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { MainMenu } from './MainMenu'
 import { WindowControls } from './WindowControls'
@@ -94,42 +95,118 @@ function TransportButtons() {
   )
 }
 
+const TEMPO_MIN = 10
+const TEMPO_MAX = 522
+
+/** "3/4" → [3, 4]. Beats 1..32, beat unit 1/2/4/8/16 (whole ticks per beat at PPQ 96). */
+function parseTimeSig(text: string): [number, number] | null {
+  const m = /^\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*$/.exec(text)
+  if (!m) return null
+  const n = Number(m[1])
+  const d = Number(m[2])
+  if (n < 1 || n > 32 || ![1, 2, 4, 8, 16].includes(d)) return null
+  return [n, d]
+}
+
+/** Right-click on the tempo: type the BPM and the time signature. */
+function TempoDialog({ onClose }: { onClose: () => void }) {
+  const project = useProject((s) => s.project)
+  const [bpm, setBpm] = useState(String(+project.tempo.toFixed(3)))
+  const [sig, setSig] = useState(`${project.timeSig[0]}/${project.timeSig[1]}`)
+  const bpmVal = Number(bpm)
+  const bpmOk = bpm.trim() !== '' && Number.isFinite(bpmVal) && bpmVal >= TEMPO_MIN && bpmVal <= TEMPO_MAX
+  const sigVal = parseTimeSig(sig)
+  const apply = () => {
+    if (!bpmOk || !sigVal) return
+    editProject('Tempo and time signature', (d) => {
+      d.tempo = Math.round(bpmVal * 1000) / 1000
+      d.timeSig = sigVal
+    })
+    onClose()
+  }
+  const keys = (e: React.KeyboardEvent) => {
+    e.stopPropagation()
+    if (e.key === 'Enter') apply()
+    if (e.key === 'Escape') onClose()
+  }
+  const field = 'h-[22px] w-full rounded-[2px] bg-fl-well px-1.5 font-mono text-[12px] text-fl-text outline-none fl-inset'
+  return (
+    <div className="flex flex-col gap-2 text-[11px]">
+      <label className="flex flex-col gap-0.5">
+        <span className="text-fl-dim">Tempo (BPM)</span>
+        <input autoFocus className={cn(field, !bpmOk && 'text-[#ff7b72]')} value={bpm} onChange={(e) => setBpm(e.target.value)} onKeyDown={keys} onFocus={(e) => e.target.select()} inputMode="decimal" />
+      </label>
+      <label className="flex flex-col gap-0.5">
+        <span className="text-fl-dim">Time signature</span>
+        <input className={cn(field, !sigVal && 'text-[#ff7b72]')} value={sig} onChange={(e) => setSig(e.target.value)} onKeyDown={keys} onFocus={(e) => e.target.select()} placeholder="4/4" />
+      </label>
+      <div className="text-[10px] text-fl-dim">
+        {TEMPO_MIN}–{TEMPO_MAX} BPM · beats/unit, e.g. 3/4, 6/8, 9/4
+      </div>
+      <div className="flex justify-end gap-1">
+        <button className="h-[22px] rounded-[3px] border border-[#1e2427] bg-[#46525a] px-3 fl-bevel hover:bg-[#515e66]" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="h-[22px] rounded-[3px] border border-[#1e2427] bg-fl-orange px-3 font-semibold text-[#1b1f22] fl-bevel disabled:opacity-40" disabled={!bpmOk || !sigVal} onClick={apply}>
+          OK
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function TempoDisplay() {
   const tempo = useProject((s) => s.project.tempo)
+  const timeSig = useProject((s) => s.project.timeSig)
   const setHint = useUI((s) => s.setHint)
   const drag = useRef<{ y: number; v: number; fine: boolean } | null>(null)
+  const [dialog, setDialog] = useState(false)
   return (
-    <div
-      className="flex h-[34px] w-[74px] cursor-ns-resize flex-col items-end justify-center rounded-[3px] bg-fl-well px-1.5 fl-inset"
-      onMouseEnter={() => setHint(`Tempo: ${tempo.toFixed(3)} BPM – drag, or wheel`)}
-      onPointerDown={(e) => {
-        // Right of the decimal point = fractional part.
-        const decimals = (e.currentTarget as HTMLElement).querySelector('[data-decimals]')
-        const fine = decimals ? e.clientX >= decimals.getBoundingClientRect().left : false
-        drag.current = { y: e.clientY, v: tempo, fine }
-        ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-      }}
-      onPointerMove={(e) => {
-        const d = drag.current
-        if (!d) return
-        // Left of the decimal point: whole BPM only. Right of it: the fraction only.
-        const steps = Math.round((d.y - e.clientY) / 4)
-        const whole = Math.floor(d.v)
-        const frac = Math.round((d.v - whole) * 1000)
-        const v = d.fine
-          ? whole + Math.min(999, Math.max(0, frac + steps * 10)) / 1000
-          : Math.min(522, Math.max(10, whole + steps)) + frac / 1000
-        editProject('Tempo', (p) => void (p.tempo = v), { coalesceKey: 'tempo' })
-      }}
-      onPointerUp={() => (drag.current = null)}
-      onWheel={(e) => editProject('Tempo', (p) => void (p.tempo = Math.min(522, Math.max(10, Math.floor(p.tempo) - Math.sign(e.deltaY))) + (p.tempo % 1)), { coalesceKey: 'tempo' })}
-    >
-      <span className="font-mono text-[17px] leading-none text-[#e9f3ff]">
-        {Math.floor(tempo)}
-        <span data-decimals className="text-[12px] text-[#9fb2bd]">.{(tempo % 1).toFixed(3).slice(2)}</span>
-      </span>
-      <span className="text-[8px] uppercase tracking-wider text-fl-dim">tempo</span>
-    </div>
+    <Popover open={dialog} onOpenChange={setDialog}>
+      <PopoverAnchor asChild>
+        <div
+          className="flex h-[34px] w-[74px] cursor-ns-resize flex-col items-end justify-center rounded-[3px] bg-fl-well px-1.5 fl-inset"
+          onMouseEnter={() => setHint(`Tempo: ${tempo.toFixed(3)} BPM, ${timeSig[0]}/${timeSig[1]} – drag or wheel, right-click to type tempo and time signature`)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setDialog(true)
+          }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return
+            // Right of the decimal point = fractional part.
+            const decimals = (e.currentTarget as HTMLElement).querySelector('[data-decimals]')
+            const fine = decimals ? e.clientX >= decimals.getBoundingClientRect().left : false
+            drag.current = { y: e.clientY, v: tempo, fine }
+            ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+          }}
+          onPointerMove={(e) => {
+            const d = drag.current
+            if (!d) return
+            // Left of the decimal point: whole BPM only. Right of it: the fraction only.
+            const steps = Math.round((d.y - e.clientY) / 4)
+            const whole = Math.floor(d.v)
+            const frac = Math.round((d.v - whole) * 1000)
+            const v = d.fine
+              ? whole + Math.min(999, Math.max(0, frac + steps * 10)) / 1000
+              : Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, whole + steps)) + frac / 1000
+            editProject('Tempo', (p) => void (p.tempo = v), { coalesceKey: 'tempo' })
+          }}
+          onPointerUp={() => (drag.current = null)}
+          onWheel={(e) => editProject('Tempo', (p) => void (p.tempo = Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.floor(p.tempo) - Math.sign(e.deltaY))) + (p.tempo % 1)), { coalesceKey: 'tempo' })}
+        >
+          <span className="font-mono text-[17px] leading-none text-[#e9f3ff]">
+            {Math.floor(tempo)}
+            <span data-decimals className="text-[12px] text-[#9fb2bd]">.{(tempo % 1).toFixed(3).slice(2)}</span>
+          </span>
+          <span className="text-[8px] uppercase tracking-wider text-fl-dim">
+            {timeSig[0] !== 4 || timeSig[1] !== 4 ? `${timeSig[0]}/${timeSig[1]} · ` : ''}tempo
+          </span>
+        </div>
+      </PopoverAnchor>
+      <PopoverContent side="bottom" align="start" className="z-[1000] w-[200px] rounded-[3px] border-[#1d2326] bg-[#353f44] p-2 text-fl-text shadow-[0_6px_18px_rgba(0,0,0,.6)]" onOpenAutoFocus={(e) => e.preventDefault()}>
+        {dialog && <TempoDialog onClose={() => setDialog(false)} />}
+      </PopoverContent>
+    </Popover>
   )
 }
 

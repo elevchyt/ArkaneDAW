@@ -1,5 +1,6 @@
 import type { DSPContext, DSPFactory, InstrumentDSP, NoteOn } from '../sdk/types'
 import { ADSR, SVF, allocVoice, panGains, type VoiceLike } from '../sdk/dsp'
+import { PRECOMPUTED, declickTimes, processSample } from './process'
 
 interface SampleData {
   sampleRate: number
@@ -14,6 +15,8 @@ class Voice implements VoiceLike {
   age = 0
   pos = 0
   rate = 1
+  /** +1 forward, -1 backward (ping pong loop) */
+  dir = 1
   vel = 1
   pan = 0
   env: ADSR
@@ -26,9 +29,15 @@ class Voice implements VoiceLike {
   }
 }
 
+const PRE = new Set<string>(PRECOMPUTED)
+
 class Sampler implements InstrumentDSP {
   private p: Record<string, number> = {}
+  /** original PCM from the pool */
+  private raw: SampleData | null = null
+  /** raw with the precomputed effects applied (rebuilt lazily when one of them changes) */
   private sample: SampleData | null = null
+  private dirty = false
   private voices: Voice[]
   private clock = 0
   private bend = 0
@@ -36,17 +45,27 @@ class Sampler implements InstrumentDSP {
     this.voices = Array.from({ length: 32 }, () => new Voice(ctx.sampleRate))
   }
   setParam(id: string, v: number): void {
+    if (PRE.has(id) && this.p[id] !== v) this.dirty = true
     this.p[id] = v
   }
   setData(data: unknown): void {
     const d = data as { sample?: SampleData } | null
-    this.sample = d?.sample ?? null
+    this.raw = d?.sample ?? null
+    this.dirty = true
+  }
+  private current(): SampleData | null {
+    if (this.dirty) {
+      this.dirty = false
+      const r = this.raw
+      this.sample = r ? { sampleRate: r.sampleRate, channels: processSample(r.channels, r.sampleRate, this.p) } : null
+    }
+    return this.sample
   }
   pitchBend(st: number): void {
     this.bend = st
   }
   noteOn(n: NoteOn): void {
-    const s = this.sample
+    const s = this.current()
     if (!s || !s.channels.length) return
     const v = allocVoice(this.voices, this.clock)
     const p = this.p
@@ -57,11 +76,14 @@ class Sampler implements InstrumentDSP {
     v.age = ++this.clock
     v.vel = n.vel
     v.pan = n.pan
-    const semis = (p.pitchToKey ?? 1) >= 0.5 ? n.key - (p.root ?? 60) + n.fine / 100 + this.bend : n.fine / 100 + this.bend
-    v.rate = Math.pow(2, semis / 12) * (s.sampleRate / this.ctx.sampleRate)
+    const fine = n.fine / 100 + (p.pitch ?? 0) / 100 + this.bend
+    const semis = (p.pitchToKey ?? 1) >= 0.5 ? n.key - (p.root ?? 60) + fine : fine
+    v.rate = (Math.pow(2, semis / 12) * (s.sampleRate / this.ctx.sampleRate)) / Math.max(0.25, p.mul ?? 1)
     const len = s.channels[0].length
-    v.pos = (p.reverse ?? 0) >= 0.5 ? len - 1 - (p.start ?? 0) * len : (p.start ?? 0) * len
-    v.env.set(Math.max(0.0005, p.attack ?? 0), p.decay ?? 8, p.sustain ?? 1, p.release ?? 0.02)
+    v.pos = (p.start ?? 0) * len
+    v.dir = 1
+    const dc = declickTimes(p.declick ?? 0)
+    v.env.set(Math.max(0.0005, p.attack ?? 0, dc.attack), p.decay ?? 8, p.sustain ?? 1, Math.max(p.release ?? 0.02, dc.release))
     v.env.reset()
     v.env.gate(true)
     v.fl.reset()
@@ -87,27 +109,35 @@ class Sampler implements InstrumentDSP {
     }
   }
   process(outL: Float32Array, outR: Float32Array, start: number, end: number): void {
-    const s = this.sample
+    const s = this.current()
     if (!s) return
     const L = s.channels[0]
     const R = s.channels[1] ?? L
     const len = L.length
-    const rev = (this.p.reverse ?? 0) >= 0.5
     const loop = (this.p.loop ?? 0) >= 0.5
+    const pingPong = (this.p.pingPong ?? 0) >= 0.5
+    // loop region in frames (at least 2 frames wide)
+    const ls = Math.max(0, Math.min(len - 2, Math.floor((this.p.loopStart ?? 0) * len)))
+    const le = Math.max(ls + 1, Math.min(len - 1, Math.floor((this.p.loopEnd ?? 1) * len)))
     const gain = this.p.gain ?? 1
     const filt = (this.p.cutoff ?? 20000) < 19500
     for (const v of this.voices) {
       if (!v.active) continue
       const [gl, gr] = panGains(v.pan)
-      const step = rev ? -v.rate : v.rate
       for (let i = start; i < end; i++) {
         let pos = v.pos
+        if (loop && v.dir > 0 && pos >= le) {
+          if (pingPong) {
+            v.dir = -1
+            pos = le - (pos - le)
+          } else pos = ls + (pos - le)
+        } else if (loop && v.dir < 0 && pos < ls) {
+          v.dir = 1
+          pos = ls + (ls - pos)
+        }
         if (pos >= len - 1 || pos < 0) {
-          if (loop) pos = rev ? len - 2 : 0
-          else {
-            v.active = false
-            break
-          }
+          v.active = false
+          break
         }
         const i0 = pos | 0
         const f = pos - i0
@@ -120,7 +150,7 @@ class Sampler implements InstrumentDSP {
         const a = v.env.next() * v.vel * gain
         outL[i] += l * a * gl
         outR[i] += r * a * gr
-        v.pos = pos + step
+        v.pos = pos + v.rate * v.dir
       }
       if (!v.env.active) v.active = false
     }

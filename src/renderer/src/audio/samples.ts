@@ -4,6 +4,7 @@ import type { Sample } from '../store/types'
 import { getProject, editProject } from '../store/project'
 import { host } from '../platform'
 import { getAudioContext } from './context'
+import { hasProcessing, processSample, processingKey } from '../plugins/sampler/process'
 
 const buffers = new Map<string, AudioBuffer>()
 const loading = new Map<string, Promise<AudioBuffer | null>>()
@@ -19,6 +20,24 @@ export function putBuffer(id: string, buf: AudioBuffer): void {
 export async function decode(data: ArrayBuffer): Promise<AudioBuffer> {
   const ctx = getAudioContext()
   return ctx.decodeAudioData(data)
+}
+
+const processed = new Map<string, { raw: AudioBuffer; key: string; buf: AudioBuffer }>()
+
+/**
+ * The buffer an audio clip plays: the pool sample with its channel's Sampler "precomputed effects"
+ * (normalize, reverse, fades...) applied. Cached per sample + settings.
+ */
+export function clipBuffer(raw: AudioBuffer, sampleId: string, params: Record<string, number> | undefined): AudioBuffer {
+  if (!params || !hasProcessing(params)) return raw
+  const key = processingKey(params)
+  const hit = processed.get(sampleId)
+  if (hit && hit.raw === raw && hit.key === key) return hit.buf
+  const chans = processSample(Array.from({ length: raw.numberOfChannels }, (_, c) => raw.getChannelData(c)), raw.sampleRate, params)
+  const buf = new AudioBuffer({ numberOfChannels: chans.length, length: raw.length, sampleRate: raw.sampleRate })
+  chans.forEach((d, c) => buf.copyToChannel(d as Float32Array<ArrayBuffer>, c))
+  processed.set(sampleId, { raw, key, buf })
+  return buf
 }
 
 /** Ensure a project sample is decoded (reads from disk if needed). */
