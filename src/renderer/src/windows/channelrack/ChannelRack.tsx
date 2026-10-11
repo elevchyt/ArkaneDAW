@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Plus, Ruler } from 'lucide-react'
 import { MdiWindow } from '@/shell/MdiWindow'
 import { useProject } from '@/store/project'
@@ -38,6 +38,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { handleChannelRackDrop } from './drop'
 import { PatternSelector } from '@/shell/PatternSelector'
+import { useWindowKeys } from '@/shell/keys'
 import type { WindowProps } from '../types'
 
 const ROW_H = 26
@@ -81,6 +82,54 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
     } else ui.set({ selectedChannels: [id] })
     ui.set({ pianoRollChannel: id })
   }
+
+  // Up/Down: select the previous/next channel (Alt+Up/Down, a global shortcut, moves the channels themselves).
+  const onKey = useCallback((e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || (e.code !== 'ArrowUp' && e.code !== 'ArrowDown')) return false
+    const ui = useUI.getState()
+    const list = useProject.getState().project.channels.filter((c) => ui.channelFilter === 'All' || c.filterGroup === ui.channelFilter)
+    if (!list.length) return true
+    const dir = e.code === 'ArrowUp' ? -1 : 1
+    const idx = list.map((c) => c.id).filter((id) => ui.selectedChannels.includes(id)).map((id) => list.findIndex((c) => c.id === id))
+    const from = idx.length ? (dir < 0 ? Math.min(...idx) : Math.max(...idx)) : dir < 0 ? list.length : -1
+    const next = list[Math.max(0, Math.min(list.length - 1, from + dir))]
+    ui.set({ selectedChannels: [next.id], pianoRollChannel: next.id })
+    return true
+  }, [])
+  useWindowKeys('channelRack', onKey)
+
+  // Dragging over the select buttons selects the run of channels from where the drag started (Ctrl/Shift: add to it).
+  const selDrag = useRef<{ anchor: number; base: string[] } | null>(null)
+  const selectRange = (clientY: number) => {
+    const d = selDrag.current
+    const el = scrollRef.current
+    if (!d || !el) return
+    const rows = Array.from(el.querySelectorAll<HTMLElement>('[data-chrow]'))
+    if (!rows.length) return
+    let i = rows.findIndex((r) => clientY < r.getBoundingClientRect().bottom)
+    if (i < 0) i = rows.length - 1
+    const ids = channels.slice(Math.min(d.anchor, i), Math.max(d.anchor, i) + 1).map((c) => c.id)
+    useUI.getState().set({ selectedChannels: [...d.base.filter((x) => !ids.includes(x)), ...ids] })
+  }
+  const selectorProps = (ch: Channel, index: number): SelectorProps => ({
+    onPointerDown: (e) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      const ui = useUI.getState()
+      const add = e.ctrlKey || e.shiftKey
+      const has = ui.selectedChannels.includes(ch.id)
+      selDrag.current = { anchor: index, base: add ? ui.selectedChannels.filter((x) => x !== ch.id) : [] }
+      if (add && has) ui.set({ selectedChannels: selDrag.current.base })
+      else ui.set({ selectedChannels: [...selDrag.current.base, ch.id] })
+      ui.set({ pianoRollChannel: ch.id })
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    },
+    onPointerMove: (e) => selectRange(e.clientY),
+    onPointerUp: () => (selDrag.current = null),
+    onPointerCancel: () => (selDrag.current = null),
+    // double-click: select every channel
+    onDoubleClick: () => useUI.getState().set({ selectedChannels: channels.map((c) => c.id) })
+  })
 
   const titleExtra = (
     <div className="flex items-center gap-2 pl-2">
@@ -130,9 +179,10 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
         }}
       >
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto py-1" onPointerUp={() => (paint.current = null)}>
-          {channels.map((ch) => (
+          {channels.map((ch, i) => (
             <ChannelRow
               key={ch.id}
+              selector={selectorProps(ch, i)}
               ch={ch}
               notes={pattern?.notes[ch.id] ?? []}
               steps={steps}
@@ -189,9 +239,12 @@ interface RowProps {
   patternId: string
   onSelect: (id: string, e: React.MouseEvent) => void
   paint: React.MutableRefObject<{ on: boolean; channelId: string } | null>
+  selector: SelectorProps
 }
 
-function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSelect, paint }: RowProps) {
+type SelectorProps = Pick<React.HTMLAttributes<HTMLElement>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onDoubleClick'>
+
+function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSelect, paint, selector }: RowProps) {
   const root = ch.rootNote ?? DEFAULT_NOTE_KEY
   const stepMode = isStepOnly(notes, root)
   const active = useMemo(() => new Set(notes.map((n) => n.pos / TICKS_PER_STEP)), [notes])
@@ -205,7 +258,7 @@ function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSel
   }
 
   return (
-    <div className="flex w-max items-center gap-1 px-1.5 [&>*]:shrink-0" style={{ height: ROW_H }}>
+    <div data-chrow className="flex w-max items-center gap-1 px-1.5 [&>*]:shrink-0" style={{ height: ROW_H }}>
       <Led
         on={!ch.muted}
         onClick={() => updateChannel(ch.id, { muted: !ch.muted }, 'Mute channel')}
@@ -353,9 +406,9 @@ function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSel
         </ContextMenuContent>
       </ContextMenu>
       <button
-        className={cn('h-[18px] w-[6px] rounded-[1px] border border-[#1d2326]', selected ? 'bg-fl-green shadow-[0_0_4px_var(--fl-green)]' : 'bg-[#4a565c]')}
-        onClick={(e) => onSelect(ch.id, e)}
-        title="Select"
+        className={cn('h-[18px] w-[10px] rounded-[2px] border border-[#1d2326]', selected ? 'bg-fl-green shadow-[0_0_4px_var(--fl-green)]' : 'bg-[#4a565c]')}
+        {...selector}
+        title="Select (drag: select several, double-click: select all)"
       />
       {stepMode ? (
         <div className="flex gap-[2px] pl-1" data-steps onPointerLeave={() => (editing.current = false)}>

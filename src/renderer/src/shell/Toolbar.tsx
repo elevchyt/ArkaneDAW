@@ -117,7 +117,7 @@ function TempoDialog({ onClose }: { onClose: () => void }) {
   const bpmVal = Number(bpm)
   const bpmOk = bpm.trim() !== '' && Number.isFinite(bpmVal) && bpmVal >= TEMPO_MIN && bpmVal <= TEMPO_MAX
   const sigVal = parseTimeSig(sig)
-  // Tap tempo: average of the last taps; a pause of 2 s starts over.
+  // Tap tempo: average of the last taps, rounded up to a whole BPM; a pause of 2 s starts over.
   const taps = useRef<number[]>([])
   const tap = () => {
     const now = performance.now()
@@ -127,7 +127,7 @@ function TempoDialog({ onClose }: { onClose: () => void }) {
     if (t.length > 9) t.shift()
     if (t.length < 2) return
     const bpmTapped = (60000 * (t.length - 1)) / (t[t.length - 1] - t[0])
-    setBpm(String(Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, bpmTapped)) * 100) / 100))
+    setBpm(String(Math.ceil(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, bpmTapped)))))
   }
   const apply = () => {
     if (!bpmOk || !sigVal) return
