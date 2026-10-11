@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useUI } from '@/store/ui'
 import { useTransport } from '@/store/transport'
 import { getProject } from '@/store/project'
+import { DEFAULT_NOTE_KEY } from '@/store/types'
 import { initAudio, transport } from '@/audio/transport'
 import { cloneChannels, deleteChannels, moveChannels, routeToFreeInserts, selectPattern, nextEmptyPattern, addPattern } from '@/store/actions'
 import { commands } from './commands'
@@ -9,7 +10,8 @@ import { dispatchWindowKey } from './keys'
 import { recordLiveNote } from '@/audio/recording'
 import { TOOL_KEYS as PLAYLIST_TOOL_KEYS } from '@/windows/playlist/keys'
 
-// FL's typing keyboard layout: Q-row = the typing octave (C5, the sample's own pitch), Z-row = one octave below.
+// FL's typing keyboard layout: Q-row = the typing octave, Z-row = one octave below. Q and ',' play the channel's
+// root note (the note its steps play: the sample's own pitch, or a Drum Machine channel's pad).
 const TYPING: Record<string, number> = {
   KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11, Comma: 12, KeyL: 13, Period: 14, Semicolon: 15, Slash: 16,
   KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23, KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28, BracketLeft: 29, Equal: 30, BracketRight: 31
@@ -41,7 +43,8 @@ function typingNote(e: KeyboardEvent, down: boolean): boolean {
   if (!channelId) return true
   if (down) {
     if (e.repeat || held.has(e.code)) return true
-    const key = (ui.typingOctave - 1) * 12 + off
+    const root = getProject().channels.find((c) => c.id === channelId)?.rootNote ?? DEFAULT_NOTE_KEY
+    const key = Math.max(0, Math.min(127, root + off - 12 + (ui.typingOctave - 5) * 12))
     void initAudio().then((engine) => {
       const id = engine.noteOn(channelId, key, 0.78)
       held.set(e.code, { id, key, channelId })
