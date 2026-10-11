@@ -117,9 +117,11 @@ function SampleTab({ p }: { p: PluginEditorProps }) {
           </label>
         </Section>
         <TimeStretch p={p} />
-        <Section title="Fades" accent={COLOR} className="flex gap-3">
-          <PK p={p} id="fadeIn" size={32} color={COLOR} label="In" />
-          <PK p={p} id="fadeOut" size={32} color={COLOR} label="Out" />
+        <Section title="Fades" accent={COLOR}>
+          <div className="flex gap-3">
+            <PK p={p} id="fadeIn" size={32} color={COLOR} label="In" />
+            <PK p={p} id="fadeOut" size={32} color={COLOR} label="Out" />
+          </div>
         </Section>
       </div>
       <Section title="Precomputed effects" accent={COLOR} className="shrink-0">
@@ -182,28 +184,60 @@ function EnvelopeTab({ p }: { p: PluginEditorProps }) {
   const root = Math.round(param(p, 'root'))
   return (
     <div className="flex flex-wrap content-start gap-2">
-      <Section title="Pitch" accent={COLOR} className="flex items-start gap-3">
-        <div className="flex flex-col items-center gap-1">
-          <PK p={p} id="root" size={32} color={COLOR} label="Root" />
-          <span className="font-mono text-[10px] text-[#9fe870]">{noteName(root)}</span>
-        </div>
-        <div className="flex flex-col gap-1.5 pt-1">
-          <PToggle p={p} id="pitchToKey" />
-          <PToggle p={p} id="oneShot" />
+      <Section title="Pitch" accent={COLOR}>
+        <div className="flex items-start gap-3">
+          <div className="flex flex-col items-center gap-1">
+            <PK p={p} id="root" size={32} color={COLOR} label="Root" />
+            <span className="font-mono text-[10px] text-[#9fe870]">{noteName(root)}</span>
+          </div>
+          <div className="flex flex-col gap-1.5 pt-1">
+            <PToggle p={p} id="pitchToKey" />
+            <PToggle p={p} id="oneShot" />
+          </div>
         </div>
       </Section>
-      <Section title="Envelope" accent={COLOR} className="flex gap-3">
-        <PK p={p} id="attack" size={32} color={COLOR} label="Att" />
-        <PK p={p} id="decay" size={32} color={COLOR} label="Dec" />
-        <PK p={p} id="sustain" size={32} color={COLOR} label="Sus" />
-        <PK p={p} id="release" size={32} color={COLOR} label="Rel" />
+      <Section title="Volume envelope" accent={COLOR}>
+        <div className="flex items-end gap-3">
+          <PK p={p} id="attack" size={32} color={COLOR} label="Att" />
+          <PK p={p} id="decay" size={32} color={COLOR} label="Dec" />
+          <PK p={p} id="sustain" size={32} color={COLOR} label="Sus" />
+          <PK p={p} id="release" size={32} color={COLOR} label="Rel" />
+          <EnvelopeGraph p={p} />
+        </div>
       </Section>
-      <Section title="Filter / amp" accent={COLOR} className="flex gap-3">
-        <PK p={p} id="cutoff" size={32} color={COLOR} label="Cut" />
-        <PK p={p} id="res" size={32} color={COLOR} label="Res" />
-        <PK p={p} id="gain" size={32} color={COLOR} label="Amp" />
+      <Section title="Filter / amp" accent={COLOR}>
+        <div className="flex gap-3">
+          <PK p={p} id="cutoff" size={32} color={COLOR} label="Cut" />
+          <PK p={p} id="res" size={32} color={COLOR} label="Res" />
+          <PK p={p} id="gain" size={32} color={COLOR} label="Amp" />
+        </div>
       </Section>
     </div>
+  )
+}
+
+/** ADSR shape (time axis compressed with a square root so short and long settings both read). */
+function EnvelopeGraph({ p }: { p: PluginEditorProps }) {
+  const W = 180
+  const H = 52
+  const t = (s: number) => Math.sqrt(Math.max(0, s))
+  const a = t(param(p, 'attack'))
+  const d = t(param(p, 'decay'))
+  const r = t(param(p, 'release'))
+  const hold = 0.6
+  const scale = (W - 8) / Math.max(0.5, a + d + hold + r)
+  const sus = param(p, 'sustain')
+  const y = (v: number) => 4 + (1 - v) * (H - 8)
+  const x1 = 4 + a * scale
+  const x2 = x1 + d * scale
+  const x3 = x2 + hold * scale
+  const x4 = x3 + r * scale
+  const path = `M4 ${y(0)} L${x1} ${y(1)} L${x2} ${y(sus)} L${x3} ${y(sus)} L${x4} ${y(0)}`
+  return (
+    <svg width={W} height={H} className="rounded-[3px] bg-[#1c2225] fl-inset">
+      <path d={`${path} Z`} fill={COLOR} fillOpacity={0.15} />
+      <path d={path} fill="none" stroke={COLOR} strokeWidth={1.5} />
+    </svg>
   )
 }
 
