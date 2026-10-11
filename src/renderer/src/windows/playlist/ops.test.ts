@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyClipDiff, chopClip, clampMove, cloneShifted, deleteSpace, diffClips, duplicateRight, insertSpace, moveClips, paintRepeat, resizeRight, sliceAt, sliceClip, slipClip, trimLeft } from './ops'
+import { applyClipDiff, chopClip, clampMove, cloneShifted, deleteSpace, diffClips, duplicateRight, insertSpace, moveClips, paintRepeat, resizeRight, sliceAt, sliceClip, slipClip, stretchClip, trimLeft } from './ops'
 import type { Clip } from '@/store/types'
 
 let n = 0
@@ -113,5 +113,23 @@ describe('diff', () => {
     const target = before.slice()
     applyClipDiff(target, removed, upserts)
     expect(target).toEqual([a, b2, d])
+  })
+})
+
+describe('stretch', () => {
+  const audio = (start: number, length: number, offset = 0): Clip => ({ id: 'x', kind: 'audio', ref: 's', track: 0, start, length, offset, muted: false })
+  it('stretches from the right edge, scaling offset and fades', () => {
+    const out = stretchClip({ ...audio(96, 384, 48), fadeIn: 24 }, 96, 96 + 768)
+    expect(out).toMatchObject({ start: 96, length: 768, offset: 96, stretch: 2, fadeIn: 48 })
+  })
+  it('stretches from the left edge keeping the end', () => {
+    const out = stretchClip(audio(384, 384), 576, 768)
+    expect(out).toMatchObject({ start: 576, length: 192, stretch: 0.5 })
+  })
+  it('compounds and clamps the factor', () => {
+    const once = stretchClip(audio(0, 100), 0, 200)
+    const twice = stretchClip(once, 0, 100000)
+    expect(twice.stretch).toBe(8)
+    expect(twice.length).toBe(800)
   })
 })

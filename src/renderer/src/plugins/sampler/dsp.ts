@@ -1,6 +1,7 @@
 import type { DSPContext, DSPFactory, InstrumentDSP, NoteOn } from '../sdk/types'
 import { ADSR, SVF, allocVoice, panGains, type VoiceLike } from '../sdk/dsp'
 import { PRECOMPUTED, declickTimes, processSample } from './process'
+import { isResample, lengthFactor, stretchAndShift } from './stretch'
 
 interface SampleData {
   sampleRate: number
@@ -30,6 +31,8 @@ class Voice implements VoiceLike {
 }
 
 const PRE = new Set<string>(PRECOMPUTED)
+/** Time / pitch params: they change the sample data in the pitch-keeping stretch modes. */
+const STRETCH = new Set(['stretchMode', 'pitch', 'mul', 'time', 'tempo'])
 
 class Sampler implements InstrumentDSP {
   private p: Record<string, number> = {}
@@ -45,7 +48,14 @@ class Sampler implements InstrumentDSP {
     this.voices = Array.from({ length: 32 }, () => new Voice(ctx.sampleRate))
   }
   setParam(id: string, v: number): void {
-    if (PRE.has(id) && this.p[id] !== v) this.dirty = true
+    if (this.p[id] !== v) {
+      if (PRE.has(id)) this.dirty = true
+      else if (STRETCH.has(id)) {
+        const mode = id === 'stretchMode' ? v : (this.p.stretchMode ?? 0)
+        const tempoOnly = id === 'tempo' && !((this.p.time ?? 0) > 0)
+        if ((id === 'stretchMode' || !isResample(mode)) && !tempoOnly) this.dirty = true
+      }
+    }
     this.p[id] = v
   }
   setData(data: unknown): void {
@@ -57,7 +67,14 @@ class Sampler implements InstrumentDSP {
     if (this.dirty) {
       this.dirty = false
       const r = this.raw
-      this.sample = r ? { sampleRate: r.sampleRate, channels: processSample(r.channels, r.sampleRate, this.p) } : null
+      if (!r) this.sample = null
+      else {
+        let ch = processSample(r.channels, r.sampleRate, this.p)
+        const mode = this.p.stretchMode ?? 0
+        // pitch-keeping modes render the stretched / shifted sample here; Resample does it with the playback rate
+        if (!isResample(mode) && ch.length) ch = stretchAndShift(ch, r.sampleRate, lengthFactor(this.p, ch[0].length, r.sampleRate), this.p.pitch ?? 0, mode)
+        this.sample = { sampleRate: r.sampleRate, channels: ch }
+      }
     }
     return this.sample
   }
@@ -76,9 +93,12 @@ class Sampler implements InstrumentDSP {
     v.age = ++this.clock
     v.vel = n.vel
     v.pan = n.pan
-    const fine = n.fine / 100 + (p.pitch ?? 0) / 100 + this.bend
+    const resample = isResample(p.stretchMode ?? 0)
+    const fine = n.fine / 100 + (resample ? (p.pitch ?? 0) / 100 : 0) + this.bend
     const semis = (p.pitchToKey ?? 1) >= 0.5 ? n.key - (p.root ?? 60) + fine : fine
-    v.rate = (Math.pow(2, semis / 12) * (s.sampleRate / this.ctx.sampleRate)) / Math.max(0.25, p.mul ?? 1)
+    // Resample: MUL / TIME make the sample longer by playing it slower
+    const slow = resample && this.raw ? lengthFactor(p, this.raw.channels[0]?.length ?? 0, this.raw.sampleRate) : 1
+    v.rate = (Math.pow(2, semis / 12) * (s.sampleRate / this.ctx.sampleRate)) / slow
     const len = s.channels[0].length
     v.pos = (p.start ?? 0) * len
     v.dir = 1

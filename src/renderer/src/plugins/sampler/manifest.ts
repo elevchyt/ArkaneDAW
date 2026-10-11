@@ -1,5 +1,6 @@
 import type { PluginManifest } from '../sdk/types'
 import { DECLICK_MODES } from './process'
+import { STRETCH_MODES } from './stretch'
 
 const ONOFF = ['Off', 'On']
 
@@ -23,8 +24,11 @@ export const manifest: PluginManifest = {
     { id: 'loopEnd', name: 'Loop end', min: 0, max: 1, default: 1, unit: '%' },
     { id: 'declick', name: 'Declicking', min: 0, max: DECLICK_MODES.length - 1, default: 0, options: [...DECLICK_MODES] },
     // time stretching / pitch shifting (resample mode)
+    { id: 'stretchMode', name: 'Stretch mode', min: 0, max: STRETCH_MODES.length - 1, default: 0, options: [...STRETCH_MODES] },
     { id: 'pitch', name: 'Pitch', min: -1200, max: 1200, default: 0, unit: 'ct', step: 1 },
     { id: 'mul', name: 'Length multiplier', min: 0.25, max: 4, default: 1, unit: 'x', curve: 'exp' },
+    { id: 'time', name: 'Time', min: 0, max: 64, default: 0, unit: 'beats', step: 0.25, curve: 'exp' },
+    { id: 'tempo', name: 'Tempo', min: 10, max: 522, default: 130, hidden: true },
     // precomputed effects
     { id: 'removeDC', name: 'Remove DC offset', min: 0, max: 1, default: 0, options: ONOFF },
     { id: 'normalize', name: 'Normalize', min: 0, max: 1, default: 0, options: ONOFF },

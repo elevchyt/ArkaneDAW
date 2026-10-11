@@ -25,7 +25,9 @@ import {
   type View,
   type Zone
 } from './geometry'
-import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceAt, slipClip, trimLeft } from './ops'
+import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceAt, slipClip, stretchClip, trimLeft } from './ops'
+import { zeroCrossTick } from '@/audio/clips'
+import { getBuffer } from '@/audio/samples'
 import { addPoint, hitHandle, hitPoint, movePoint, removePoint, segmentAt, setTension, tensionFromDrag } from './automation'
 import { autoMapper, drawGrid, drawLiveTake, clipLabel } from './render'
 import { liveTakes, onLiveTakesChange } from '@/audio/audio-recording'
@@ -485,15 +487,29 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       }
       case 'resize': {
         const raw = tick - d.downTick
+        const { stretch, zeroCross } = getPl()
+        // Stretch focus: audio clip edges time-stretch the audio; Zero-cross: trims land on zero crossings
+        const zc = (c: Clip, t: number) => (zeroCross && c.kind === 'audio' && !e.altKey ? zeroCrossTick(p, c, t, getBuffer(c.ref)) : t)
         if (d.side === 'right') {
           const end0 = d.anchor.start + d.anchor.length
           const dEnd = snapRound(end0 + raw, grid) - end0
-          d.preview = d.before.map((c) => (d.ids.has(c.id) ? resizeRight(c, c.start + c.length + dEnd, clipMaxLen(p, c)) : c))
+          d.preview = d.before.map((c) => {
+            if (!d.ids.has(c.id)) return c
+            const end = c.start + c.length + dEnd
+            if (stretch && c.kind === 'audio') return stretchClip(c, c.start, end)
+            return resizeRight(c, zc(c, end), clipMaxLen(p, c))
+          })
           const a = d.preview.find((c) => c.id === d.anchor.id)
-          if (a) useUI.getState().setHint(`Length: ${(a.length / barTicks(p)).toFixed(2)} bars`)
+          if (a) useUI.getState().setHint(`Length: ${(a.length / barTicks(p)).toFixed(2)} bars${a.stretch && Math.abs(a.stretch - 1) > 1e-4 ? ` — stretched ${a.stretch.toFixed(3)}x` : ''}`)
         } else {
           const dS = snapRound(d.anchor.start + raw, grid) - d.anchor.start
-          d.preview = d.before.map((c) => (d.ids.has(c.id) ? trimLeft(c, c.start + dS, clipWrap(p, c)) : c))
+          d.preview = d.before.map((c) => {
+            if (!d.ids.has(c.id)) return c
+            if (stretch && c.kind === 'audio') return stretchClip(c, c.start + dS, c.start + c.length)
+            return trimLeft(c, zc(c, c.start + dS), clipWrap(p, c))
+          })
+          const a = d.preview.find((c) => c.id === d.anchor.id)
+          if (a?.stretch && Math.abs(a.stretch - 1) > 1e-4) useUI.getState().setHint(`Stretched ${a.stretch.toFixed(3)}x`)
         }
         break
       }
@@ -599,7 +615,11 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         commitClips(d.label, d.before, d.preview)
         break
       case 'resize':
-        commitClips(d.side === 'right' ? 'Resize clips' : 'Trim clips', d.before, d.preview)
+        commitClips(
+          getPl().stretch && d.preview.some((c) => d.ids.has(c.id) && c.kind === 'audio') ? 'Stretch clips' : d.side === 'right' ? 'Resize clips' : 'Trim clips',
+          d.before,
+          d.preview
+        )
         break
       case 'slip':
         commitClips('Slip clips', d.before, d.preview)
@@ -617,7 +637,8 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         const off = offsetsRef.current
         const tr0 = trackAtY(off, d.y0 + v.scrollY)
         const at = Math.round(xToTick(v, d.x))
-        commitClips('Slice clips', p.playlist.clips, sliceAt(p.playlist.clips, at, tr0, track, uid))
+        const zc = getPl().zeroCross ? (c: Clip, t: number) => zeroCrossTick(p, c, t, getBuffer(c.ref)) : undefined
+        commitClips('Slice clips', p.playlist.clips, sliceAt(p.playlist.clips, at, tr0, track, uid, zc))
         break
       }
       case 'zoomRect':

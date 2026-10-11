@@ -22,6 +22,10 @@ interface PlaylistState {
   /** Time selection drawn on the ruler (ticks). */
   timeSel: { start: number; end: number } | null
   clipboard: Clip[] | null
+  /** Audio clip focus: slice / resize edits land on the nearest zero crossing. */
+  zeroCross: boolean
+  /** Audio clip focus: dragging an audio clip's edge time-stretches it instead of trimming. */
+  stretch: boolean
   set: (patch: Partial<Omit<PlaylistState, 'set'>>) => void
 }
 
@@ -36,6 +40,8 @@ export const usePlaylist = create<PlaylistState>((set) => ({
   source: null,
   timeSel: null,
   clipboard: null,
+  zeroCross: false,
+  stretch: false,
   set: (patch) => set(patch)
 }))
 
@@ -45,6 +51,18 @@ export const getPl = () => usePlaylist.getState()
 export function effectiveSnap(): Snap {
   const s = usePlaylist.getState().snap
   return s === 'main' ? useUI.getState().globalSnap : s
+}
+
+export function toggleZeroCross(): void {
+  const on = !usePlaylist.getState().zeroCross
+  usePlaylist.getState().set({ zeroCross: on })
+  useUI.getState().setHint(`Zero-cross ${on ? 'on' : 'off'}: audio clip slices and trims ${on ? 'snap to the nearest zero crossing' : 'land exactly on the grid'}`)
+}
+
+export function toggleStretch(): void {
+  const on = !usePlaylist.getState().stretch
+  usePlaylist.getState().set({ stretch: on })
+  useUI.getState().setHint(`Stretch ${on ? 'on: dragging an audio clip edge time-stretches it' : 'off: dragging an audio clip edge trims it'}`)
 }
 
 export function setSelection(ids: Iterable<string>): void {

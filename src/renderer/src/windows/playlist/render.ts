@@ -356,7 +356,8 @@ function drawFadeHandles(ctx: CanvasRenderingContext2D, view: View, c: Clip, x: 
 }
 
 export function clipLabel(p: Project, c: Clip): string {
-  const name = sourceName(p, c)
+  const s = c.kind === 'audio' && c.stretch && Math.abs(c.stretch - 1) > 1e-3 ? ` ×${c.stretch.toFixed(2)}` : ''
+  const name = sourceName(p, c) + s
   return c.muted ? `${name} (muted)` : name
 }
 
@@ -406,7 +407,7 @@ function drawWaveform(ctx: CanvasRenderingContext2D, view: View, c: Clip, p: Pro
   }
   const peaks = peaksFor(buf)
   const tps = ticksPerSecond(p)
-  const fpt = buf.sampleRate / tps // frames per tick
+  const fpt = buf.sampleRate / tps / (c.stretch ?? 1) // frames per tick (stretched clips draw their source spread out)
   const x0 = Math.max(0, Math.floor(tickToX(view, c.start)))
   const x1 = Math.min(w, Math.ceil(tickToX(view, c.start + c.length)))
   const mid = by + bh / 2

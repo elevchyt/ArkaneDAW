@@ -6,6 +6,8 @@ import { definePlugin, type PluginEditorProps } from '../sdk/module'
 import { PK, PToggle, PluginPanel, Section } from '../sdk/ui'
 import { manifest } from './manifest'
 import { DECLICK_MODES, processSample, processingKey } from './process'
+import { STRETCH_MODES, isResample } from './stretch'
+import { openMenu } from '@/windows/playlist/PopupMenu'
 import { cn } from '@/lib/utils'
 import { host } from '@/platform'
 import { useProject } from '@/store/project'
@@ -114,15 +116,7 @@ function SampleTab({ p }: { p: PluginEditorProps }) {
             </select>
           </label>
         </Section>
-        <Section title="Time / pitch" accent={COLOR} className="flex flex-col gap-1.5">
-          <div className="flex gap-3">
-            <PK p={p} id="pitch" size={32} color={COLOR} label="Pitch" />
-            <PK p={p} id="mul" size={32} color={COLOR} label="Mul" />
-          </div>
-          <div className="text-[10px] text-fl-dim" title="Pitch and length change together (resampling)">
-            Mode: <span className="text-fl-text">Resample</span>
-          </div>
-        </Section>
+        <TimeStretch p={p} />
         <Section title="Fades" accent={COLOR} className="flex gap-3">
           <PK p={p} id="fadeIn" size={32} color={COLOR} label="In" />
           <PK p={p} id="fadeOut" size={32} color={COLOR} label="Out" />
@@ -140,6 +134,47 @@ function SampleTab({ p }: { p: PluginEditorProps }) {
 
       <SampleView p={p} sampleId={sampleId} />
     </div>
+  )
+}
+
+/** FL "Time stretching": mode, PITCH, MUL and TIME (right-click TIME for beat / bar presets). */
+function TimeStretch({ p }: { p: PluginEditorProps }) {
+  const timeSig = useProject((s) => s.project.timeSig)
+  const mode = Math.round(param(p, 'stretchMode'))
+  const time = param(p, 'time')
+  const beatsPerBar = timeSig[0] * (4 / timeSig[1])
+  const timeText = time <= 0 ? 'Off' : time % beatsPerBar === 0 ? `${time / beatsPerBar} bar${time === beatsPerBar ? '' : 's'}` : `${time} beat${time === 1 ? '' : 's'}`
+  const timeMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const beats = (n: number) => ({ label: `${n} beat${n === 1 ? '' : 's'}`, checked: time === n, onSelect: () => p.setParam('time', n) })
+    const bars = (n: number) => ({ label: `${n} bar${n === 1 ? '' : 's'}`, checked: time === n * beatsPerBar, onSelect: () => p.setParam('time', n * beatsPerBar) })
+    openMenu(e, [{ label: '(none)', checked: time <= 0, onSelect: () => p.setParam('time', 0) }, { separator: true }, beats(1), beats(2), { separator: true }, bars(1), bars(2), bars(4), bars(8), bars(16)], 'Time')
+  }
+  return (
+    <Section title="Time stretching" accent={COLOR} className="flex flex-col gap-1.5">
+      <div className="flex gap-3">
+        <PK p={p} id="pitch" size={32} color={COLOR} label="Pitch" />
+        <PK p={p} id="mul" size={32} color={COLOR} label="Mul" />
+        <div className="flex flex-col items-center" onContextMenu={timeMenu}>
+          <PK p={p} id="time" size={32} color={COLOR} label="Time" />
+          <span className="font-mono text-[9px] text-[#9fe870]">{timeText}</span>
+        </div>
+      </div>
+      <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-fl-dim" onMouseEnter={() => p.hint(isResample(mode) ? 'Resample: pitch and length change together' : 'Stretch: pitch and length change independently')}>
+        Mode
+        <select
+          value={mode}
+          onChange={(e) => p.setParam('stretchMode', Number(e.target.value))}
+          className="h-[18px] rounded-[2px] bg-fl-well px-1 text-[10px] normal-case tracking-normal text-fl-text outline-none fl-inset"
+        >
+          {STRETCH_MODES.map((m, i) => (
+            <option key={m} value={i}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </label>
+    </Section>
   )
 }
 
@@ -376,4 +411,4 @@ function SampleView({ p, sampleId }: { p: PluginEditorProps; sampleId: string | 
   )
 }
 
-export default definePlugin({ manifest, Editor: SampleEditor, editorSize: { width: 640, height: 400 } })
+export default definePlugin({ manifest, Editor: SampleEditor, editorSize: { width: 700, height: 410 } })

@@ -61,6 +61,30 @@ export function trimLeft(c: Clip, newStart: number, wrap = 0): Clip {
   return { ...c, start, length: end - start, offset }
 }
 
+/** Stretch limits for audio clips (relative to the original sample). */
+export const MIN_STRETCH = 0.125
+export const MAX_STRETCH = 8
+
+/**
+ * Stretch mode: drag an audio clip's edge to a new start / end. The content is time-stretched to fit, so
+ * the offset and the fades scale with the length. The opposite edge stays put.
+ */
+export function stretchClip(c: Clip, newStart: number, newEnd: number): Clip {
+  const s0 = c.stretch ?? 1
+  const minLen = Math.max(MIN_CLIP, (c.length * MIN_STRETCH) / s0)
+  const maxLen = (c.length * MAX_STRETCH) / s0
+  const clamp = (l: number) => Math.min(maxLen, Math.max(minLen, l))
+  const end = c.start + c.length
+  const start = newStart === c.start ? c.start : Math.max(0, end - clamp(end - newStart))
+  const length = newStart === c.start ? clamp(newEnd - c.start) : end - start
+  if (Math.abs(length - c.length) < 1e-6) return c
+  const k = length / c.length
+  const out: Clip = { ...c, start, length, offset: c.offset * k, stretch: s0 * k }
+  if (c.fadeIn) out.fadeIn = c.fadeIn * k
+  if (c.fadeOut) out.fadeOut = c.fadeOut * k
+  return out
+}
+
 /** Slip edit: move the content inside the clip. */
 export function slipClip(c: Clip, dTick: number, origOffset: number, wrap = 0, maxOffset = Infinity): Clip {
   let offset = origOffset - dTick
@@ -76,8 +100,8 @@ export function sliceClip(c: Clip, at: number, gen: IdGen = seqId): [Clip, Clip]
   return splitFades({ ...c, length: leftLen }, { ...c, id: gen(), start: at, length: c.length - leftLen, offset: c.offset + leftLen })
 }
 
-/** Slice every clip on tracks [tr0, tr1] crossing `at`. */
-export function sliceAt(clips: readonly Clip[], at: number, tr0: number, tr1: number, gen: IdGen = seqId): Clip[] {
+/** Slice every clip on tracks [tr0, tr1] crossing `at`. `adjust` can move the cut per clip (zero crossings). */
+export function sliceAt(clips: readonly Clip[], at: number, tr0: number, tr1: number, gen: IdGen = seqId, adjust?: (c: Clip, at: number) => number): Clip[] {
   const lo = Math.min(tr0, tr1)
   const hi = Math.max(tr0, tr1)
   const out: Clip[] = []
@@ -86,7 +110,7 @@ export function sliceAt(clips: readonly Clip[], at: number, tr0: number, tr1: nu
       out.push(c)
       continue
     }
-    const parts = sliceClip(c, at, gen)
+    const parts = sliceClip(c, adjust ? adjust(c, at) : at, gen)
     if (parts) out.push(...parts)
     else out.push(c)
   }

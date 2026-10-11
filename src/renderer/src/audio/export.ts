@@ -12,7 +12,8 @@ import { host } from '../platform'
 import { AudioEngine, usedMixerTracks } from './engine'
 import { prepareContext } from './context'
 import { automationValue, patternHits, patternLength, songHits, songLength } from './sequence'
-import { clipBuffer, getBuffer, loadSample } from './samples'
+import { getBuffer, loadSample } from './samples'
+import { clipPlayback, startClip } from './clips'
 import { applyAutomation } from './transport'
 import { useTransport } from '../store/transport'
 import type { ScheduledEvent } from '../plugins/sdk/types'
@@ -178,11 +179,9 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
         if (clip.muted || p.playlist.tracks[clip.track]?.muted) continue
         if (clip.kind === 'audio') {
           const raw = getBuffer(clip.ref)
-          const owner = clip.channelId ? p.channels.find((c) => c.id === clip.channelId) : undefined
-          const buf = raw && clipBuffer(raw, clip.ref, owner?.plugin?.pluginId === 'sampler' ? owner.plugin.params : undefined)
-          if (!buf || clip.offset / tps >= buf.duration) continue
+          if (!raw) continue
+          const pb = clipPlayback(p, clip, raw)
           const src = ctx.createBufferSource()
-          src.buffer = buf
           const strip = clip.channelId ? engine.channels.get(clip.channelId) : null
           const dest = strip ? strip.input : engine.mixer[0]!.input
           if (hasFades(clip)) {
@@ -190,7 +189,7 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
             scheduleClipFades(g.gain, clip, at(clip.start), 0, tps)
             src.connect(g).connect(dest)
           } else src.connect(dest)
-          src.start(at(clip.start), clip.offset / tps, clip.length / tps)
+          startClip(src, pb, clip, p.tempo, at(clip.start))
         } else if (clip.kind === 'automation') {
           // Same sampling as the live scheduler (transport.ts scheduleAutomation): every 1/16 beat.
           const a = p.automations.find((x) => x.id === clip.ref)

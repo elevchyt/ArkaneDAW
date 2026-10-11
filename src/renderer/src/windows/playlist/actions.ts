@@ -26,15 +26,15 @@ export function commitClips(label: string, before: readonly Clip[], after: reado
   })
 }
 
-/** Natural length (ticks) of a clip source. */
-export function sourceLength(p: Project, s: ClipSource): number {
+/** Natural length (ticks) of a clip source (stretched audio clips: of the stretched audio). */
+export function sourceLength(p: Project, s: ClipSource & { stretch?: number }): number {
   if (s.kind === 'pattern') {
     const pat = p.patterns.find((x) => x.id === s.ref)
     return pat ? patternLength(pat, p) : barTicks(p)
   }
   if (s.kind === 'audio') {
     const smp = p.samples.find((x) => x.id === s.ref)
-    return smp ? Math.max(1, Math.round(smp.duration * ticksPerSecond(p))) : barTicks(p)
+    return smp ? Math.max(1, Math.round(smp.duration * ticksPerSecond(p) * (s.stretch ?? 1))) : barTicks(p)
   }
   const a = p.automations.find((x) => x.id === s.ref)
   return a ? Math.max(a.length, a.points[a.points.length - 1]?.t ?? 0, PPQ) : barTicks(p)
@@ -50,7 +50,7 @@ export function clipWrap(p: Project, c: Clip): number {
 /** Max length of an audio clip given its offset (can't play past the sample). */
 export function clipMaxLen(p: Project, c: Clip): number {
   if (c.kind !== 'audio') return Infinity
-  return Math.max(6, sourceLength(p, { kind: 'audio', ref: c.ref }) - c.offset)
+  return Math.max(6, sourceLength(p, { kind: 'audio', ref: c.ref, stretch: c.stretch }) - c.offset)
 }
 
 export function sourceName(p: Project, s: ClipSource): string {

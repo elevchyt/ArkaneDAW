@@ -8,7 +8,8 @@ import { PPQ, type Automation, type AutomationTarget, type Project } from '../st
 import { AudioEngine, faderToGain } from './engine'
 import { ensureAudio } from './context'
 import { automationValue, barTicks, patternHits, patternLength, songHits, songLength, type NoteHit } from './sequence'
-import { clipBuffer, getBuffer, loadSample } from './samples'
+import { getBuffer, loadSample } from './samples'
+import { clipPlayback, startClip } from './clips'
 import { getPlugin } from '../plugins/registry'
 import { denormalize } from '../plugins/sdk/params'
 import { getAudioSettings } from '../windows/settings/settings-store'
@@ -209,17 +210,12 @@ class Scheduler {
       if (s) void loadSample(s)
       return
     }
-    const owner = clip.channelId ? p.channels.find((c) => c.id === clip.channelId) : undefined
-    const buf = clipBuffer(raw, clip.ref, owner?.plugin?.pluginId === 'sampler' ? owner.plugin.params : undefined)
+    const pb = clipPlayback(p, clip, raw)
     const ctx = e.ctx
     const src = ctx.createBufferSource()
-    src.buffer = buf
     const strip = clip.channelId ? e.channels.get(clip.channelId) : null
     const dest = strip ? strip.input : e.mixer[0]!.input
     const tps = this.tps()
-    const offsetSec = (clip.offset + intoTicks) / tps
-    const durSec = (clip.length - intoTicks) / tps
-    if (offsetSec >= buf.duration) return
     const startAt = Math.max(when, ctx.currentTime)
     if (hasFades(clip)) {
       const g = ctx.createGain()
@@ -227,7 +223,10 @@ class Scheduler {
       src.connect(g).connect(dest)
       src.addEventListener('ended', () => g.disconnect(), { once: true })
     } else src.connect(dest)
-    src.start(startAt, offsetSec, durSec)
+    if (!startClip(src, pb, clip, this.tempo, startAt, intoTicks)) {
+      src.disconnect()
+      return
+    }
     this.sources.add(src)
     src.onended = () => this.sources.delete(src)
   }

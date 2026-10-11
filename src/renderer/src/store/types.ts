@@ -101,6 +101,11 @@ export interface Clip {
   /** Fade curve tension -1..1 (0 = linear, + = fast start, - = slow start). */
   fadeInTension?: number
   fadeOutTension?: number
+  /**
+   * Audio clips: time-stretch factor (2 = the sample plays over twice its length). `offset` and `length` are
+   * in timeline ticks of the stretched audio. How the pitch reacts follows the channel's Sampler stretch mode.
+   */
+  stretch?: number
 }
 
 export interface PlaylistTrack {

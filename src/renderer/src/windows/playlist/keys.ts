@@ -2,14 +2,16 @@
 import { getProject } from '@/store/project'
 import { useUI, type Tool } from '@/store/ui'
 import { useTransport, playhead } from '@/store/transport'
-import { PLAYLIST_TRACKS } from '@/store/types'
+import { PLAYLIST_TRACKS, type Clip } from '@/store/types'
+import { zeroCrossTick } from '@/audio/clips'
+import { getBuffer } from '@/audio/samples'
 import { uid } from '@/store/factory'
 import { barTicks, beatTicks, songLength } from '@/audio/sequence'
 import { transport } from '@/audio/transport'
 import { clampMove, cloneShifted, deleteSpace, duplicateRight, insertSpace, moveClips, sliceAt, span } from './ops'
 import { addMarker, commitClips, deleteClips, setClipsMuted } from './actions'
 import { fitPpt, snapTicks, zoomAround } from './geometry'
-import { effectiveSnap, getPl, mouse, setSelection, viewport } from './state'
+import { effectiveSnap, getPl, mouse, setSelection, toggleStretch, viewport } from './state'
 import { selectBySource } from './menus'
 import { setTimeSelection } from './Ruler'
 
@@ -134,6 +136,10 @@ export function playlistKey(e: KeyboardEvent): boolean {
 
   if (shift && !ctrl && !alt) {
     switch (e.code) {
+      case 'KeyM':
+        if (ui.typingKeyboard) return false
+        toggleStretch()
+        return true
       case 'KeyC':
         if (ui.typingKeyboard) return false
         selectBySource(selectedClips())
@@ -181,12 +187,13 @@ export function playlistKey(e: KeyboardEvent): boolean {
       return true
     case 'Insert': {
       // slice at the mouse cursor (selected clips, or the clip track under the mouse)
+      const zc = pl.zeroCross ? (c: Clip, t: number) => zeroCrossTick(p, c, t, getBuffer(c.ref)) : undefined
       const at = Math.round(mouse.tick / Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar, beatTicks(p)))) * Math.max(1, snapTicks(effectiveSnap(), pl.ppt, bar, beatTicks(p)))
       if (pl.selected.size) {
         const sel = new Set(pl.selected)
         const other = clips.filter((c) => !sel.has(c.id))
-        commitClips('Slice clips', clips, [...other, ...sliceAt(clips.filter((c) => sel.has(c.id)), at, 0, PLAYLIST_TRACKS - 1, uid)])
-      } else if (mouse.inside) commitClips('Slice clips', clips, sliceAt(clips, at, mouse.track, mouse.track, uid))
+        commitClips('Slice clips', clips, [...other, ...sliceAt(clips.filter((c) => sel.has(c.id)), at, 0, PLAYLIST_TRACKS - 1, uid, zc)])
+      } else if (mouse.inside) commitClips('Slice clips', clips, sliceAt(clips, at, mouse.track, mouse.track, uid, zc))
       return true
     }
     case 'Home':
