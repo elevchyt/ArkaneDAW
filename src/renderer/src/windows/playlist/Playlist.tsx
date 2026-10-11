@@ -1,11 +1,10 @@
 // Playlist window (FL Studio "Playlist - Arrangement").
 import { useEffect, useMemo, useRef } from 'react'
-import { ChevronRight, Eraser, Magnet, MoveHorizontal, PanelLeft, Paintbrush, Pencil, Scissors, SquareDashedMousePointer, Volume2, VolumeX, ZoomIn } from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, Eraser, Magnet, MoveHorizontal, PanelLeft, Paintbrush, Pencil, Scissors, SquareDashedMousePointer, Volume2, VolumeX, ZoomIn } from 'lucide-react'
 import { MdiWindow, forceCursor } from '@/shell/MdiWindow'
 import { useWindowKeys } from '@/shell/keys'
 import { useProject } from '@/store/project'
 import { useUI, SNAP_LABELS, type Snap, type Tool } from '@/store/ui'
-import { useTransport } from '@/store/transport'
 import { songLength, barTicks } from '@/audio/sequence'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -33,6 +32,7 @@ const TOOLS: { tool: Tool; key: string; name: string; icon: React.ReactNode }[] 
 ]
 
 const SB = 11 // scrollbar thickness
+const TOP_H = 18 // horizontal scrollbar row (holds the track height control)
 
 export default function Playlist({ win, bounds }: WindowProps) {
   const tracks = useProject((s) => s.project.playlist.tracks)
@@ -47,7 +47,7 @@ export default function Playlist({ win, bounds }: WindowProps) {
       <div className="flex h-full bg-[#2f383d]">
         {picker && <Picker />}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 bg-[#262e32]" style={{ height: SB }}>
+          <div className="flex shrink-0 bg-[#262e32]" style={{ height: TOP_H }}>
             <div style={{ width: HEADER_W }} className="shrink-0 border-r border-[#1d2326]" />
             <HScroll />
             <TrackHeight />
@@ -73,14 +73,12 @@ export default function Playlist({ win, bounds }: WindowProps) {
 }
 
 function Corner() {
-  const mode = useTransport((s) => s.mode)
   return (
     <div
-      className="flex shrink-0 flex-col justify-between border-r border-b border-[#1d2326] bg-[#2b3438] px-1.5 py-[3px] text-[10px] text-fl-dim"
+      className="flex shrink-0 flex-col justify-end border-r border-b border-[#1d2326] bg-[#2b3438] px-1.5 py-[4px] text-[10px] text-fl-dim"
       style={{ width: HEADER_W }}
-      onPointerEnter={() => useUI.getState().setHint('Playlist — the timeline plays in SONG mode (press L to switch)')}
+      onPointerEnter={() => useUI.getState().setHint('Audio clip options: Z-CROSS and STRETCH')}
     >
-      <span className={cn('self-start rounded-[2px] px-1 leading-[12px]', mode === 'song' ? 'bg-fl-orange/80 text-[#1b1f22]' : 'bg-white/5')}>{mode === 'song' ? 'SONG' : 'PAT'}</span>
       <AudioFocus />
     </div>
   )
@@ -261,7 +259,7 @@ function HScroll() {
         if (edge) useUI.getState().setHint('Drag the end of the scrollbar to zoom the playlist horizontally')
       }}
     >
-      <div data-thumb="1" className="absolute top-[2px] h-[7px] rounded-[3px] bg-[#55636a] hover:bg-[#66757c]" style={{ left: thumbX, width: thumbW }} />
+      <div data-thumb="1" className="absolute top-[5px] h-[8px] rounded-[3px] bg-[#55636a] hover:bg-[#66757c]" style={{ left: thumbX, width: thumbW }} />
     </div>
   )
 }
@@ -330,10 +328,9 @@ function TrackHeight() {
   return (
     <div
       ref={ref}
-      className="relative shrink-0 cursor-ns-resize border-l border-[#1d2326] bg-[#2b3438] hover:bg-[#34404a]"
-      style={{ width: SB, height: SB }}
+      className="flex h-full w-[34px] shrink-0 cursor-ns-resize items-center justify-center gap-[3px] border-l border-[#1d2326] bg-[#2f3a3f] text-[#b9c6cc] hover:bg-[#3a474e] hover:text-white"
       title="Track height – drag up / down or use the mouse wheel"
-      onPointerEnter={() => useUI.getState().setHint(`Track height: ${Math.round(vZoom * 100)}% – drag up / down or use the mouse wheel`)}
+      onPointerEnter={() => useUI.getState().setHint(`Track height: ${Math.round(vZoom * 100)}% – drag up / down or use the mouse wheel, double-click to reset`)}
       onPointerDown={(e) => {
         if (e.button !== 0) return
         const z0 = vZoom
@@ -341,11 +338,11 @@ function TrackHeight() {
       }}
       onDoubleClick={() => setTrackZoom(1)}
     >
-      {/* level bar + grip lines */}
-      <span className="absolute bottom-[1px] left-[1px] w-[2px] rounded-[1px] bg-fl-orange" style={{ height: Math.max(1, Math.round(fill * (SB - 2))) }} />
-      <span className="absolute left-[4px] right-[2px] top-[3px] h-px bg-[#9fb0b8]" />
-      <span className="absolute left-[4px] right-[2px] top-[5px] h-px bg-[#9fb0b8]" />
-      <span className="absolute left-[4px] right-[2px] top-[7px] h-px bg-[#9fb0b8]" />
+      <ChevronsUpDown size={13} className="pointer-events-none" />
+      {/* level meter */}
+      <span className="pointer-events-none relative h-[12px] w-[4px] overflow-hidden rounded-[1px] bg-[#1b2124]">
+        <span className="absolute bottom-0 left-0 w-full bg-fl-orange" style={{ height: `${Math.max(8, Math.round(fill * 100))}%` }} />
+      </span>
     </div>
   )
 }
