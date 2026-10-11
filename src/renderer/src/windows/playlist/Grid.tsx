@@ -31,7 +31,7 @@ import { getBuffer } from '@/audio/samples'
 import { addPoint, hitHandle, hitPoint, movePoint, removePoint, segmentAt, setTension, tensionFromDrag } from './automation'
 import { autoMapper, drawGrid, drawLiveTake, clipLabel } from './render'
 import { liveTakes, onLiveTakesChange } from '@/audio/audio-recording'
-import { effectiveSnap, getPl, mouse, setSelection, usePlaylist, viewport } from './state'
+import { effectiveSnap, getPl, mouse, setSelection, setTrackZoom, usePlaylist, viewport } from './state'
 import {
   clipMaxLen,
   clipWrap,
@@ -225,9 +225,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       if (e.ctrlKey || e.metaKey) {
         pl.set(zoomAround(v, x, dy < 0 ? 1.18 : 1 / 1.18))
       } else if (e.altKey) {
-        const nz = Math.min(4, Math.max(0.3, v.vZoom * (dy < 0 ? 1.12 : 1 / 1.12)))
-        const contentY = y + v.scrollY
-        pl.set({ vZoom: nz, scrollY: Math.max(0, contentY * (nz / v.vZoom) - y) })
+        setTrackZoom(v.vZoom * (dy < 0 ? 1.12 : 1 / 1.12), y)
       } else if (e.shiftKey) {
         pl.set({ scrollTick: Math.max(0, v.scrollTick + dy / v.ppt) })
       } else {

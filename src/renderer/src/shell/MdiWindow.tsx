@@ -6,7 +6,8 @@ import { useUI, type WindowState } from '@/store/ui'
 const RESIZE_CURSORS: Record<string, string> = { e: 'ew-resize', w: 'ew-resize', s: 'ns-resize', n: 'ns-resize', se: 'nwse-resize', nw: 'nwse-resize', sw: 'nesw-resize', ne: 'nesw-resize' }
 
 /** Show `cursor` everywhere while a window is dragged/resized (child elements can't override it). */
-function forceCursor(cursor: string): () => void {
+/** Show `cursor` everywhere until the returned function is called (drags that leave their element). */
+export function forceCursor(cursor: string): () => void {
   const style = document.createElement('style')
   style.textContent = `*, *::before, *::after { cursor: ${cursor} !important; }`
   document.head.appendChild(style)

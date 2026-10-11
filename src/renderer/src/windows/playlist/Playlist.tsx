@@ -1,7 +1,7 @@
 // Playlist window (FL Studio "Playlist - Arrangement").
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ChevronRight, Eraser, Magnet, MoveHorizontal, PanelLeft, Paintbrush, Pencil, Scissors, SquareDashedMousePointer, Volume2, VolumeX, ZoomIn } from 'lucide-react'
-import { MdiWindow } from '@/shell/MdiWindow'
+import { MdiWindow, forceCursor } from '@/shell/MdiWindow'
 import { useWindowKeys } from '@/shell/keys'
 import { useProject } from '@/store/project'
 import { useUI, SNAP_LABELS, type Snap, type Tool } from '@/store/ui'
@@ -14,8 +14,8 @@ import { Grid } from './Grid'
 import { Ruler } from './Ruler'
 import { TrackHeaders, HEADER_W } from './TrackHeaders'
 import { Picker } from './Picker'
-import { trackOffsets } from './geometry'
-import { getPl, usePlaylist } from './state'
+import { clampPpt, trackOffsets } from './geometry'
+import { getPl, setTrackZoom, toggleStretch, toggleZeroCross, usePlaylist, MAX_VZOOM, MIN_VZOOM } from './state'
 import { currentSource, sourceColor, sourceName } from './actions'
 import { playlistKey } from './keys'
 import { RULER_H } from './render'
@@ -50,7 +50,7 @@ export default function Playlist({ win, bounds }: WindowProps) {
           <div className="flex shrink-0 bg-[#262e32]" style={{ height: SB }}>
             <div style={{ width: HEADER_W }} className="shrink-0 border-r border-[#1d2326]" />
             <HScroll />
-            <div style={{ width: SB }} className="shrink-0" />
+            <TrackHeight />
           </div>
           <div className="flex shrink-0" style={{ height: RULER_H }}>
             <Corner />
@@ -76,11 +76,37 @@ function Corner() {
   const mode = useTransport((s) => s.mode)
   return (
     <div
-      className="flex shrink-0 items-end border-r border-b border-[#1d2326] bg-[#2b3438] px-1.5 pb-[3px] text-[10px] text-fl-dim"
+      className="flex shrink-0 flex-col justify-between border-r border-b border-[#1d2326] bg-[#2b3438] px-1.5 py-[3px] text-[10px] text-fl-dim"
       style={{ width: HEADER_W }}
       onPointerEnter={() => useUI.getState().setHint('Playlist — the timeline plays in SONG mode (press L to switch)')}
     >
-      <span className={cn('rounded-[2px] px-1', mode === 'song' ? 'bg-fl-orange/80 text-[#1b1f22]' : 'bg-white/5')}>{mode === 'song' ? 'SONG' : 'PAT'}</span>
+      <span className={cn('self-start rounded-[2px] px-1 leading-[12px]', mode === 'song' ? 'bg-fl-orange/80 text-[#1b1f22]' : 'bg-white/5')}>{mode === 'song' ? 'SONG' : 'PAT'}</span>
+      <AudioFocus />
+    </div>
+  )
+}
+
+/** FL's audio clip focus options: Z-CROSS and STRETCH, each with its LED. */
+function AudioFocus() {
+  const zeroCross = usePlaylist((s) => s.zeroCross)
+  const stretch = usePlaylist((s) => s.stretch)
+  const opt = (label: string, on: boolean, hint: string, toggle: () => void) => (
+    <button
+      className={cn('flex items-center gap-1 text-[9px] font-semibold tracking-wide', on ? 'text-[#e9eef1]' : 'text-fl-dim hover:text-fl-text')}
+      onClick={toggle}
+      onPointerEnter={(e) => {
+        e.stopPropagation()
+        useUI.getState().setHint(hint)
+      }}
+    >
+      {label}
+      <span className="h-[6px] w-[6px] rounded-full border border-[#141819]" style={{ background: on ? 'var(--fl-orange)' : 'var(--fl-led-off)', boxShadow: on ? '0 0 4px var(--fl-orange)' : undefined }} />
+    </button>
+  )
+  return (
+    <div className="flex items-center justify-end gap-2.5">
+      {opt('Z-CROSS', zeroCross, `Zero-cross ${zeroCross ? 'on' : 'off'}: slices and trims of audio clips land on the nearest zero crossing (Alt = exact)`, toggleZeroCross)}
+      {opt('STRETCH', stretch, `Stretch ${stretch ? 'on' : 'off'} (Shift+M): drag an audio clip's edge to time-stretch it. Pitch follows the channel's Sampler stretch mode`, toggleStretch)}
     </div>
   )
 }
@@ -156,7 +182,39 @@ function SnapSelector() {
   )
 }
 
-/** FL puts the horizontal scrollbar above the ruler. */
+/** Pixels from a scrollbar thumb's end that grab the end (resize) instead of the thumb (scroll). */
+const EDGE = 4
+
+/** Window-level drag helper: calls `move` with the pointer delta until release, with `cursor` forced. */
+function dragFrom(e: React.PointerEvent, cursor: string | null, move: (dx: number, dy: number) => void): void {
+  e.preventDefault()
+  const sx = e.clientX
+  const sy = e.clientY
+  const end = cursor ? forceCursor(cursor) : null
+  const onMove = (ev: PointerEvent) => move(ev.clientX - sx, ev.clientY - sy)
+  const up = () => {
+    end?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', up)
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', up)
+}
+
+/** Which end of a thumb (if any) the pointer is on. */
+function thumbEdge(e: React.PointerEvent, vertical: boolean): 'start' | 'end' | null {
+  const t = e.target as HTMLElement
+  if (!t.dataset.thumb) return null
+  const r = t.getBoundingClientRect()
+  const pos = vertical ? e.clientY - r.top : e.clientX - r.left
+  const len = vertical ? r.height : r.width
+  return pos <= EDGE ? 'start' : pos >= len - EDGE ? 'end' : null
+}
+
+/**
+ * FL puts the horizontal scrollbar above the ruler. Dragging the thumb scrolls; dragging either end of it
+ * zooms (a wider thumb shows more of the song).
+ */
 function HScroll() {
   const scrollTick = usePlaylist((s) => s.scrollTick)
   const ppt = usePlaylist((s) => s.ppt)
@@ -168,60 +226,126 @@ function HScroll() {
   const total = Math.max(songLength(project) + bar * 16, scrollTick + visible)
   const thumbW = Math.max(24, (visible / total) * w)
   const thumbX = (scrollTick / Math.max(1, total - visible)) * (w - thumbW)
-  const drag = (e: React.PointerEvent) => {
-    e.preventDefault()
-    const sx = e.clientX
-    const st = scrollTick
-    const onClickTrack = !(e.target as HTMLElement).dataset.thumb
-    if (onClickTrack) {
+  const down = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const edge = thumbEdge(e, false)
+    if (edge) {
+      // resize the thumb = zoom; the opposite end of the view stays put
+      const end0 = scrollTick + visible
+      return dragFrom(e, 'ew-resize', (dx) => {
+        const tw = Math.max(16, Math.min(w, thumbW + (edge === 'end' ? dx : -dx)))
+        const nppt = clampPpt(w / ((tw / w) * total))
+        const nVisible = w / nppt
+        getPl().set(edge === 'end' ? { ppt: nppt } : { ppt: nppt, scrollTick: Math.max(0, end0 - nVisible) })
+        useUI.getState().setHint(`Zoom: ${(nVisible / bar).toFixed(1)} bars visible`)
+      })
+    }
+    if (!(e.target as HTMLElement).dataset.thumb) {
+      e.preventDefault()
       const r = ref.current!.getBoundingClientRect()
       const frac = (e.clientX - r.left - thumbW / 2) / Math.max(1, w - thumbW)
       getPl().set({ scrollTick: Math.max(0, frac * (total - visible)) })
       return
     }
-    const move = (ev: PointerEvent) => getPl().set({ scrollTick: Math.max(0, st + ((ev.clientX - sx) / Math.max(1, w - thumbW)) * (total - visible)) })
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
+    const st = scrollTick
+    dragFrom(e, null, (dx) => getPl().set({ scrollTick: Math.max(0, st + (dx / Math.max(1, w - thumbW)) * (total - visible)) }))
   }
   return (
-    <div ref={ref} className="relative min-w-0 flex-1" onPointerDown={drag}>
+    <div
+      ref={ref}
+      className="relative min-w-0 flex-1"
+      onPointerDown={down}
+      onPointerMove={(e) => {
+        const edge = thumbEdge(e, false)
+        ;(e.target as HTMLElement).style.cursor = edge ? 'ew-resize' : ''
+        if (edge) useUI.getState().setHint('Drag the end of the scrollbar to zoom the playlist horizontally')
+      }}
+    >
       <div data-thumb="1" className="absolute top-[2px] h-[7px] rounded-[3px] bg-[#55636a] hover:bg-[#66757c]" style={{ left: thumbX, width: thumbW }} />
     </div>
   )
 }
 
+/** Dragging the thumb scrolls the tracks; dragging either end of it changes the track height. */
 function VScroll({ total }: { total: number }) {
   const scrollY = usePlaylist((s) => s.scrollY)
+  const vZoom = usePlaylist((s) => s.vZoom)
   const ref = useRef<HTMLDivElement>(null)
   const h = ref.current?.clientHeight ?? 400
   const max = Math.max(1, total - h + 20)
   const thumbH = Math.max(24, (h / Math.max(h, total)) * h)
   const thumbY = (Math.min(scrollY, max) / max) * (h - thumbH)
-  const drag = (e: React.PointerEvent) => {
-    e.preventDefault()
+  const down = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const edge = thumbEdge(e, true)
+    if (edge) {
+      // a taller thumb shows more tracks = smaller tracks; the opposite end stays anchored
+      const z0 = vZoom
+      return dragFrom(e, 'ns-resize', (_dx, dy) => {
+        const th = Math.max(12, thumbH + (edge === 'end' ? dy : -dy))
+        setTrackZoom(z0 * (thumbH / th), edge === 'end' ? 0 : h)
+      })
+    }
     if (!(e.target as HTMLElement).dataset.thumb) {
+      e.preventDefault()
       const r = ref.current!.getBoundingClientRect()
       getPl().set({ scrollY: Math.max(0, Math.min(max, ((e.clientY - r.top - thumbH / 2) / Math.max(1, h - thumbH)) * max)) })
       return
     }
-    const sy = e.clientY
     const s0 = scrollY
-    const move = (ev: PointerEvent) => getPl().set({ scrollY: Math.max(0, Math.min(max, s0 + ((ev.clientY - sy) / Math.max(1, h - thumbH)) * max)) })
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
+    dragFrom(e, null, (_dx, dy) => getPl().set({ scrollY: Math.max(0, Math.min(max, s0 + (dy / Math.max(1, h - thumbH)) * max)) }))
   }
   return (
-    <div ref={ref} className="relative shrink-0 bg-[#262e32]" style={{ width: SB }} onPointerDown={drag}>
+    <div
+      ref={ref}
+      className="relative shrink-0 bg-[#262e32]"
+      style={{ width: SB }}
+      onPointerDown={down}
+      onPointerMove={(e) => {
+        const edge = thumbEdge(e, true)
+        ;(e.target as HTMLElement).style.cursor = edge ? 'ns-resize' : ''
+        if (edge) useUI.getState().setHint('Drag the end of the scrollbar to change the track height')
+      }}
+    >
       <div data-thumb="1" className="absolute left-[2px] w-[7px] rounded-[3px] bg-[#55636a] hover:bg-[#66757c]" style={{ top: thumbY, height: thumbH }} />
     </div>
   )
 }
 
+/** FL's "Track height" control (right of the horizontal scrollbar): drag up / down or use the mouse wheel. */
+function TrackHeight() {
+  const vZoom = usePlaylist((s) => s.vZoom)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // native listener: React's wheel handler is passive, and the page must not scroll
+    const el = ref.current!
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault()
+      setTrackZoom(getPl().vZoom * ((e.deltaY || e.deltaX) < 0 ? 1.1 : 1 / 1.1))
+    }
+    el.addEventListener('wheel', wheel, { passive: false })
+    return () => el.removeEventListener('wheel', wheel)
+  }, [])
+  const fill = (vZoom - MIN_VZOOM) / (MAX_VZOOM - MIN_VZOOM)
+  return (
+    <div
+      ref={ref}
+      className="relative shrink-0 cursor-ns-resize border-l border-[#1d2326] bg-[#2b3438] hover:bg-[#34404a]"
+      style={{ width: SB, height: SB }}
+      title="Track height – drag up / down or use the mouse wheel"
+      onPointerEnter={() => useUI.getState().setHint(`Track height: ${Math.round(vZoom * 100)}% – drag up / down or use the mouse wheel`)}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        const z0 = vZoom
+        dragFrom(e, 'ns-resize', (_dx, dy) => setTrackZoom(z0 * Math.pow(1.01, -dy)))
+      }}
+      onDoubleClick={() => setTrackZoom(1)}
+    >
+      {/* level bar + grip lines */}
+      <span className="absolute bottom-[1px] left-[1px] w-[2px] rounded-[1px] bg-fl-orange" style={{ height: Math.max(1, Math.round(fill * (SB - 2))) }} />
+      <span className="absolute left-[4px] right-[2px] top-[3px] h-px bg-[#9fb0b8]" />
+      <span className="absolute left-[4px] right-[2px] top-[5px] h-px bg-[#9fb0b8]" />
+      <span className="absolute left-[4px] right-[2px] top-[7px] h-px bg-[#9fb0b8]" />
+    </div>
+  )
+}

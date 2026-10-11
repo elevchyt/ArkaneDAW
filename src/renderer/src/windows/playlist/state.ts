@@ -53,6 +53,18 @@ export function effectiveSnap(): Snap {
   return s === 'main' ? useUI.getState().globalSnap : s
 }
 
+export const MIN_VZOOM = 0.3
+export const MAX_VZOOM = 4
+
+/** Change the track height zoom, keeping the content at `anchorY` (px from the grid top) in place. */
+export function setTrackZoom(vZoom: number, anchorY = 0): void {
+  const s = usePlaylist.getState()
+  const nz = Math.min(MAX_VZOOM, Math.max(MIN_VZOOM, vZoom))
+  if (nz === s.vZoom) return
+  s.set({ vZoom: nz, scrollY: Math.max(0, (s.scrollY + anchorY) * (nz / s.vZoom) - anchorY) })
+  useUI.getState().setHint(`Track height: ${Math.round(nz * 100)}%`)
+}
+
 export function toggleZeroCross(): void {
   const on = !usePlaylist.getState().zeroCross
   usePlaylist.getState().set({ zeroCross: on })
