@@ -14,18 +14,18 @@ import { Ruler } from './Ruler'
 import { TrackHeaders, HEADER_W } from './TrackHeaders'
 import { Picker } from './Picker'
 import { clampPpt, trackOffsets } from './geometry'
-import { getPl, setTrackZoom, toggleStretch, toggleZeroCross, usePlaylist, MAX_VZOOM, MIN_VZOOM } from './state'
+import { getPl, setTrackZoom, toggleStretch, toggleZeroCross, usePlaylist } from './state'
 import { currentSource, sourceColor, sourceName } from './actions'
 import { playlistKey } from './keys'
 import { RULER_H } from './render'
 
-const TOOLS: { tool: Tool; key: string; name: string; icon: React.ReactNode }[] = [
+const TOOLS: { tool: Tool; key: string; name: string; icon: React.ReactNode; more?: string }[] = [
   { tool: 'draw', key: 'P', name: 'Draw', icon: <Pencil size={12} /> },
   { tool: 'paint', key: 'B', name: 'Paint', icon: <Paintbrush size={12} /> },
   { tool: 'delete', key: 'D', name: 'Delete', icon: <Eraser size={12} /> },
   { tool: 'mute', key: 'T', name: 'Mute', icon: <VolumeX size={12} /> },
   { tool: 'slip', key: 'S', name: 'Slip', icon: <MoveHorizontal size={12} /> },
-  { tool: 'slice', key: 'C', name: 'Slice', icon: <Scissors size={12} /> },
+  { tool: 'slice', key: 'C', name: 'Slice', icon: <Scissors size={12} />, more: 'drag across clips to cut them, Shift: straight cut, Alt: no snap, Shift+right-click: cut and delete the smaller part' },
   { tool: 'select', key: 'E', name: 'Select', icon: <SquareDashedMousePointer size={12} /> },
   { tool: 'zoom', key: 'Z', name: 'Zoom', icon: <ZoomIn size={12} /> },
   { tool: 'play', key: 'Y', name: 'Playback', icon: <Volume2 size={12} /> }
@@ -143,7 +143,7 @@ function TitleExtra() {
             className={cn('grid h-[18px] w-[20px] place-items-center rounded-[2px]', tool === t.tool ? 'bg-fl-orange text-[#1b1f22]' : 'text-[#dfe5e8] hover:bg-white/10')}
             title={`${t.name} (${t.key})`}
             onClick={() => useUI.getState().set({ playlistTool: t.tool })}
-            onPointerEnter={() => useUI.getState().setHint(`${t.name} tool (${t.key})`)}
+            onPointerEnter={() => useUI.getState().setHint(`${t.name} tool (${t.key})${t.more ? ` – ${t.more}` : ''}`)}
           >
             {t.icon}
           </button>
@@ -324,11 +324,10 @@ function TrackHeight() {
     el.addEventListener('wheel', wheel, { passive: false })
     return () => el.removeEventListener('wheel', wheel)
   }, [])
-  const fill = (vZoom - MIN_VZOOM) / (MAX_VZOOM - MIN_VZOOM)
   return (
     <div
       ref={ref}
-      className="flex h-full w-[34px] shrink-0 cursor-ns-resize items-center justify-center gap-[3px] border-l border-[#1d2326] bg-[#2f3a3f] text-[#b9c6cc] hover:bg-[#3a474e] hover:text-white"
+      className="flex h-full w-[26px] shrink-0 cursor-ns-resize items-center justify-center border-l border-[#1d2326] bg-[#2f3a3f] text-[#b9c6cc] hover:bg-[#3a474e] hover:text-white"
       title="Track height – drag up / down or use the mouse wheel"
       onPointerEnter={() => useUI.getState().setHint(`Track height: ${Math.round(vZoom * 100)}% – drag up / down or use the mouse wheel, double-click to reset`)}
       onPointerDown={(e) => {
@@ -339,10 +338,6 @@ function TrackHeight() {
       onDoubleClick={() => setTrackZoom(1)}
     >
       <ChevronsUpDown size={13} className="pointer-events-none" />
-      {/* level meter */}
-      <span className="pointer-events-none relative h-[12px] w-[4px] overflow-hidden rounded-[1px] bg-[#1b2124]">
-        <span className="absolute bottom-0 left-0 w-full bg-fl-orange" style={{ height: `${Math.max(8, Math.round(fill * 100))}%` }} />
-      </span>
     </div>
   )
 }

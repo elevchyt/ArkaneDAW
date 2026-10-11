@@ -25,7 +25,7 @@ import {
   type View,
   type Zone
 } from './geometry'
-import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceAt, slipClip, stretchClip, trimLeft } from './ops'
+import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceAt, sliceTracks, sliceTrim, slipClip, stretchClip, trimLeft, withGroups } from './ops'
 import { zeroCrossTick } from '@/audio/clips'
 import { getBuffer } from '@/audio/samples'
 import { addPoint, hitHandle, hitPoint, movePoint, removePoint, segmentAt, setTension, tensionFromDrag } from './automation'
@@ -52,12 +52,14 @@ type Drag =
   | { kind: 'move'; before: Clip[]; moving: Clip[]; add: boolean; anchor: Clip; downTick: number; downTrack: number; label: string; preview: Clip[] }
   | { kind: 'resize'; side: 'left' | 'right'; before: Clip[]; ids: Set<string>; anchor: Clip; downTick: number; preview: Clip[] }
   | { kind: 'slip'; before: Clip[]; ids: Set<string>; downTick: number; preview: Clip[] }
-  | { kind: 'delete'; before: Clip[]; removed: Set<string>; preview: Clip[] }
+  /** downX / downY / moved: a right-press held still on the background turns into a temporary slice */
+  | { kind: 'delete'; before: Clip[]; removed: Set<string>; preview: Clip[]; downX?: number; downY?: number; moved?: boolean }
   | { kind: 'mute'; before: Clip[]; touched: Set<string>; to: boolean; preview: Clip[] }
   | { kind: 'paint'; before: Clip[]; proto: Clip; added: Clip[]; preview: Clip[] }
   /** time: Ctrl+drag, which also sets the time selection (Ctrl+click without dragging clears it) */
   | { kind: 'rubber'; x0: number; y0: number; x1: number; y1: number; base: Set<string>; time?: boolean }
-  | { kind: 'slice'; x: number; y0: number; y1: number }
+  /** t: ticks, cy: content y (scroll included). vertical: Shift held. temp: from a right-press hold */
+  | { kind: 'slice'; t0: number; cy0: number; t1: number; cy1: number; vertical: boolean; temp?: boolean }
   | { kind: 'zoomRect'; x0: number; x1: number; moved: boolean }
   | { kind: 'pan'; sx: number; sy: number; scrollTick: number; scrollY: number }
   | { kind: 'auto'; clip: Clip; autoId: string; before: AutomationPoint[]; points: AutomationPoint[]; index: number; mode: 'point' | 'tension'; orig: number; downY: number; bh: number; by: number }
@@ -86,7 +88,25 @@ const TOOL_CURSOR: Partial<Record<Tool, string>> = {
   mute: 'pointer'
 }
 
+/** On-screen knife line: the drag line; a straight one spans the whole tracks it cuts. */
+function sliceLineOf(d: { t0: number; cy0: number; t1: number; cy1: number }, v: View, off: Float64Array): { x0: number; y0: number; x1: number; y1: number } {
+  if (d.t0 !== d.t1) return { x0: tickToX(v, d.t0), y0: d.cy0 - v.scrollY, x1: tickToX(v, d.t1), y1: d.cy1 - v.scrollY }
+  const a = trackAtY(off, Math.min(d.cy0, d.cy1))
+  const b = trackAtY(off, Math.max(d.cy0, d.cy1))
+  const x = tickToX(v, d.t0)
+  return { x0: x, y0: off[a] - v.scrollY, x1: x, y1: off[b + 1] - v.scrollY }
+}
+
+/** Right-Shift held (FL: Right-Shift + click slices a clip, Right-Shift + right-click trims it). */
+const keyState = { rightShift: false }
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => e.code === 'ShiftRight' && (keyState.rightShift = true), true)
+  window.addEventListener('keyup', (e) => e.code === 'ShiftRight' && (keyState.rightShift = false), true)
+  window.addEventListener('blur', () => (keyState.rightShift = false))
+}
+
 export function Grid({ offsets }: { offsets: Float64Array }) {
+  const holdTimer = useRef(0)
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -113,11 +133,12 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     const p = getProject()
     const d = drag.current
     const pl = getPl()
+    const v0 = view()
     drawGrid({
       ctx,
       w: size.current.w,
       h: size.current.h,
-      view: view(),
+      view: v0,
       offsets: offsetsRef.current,
       project: p,
       clips: d && 'preview' in d ? d.preview : p.playlist.clips,
@@ -126,7 +147,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       timeSel: pl.timeSel,
       autoOverride: d?.kind === 'auto' ? { id: d.autoId, points: d.points } : null,
       rubber: d?.kind === 'rubber' ? d : d?.kind === 'zoomRect' && d.moved ? { x0: d.x0, x1: d.x1, y0: 0, y1: size.current.h } : null,
-      sliceLine: d?.kind === 'slice' ? d : null,
+      sliceLine: d?.kind === 'slice' ? sliceLineOf(d, v0, offsetsRef.current) : null,
       onAsset: requestPaint
     })
   }
@@ -310,6 +331,19 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       return start({ kind: 'rubber', x0: x, y0: y, x1: x, y1: y, base, time: true })
     }
 
+    const zcAdjust = pl.zeroCross ? (c: Clip, t: number) => zeroCrossTick(p, c, t, getBuffer(c.ref)) : undefined
+    // Right-Shift + right-click (or Shift + right-click with the Slice tool): slice and delete the smaller part
+    if (e.button === 2 && hit && (keyState.rightShift || (tool === 'slice' && e.shiftKey))) {
+      const t = snapRound(tick, grid)
+      commitClips('Trim clip', clips, sliceTrim(clips, hit.clip.id, zcAdjust ? zcAdjust(hit.clip, t) : t, uid))
+      return
+    }
+    // Right-Shift + left-click: slice the clip under the cursor (any tool)
+    if (e.button === 0 && hit && keyState.rightShift) {
+      commitClips('Slice clip', clips, sliceAt(clips, snapRound(tick, grid), hit.clip.track, hit.clip.track, uid, zcAdjust))
+      return
+    }
+
     if (e.button === 2) {
       if (tool === 'zoom') {
         pl.set(zoomAround(v, x, 1 / 2))
@@ -328,9 +362,23 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         }
       }
       // right-click / right-drag = delete
-      const removed = new Set<string>()
-      if (hit) removed.add(hit.clip.id)
-      return start({ kind: 'delete', before: clips, removed, preview: clips.filter((c) => !removed.has(c.id)) })
+      const removed = hit ? withGroups(clips, [hit.clip.id]) : new Set<string>()
+      const del: Drag = { kind: 'delete', before: clips, removed, preview: clips.filter((c) => !removed.has(c.id)), downX: x, downY: y }
+      start(del)
+      if (!hit && (tool === 'draw' || tool === 'paint' || tool === 'mute')) {
+        // right-press held still on the background = temporary Slice tool (FL "click and hold" function)
+        window.clearTimeout(holdTimer.current)
+        holdTimer.current = window.setTimeout(() => {
+          if (drag.current !== del || del.moved || del.removed.size) return
+          const vv = view()
+          const t0 = snapRound(xToTick(vv, x), gridSize(false))
+          drag.current = { kind: 'slice', t0, cy0: y + vv.scrollY, t1: t0, cy1: y + vv.scrollY, vertical: false, temp: true }
+          cv.style.cursor = 'crosshair'
+          useUI.getState().setHint('Slice: drag across the clips to cut them, release to slice (Shift: straight line, Alt: no snap)')
+          requestPaint()
+        }, 350)
+      }
+      return
     }
     if (e.button !== 0) return
 
@@ -347,22 +395,23 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         transport.seek(Math.max(0, tick))
         void transport.play()
         return start({ kind: 'scrub' })
-      case 'slice':
-        return start({ kind: 'slice', x: tickToX(v, snapRound(tick, grid)), y0: y, y1: y })
+      case 'slice': {
+        const t0 = snapRound(tick, grid)
+        return start({ kind: 'slice', t0, cy0: y + v.scrollY, t1: t0, cy1: y + v.scrollY, vertical: e.shiftKey })
+      }
       case 'delete': {
-        const removed = new Set<string>()
-        if (hit) removed.add(hit.clip.id)
+        const removed = hit ? withGroups(clips, [hit.clip.id]) : new Set<string>()
         return start({ kind: 'delete', before: clips, removed, preview: clips.filter((c) => !removed.has(c.id)) })
       }
       case 'mute': {
         if (!hit) return
         const to = !hit.clip.muted
-        const touched = new Set([hit.clip.id])
+        const touched = withGroups(clips, [hit.clip.id])
         return start({ kind: 'mute', before: clips, touched, to, preview: clips.map((c) => (touched.has(c.id) ? { ...c, muted: to } : c)) })
       }
       case 'slip': {
         if (!hit) return
-        const ids = pl.selected.has(hit.clip.id) ? new Set(pl.selected) : new Set([hit.clip.id])
+        const ids = pl.selected.has(hit.clip.id) ? new Set(pl.selected) : withGroups(clips, [hit.clip.id])
         return start({ kind: 'slip', before: clips, ids, downTick: tick, preview: clips })
       }
       case 'select': {
@@ -373,6 +422,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
             else sel.add(hit.clip.id)
           } else if (!sel.has(hit.clip.id)) sel = new Set([hit.clip.id])
           setSelection(sel)
+          sel = new Set(getPl().selected) // with the rest of any group
           if (!sel.has(hit.clip.id)) return
           if (hit.zone === 'left' || hit.zone === 'right') return start(resizeDrag(hit, clips, sel, tick))
           return start(moveDrag(hit.clip, clips, sel, tick, track, false))
@@ -390,12 +440,12 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
             if (d) return start(d)
           }
           if (hit.zone === 'left' || hit.zone === 'right') {
-            const ids = pl.selected.has(hit.clip.id) ? new Set(pl.selected) : new Set([hit.clip.id])
+            const ids = pl.selected.has(hit.clip.id) ? new Set(pl.selected) : withGroups(clips, [hit.clip.id])
             return start(resizeDrag(hit, clips, ids, tick))
           }
           // clicking a clip makes its source the current one (FL)
           selectSource({ kind: hit.clip.kind, ref: hit.clip.ref })
-          const ids = pl.selected.has(hit.clip.id) ? new Set(pl.selected) : new Set([hit.clip.id])
+          const ids = pl.selected.has(hit.clip.id) ? new Set(pl.selected) : withGroups(clips, [hit.clip.id])
           return start(moveDrag(hit.clip, clips, ids, tick, track, e.shiftKey))
         }
         if (pl.selected.size) setSelection([])
@@ -521,9 +571,10 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         break
       }
       case 'delete': {
+        if (d.downX !== undefined && Math.hypot(x - d.downX, y - (d.downY ?? y)) > 4) d.moved = true
         const h = hitAt(x, y, d.preview)
         if (h && !d.removed.has(h.clip.id)) {
-          d.removed.add(h.clip.id)
+          for (const id of withGroups(d.before, [h.clip.id])) d.removed.add(id)
           d.preview = d.before.filter((c) => !d.removed.has(c.id))
         } else return
         break
@@ -531,7 +582,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       case 'mute': {
         const h = hitAt(x, y, d.preview)
         if (h && !d.touched.has(h.clip.id)) {
-          d.touched.add(h.clip.id)
+          for (const id of withGroups(d.before, [h.clip.id])) d.touched.add(id)
           d.preview = d.before.map((c) => (d.touched.has(c.id) ? { ...c, muted: d.to } : c))
         } else return
         break
@@ -555,8 +606,10 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         break
       }
       case 'slice':
-        d.y1 = y
-        d.x = tickToX(v, snapRound(tick, grid))
+        // follows the pointer (angled cuts across tracks); Shift keeps the line straight
+        d.cy1 = y + v.scrollY
+        d.vertical = e.shiftKey
+        d.t1 = d.vertical ? d.t0 : snapRound(tick, grid)
         break
       case 'zoomRect':
         d.x1 = x
@@ -601,6 +654,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
+    window.clearTimeout(holdTimer.current)
     const d = drag.current
     drag.current = null
     if (!d) return
@@ -633,10 +687,21 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
         break
       case 'slice': {
         const off = offsetsRef.current
-        const tr0 = trackAtY(off, d.y0 + v.scrollY)
-        const at = Math.round(xToTick(v, d.x))
+        const tr0 = trackAtY(off, d.cy0)
+        const tr1 = trackAtY(off, d.cy1)
+        const lo = Math.min(tr0, tr1)
+        const hi = Math.max(tr0, tr1)
+        const g = gridSize(e.altKey)
+        // where the line crosses each track's middle (clamped to the line's ends)
+        const cutAt = (t: number): number => {
+          if (d.t0 === d.t1 || d.cy0 === d.cy1) return d.t0
+          const mid = Math.min(Math.max((off[t] + off[t + 1]) / 2, Math.min(d.cy0, d.cy1)), Math.max(d.cy0, d.cy1))
+          return snapRound(d.t0 + ((d.t1 - d.t0) * (mid - d.cy0)) / (d.cy1 - d.cy0), g)
+        }
         const zc = getPl().zeroCross ? (c: Clip, t: number) => zeroCrossTick(p, c, t, getBuffer(c.ref)) : undefined
-        commitClips('Slice clips', p.playlist.clips, sliceAt(p.playlist.clips, at, tr0, track, uid, zc))
+        const tracks = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i)
+        commitClips('Slice clips', p.playlist.clips, sliceTracks(p.playlist.clips, tracks, cutAt, uid, zc))
+        if (d.temp && cv) cv.style.cursor = ''
         break
       }
       case 'zoomRect':

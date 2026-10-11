@@ -8,14 +8,14 @@ import { getBuffer } from '@/audio/samples'
 import { uid } from '@/store/factory'
 import { barTicks, beatTicks, songLength } from '@/audio/sequence'
 import { transport } from '@/audio/transport'
-import { clampMove, cloneShifted, deleteSpace, duplicateRight, insertSpace, moveClips, sliceAt, span } from './ops'
+import { clampMove, cloneShifted, deleteSpace, duplicateRight, insertSpace, moveClips, setGroup, sliceAt, span } from './ops'
 import { addMarker, commitClips, deleteClips, setClipsMuted } from './actions'
 import { fitPpt, snapTicks, zoomAround } from './geometry'
 import { effectiveSnap, getPl, mouse, setSelection, toggleStretch, viewport } from './state'
 import { selectBySource } from './menus'
 import { setTimeSelection } from './Ruler'
 
-const TOOL_KEYS: Record<string, Tool> = {
+export const TOOL_KEYS: Record<string, Tool> = {
   KeyP: 'draw',
   KeyB: 'paint',
   KeyD: 'delete',
@@ -56,8 +56,8 @@ export function playlistKey(e: KeyboardEvent): boolean {
   const clips = p.playlist.clips
   const bar = barTicks(p)
 
-  // single letters (only when the typing keyboard is off)
-  if (!ctrl && !alt && !shift && !ui.typingKeyboard && TOOL_KEYS[e.code]) {
+  // tool letters (the typing keyboard leaves them to the focused playlist: shell/shortcuts.ts)
+  if (!ctrl && !alt && !shift && TOOL_KEYS[e.code]) {
     ui.set({ playlistTool: TOOL_KEYS[e.code] })
     ui.setHint(`Playlist tool: ${TOOL_KEYS[e.code]}`)
     return true
@@ -130,6 +130,16 @@ export function playlistKey(e: KeyboardEvent): boolean {
       case 'KeyP':
         pl.set({ picker: !pl.picker })
         return true
+      case 'KeyG': {
+        // ungroup every group that has a selected clip
+        if (shift || !pl.selected.size) return true
+        const groups = new Set(selectedClips().map((c) => c.group).filter(Boolean))
+        if (!groups.size) return true
+        const ids = new Set(clips.filter((c) => c.group && groups.has(c.group)).map((c) => c.id))
+        commitClips('Ungroup clips', clips, setGroup(clips, ids, undefined))
+        ui.setHint(`Ungrouped ${ids.size} clips`)
+        return true
+      }
     }
     return false
   }
@@ -137,15 +147,21 @@ export function playlistKey(e: KeyboardEvent): boolean {
   if (shift && !ctrl && !alt) {
     switch (e.code) {
       case 'KeyM':
-        if (ui.typingKeyboard) return false
         toggleStretch()
         return true
+      case 'KeyG': {
+        if (pl.selected.size < 2) {
+          ui.setHint('Select two or more clips to group them')
+          return true
+        }
+        commitClips('Group clips', clips, setGroup(clips, pl.selected, uid()))
+        ui.setHint(`Grouped ${pl.selected.size} clips — they now select, move and delete together (Alt+G ungroups)`)
+        return true
+      }
       case 'KeyC':
-        if (ui.typingKeyboard) return false
         selectBySource(selectedClips())
         return true
       case 'KeyI': {
-        if (ui.typingKeyboard) return false
         setSelection(clips.filter((c) => !pl.selected.has(c.id)).map((c) => c.id))
         return true
       }

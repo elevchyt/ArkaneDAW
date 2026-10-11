@@ -106,6 +106,8 @@ export interface Clip {
    * in timeline ticks of the stretched audio. How the pitch reacts follows the channel's Sampler stretch mode.
    */
   stretch?: number
+  /** Clips sharing a group id select, move and delete together (Shift+G / Alt+G). */
+  group?: string
 }
 
 export interface PlaylistTrack {

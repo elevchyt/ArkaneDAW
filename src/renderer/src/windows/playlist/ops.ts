@@ -182,7 +182,14 @@ export function span(clips: readonly Clip[]): { start: number; end: number; minT
 
 /** Copies of `clips` shifted by `dTick` (and tracks), with fresh ids. */
 export function cloneShifted(clips: readonly Clip[], dTick: number, dTrack = 0, gen: IdGen = seqId): Clip[] {
-  return clips.map((c) => ({ ...c, id: gen(), start: c.start + dTick, track: c.track + dTrack }))
+  // copies of a group form a new group of their own
+  const groups = new Map<string, string>()
+  const regroup = (g: string) => groups.get(g) ?? (groups.set(g, gen()), groups.get(g)!)
+  return clips.map((c) => {
+    const copy: Clip = { ...c, id: gen(), start: c.start + dTick, track: c.track + dTrack }
+    if (c.group) copy.group = regroup(c.group)
+    return copy
+  })
 }
 
 /**
@@ -236,4 +243,45 @@ export function applyClipDiff(target: Clip[], removed: ReadonlySet<string>, upse
       target.push(c)
     } else target[i] = c
   }
+}
+
+/** `ids` plus every clip sharing a group with one of them (FL: grouped clips select / move / delete together). */
+export function withGroups(clips: readonly Clip[], ids: Iterable<string>): Set<string> {
+  const out = new Set(ids)
+  const groups = new Set<string>()
+  for (const c of clips) if (out.has(c.id) && c.group) groups.add(c.group)
+  if (groups.size) for (const c of clips) if (c.group && groups.has(c.group)) out.add(c.id)
+  return out
+}
+
+/** Put the clips in `ids` into one new group (or remove their groups when `group` is undefined). */
+export function setGroup(clips: readonly Clip[], ids: ReadonlySet<string>, group: string | undefined): Clip[] {
+  return clips.map((c) => {
+    if (!ids.has(c.id)) return c
+    if (group) return { ...c, group }
+    if (!c.group) return c
+    const rest = { ...c }
+    delete rest.group
+    return rest
+  })
+}
+
+/** Slice `clip` at `at` and delete the smaller part (FL Right-Shift + right-click / slice tool trim). */
+export function sliceTrim(clips: readonly Clip[], clipId: string, at: number, gen: IdGen = seqId): Clip[] {
+  const c = clips.find((x) => x.id === clipId)
+  const parts = c && sliceClip(c, at, gen)
+  if (!parts) return clips as Clip[]
+  const [a, b] = parts
+  const keep = a.length >= b.length ? a : b
+  return clips.map((x) => (x.id === clipId ? keep : x))
+}
+
+/**
+ * Slice tool line from (t0, track0) to (t1, track1): every track it crosses is cut where the line passes
+ * that track (a vertical line cuts all of them at the same tick). `cutAt(track)` gives the tick per track.
+ */
+export function sliceTracks(clips: readonly Clip[], tracks: readonly number[], cutAt: (track: number) => number, gen: IdGen = seqId, adjust?: (c: Clip, at: number) => number): Clip[] {
+  let out = clips as Clip[]
+  for (const t of tracks) out = sliceAt(out, cutAt(t), t, t, gen, adjust)
+  return out
 }

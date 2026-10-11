@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyClipDiff, chopClip, clampMove, cloneShifted, deleteSpace, diffClips, duplicateRight, insertSpace, moveClips, paintRepeat, resizeRight, sliceAt, sliceClip, slipClip, stretchClip, trimLeft } from './ops'
+import { applyClipDiff, chopClip, clampMove, cloneShifted, deleteSpace, diffClips, duplicateRight, insertSpace, moveClips, paintRepeat, resizeRight, sliceAt, sliceClip, setGroup, sliceTracks, sliceTrim, slipClip, stretchClip, trimLeft, withGroups } from './ops'
 import type { Clip } from '@/store/types'
 
 let n = 0
@@ -131,5 +131,33 @@ describe('stretch', () => {
     const twice = stretchClip(once, 0, 100000)
     expect(twice.stretch).toBe(8)
     expect(twice.length).toBe(800)
+  })
+})
+
+describe('groups and slicing', () => {
+  const a = (id: string, track: number, start: number, length: number, group?: string): Clip => ({ id, kind: 'pattern', ref: 'p', track, start, length, offset: 0, muted: false, group })
+  it('expands ids to whole groups', () => {
+    const cs = [a('a', 0, 0, 96, 'g'), a('b', 1, 0, 96, 'g'), a('c', 2, 0, 96)]
+    expect([...withGroups(cs, ['a'])].sort()).toEqual(['a', 'b'])
+    expect([...withGroups(cs, ['c'])]).toEqual(['c'])
+  })
+  it('groups, ungroups and gives copies their own group', () => {
+    const cs = setGroup([a('a', 0, 0, 96), a('b', 1, 0, 96), a('c', 2, 0, 96)], new Set(['a', 'b']), 'g1')
+    expect(cs.map((c) => c.group)).toEqual(['g1', 'g1', undefined])
+    const copies = cloneShifted(cs.slice(0, 2), 96, 0, gen)
+    expect(copies[0].group).toBe(copies[1].group)
+    expect(copies[0].group).not.toBe('g1')
+    expect('group' in setGroup(cs, new Set(['a']), undefined)[0]).toBe(false)
+  })
+  it('trims away the smaller part', () => {
+    const cs = [a('a', 0, 0, 384)]
+    expect(sliceTrim(cs, 'a', 96, gen)).toEqual([{ ...cs[0], id: expect.any(String), start: 96, length: 288, offset: 96 }])
+    expect(sliceTrim(cs, 'a', 300, gen)[0]).toMatchObject({ id: 'a', start: 0, length: 300 })
+  })
+  it('slices an angled line per track', () => {
+    const cs = [a('a', 0, 0, 384), a('b', 1, 0, 384)]
+    const out = sliceTracks(cs, [0, 1], (t) => (t === 0 ? 96 : 192), gen)
+    expect(out.filter((c) => c.track === 0).map((c) => c.length).sort((x, y) => x - y)).toEqual([96, 288])
+    expect(out.filter((c) => c.track === 1).map((c) => c.length).sort((x, y) => x - y)).toEqual([192, 192])
   })
 })

@@ -121,7 +121,8 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
   select, Shift+drag = copy/clone, Alt = bypass snap, wheel = scroll, Ctrl+wheel = zoom, middle-drag = pan, knobs drag vertically
   (Shift = fine), double-click/Alt-click knob = reset, right-click knob = context menu.
 * Keyboard: see `shell/shortcuts.ts` and per-window handlers via `useWindowKeys(windowId, handler)`; follow
-  `basics_shortcuts.htm`. Single-key shortcuts only when "typing keyboard to piano" (Ctrl+T) is off.
+  `basics_shortcuts.htm`. With "typing keyboard to piano" (Ctrl+T) on, letters play notes, except Shift / Ctrl / Alt
+  combos and the focused Playlist's tool letters (P B D T S C E Z Y), which stay shortcuts.
 * Colors/tokens in `styles.css` (`--fl-*`). Font 11px. Dark only.
 
 ## 7. Native / Linux

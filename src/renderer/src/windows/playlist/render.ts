@@ -97,7 +97,7 @@ export interface GridScene {
   timeSel: { start: number; end: number } | null
   autoOverride: { id: string; points: Automation['points'] } | null
   rubber: { x0: number; y0: number; x1: number; y1: number } | null
-  sliceLine: { x: number; y0: number; y1: number } | null
+  sliceLine: { x0: number; y0: number; x1: number; y1: number } | null
   /** Called when a sample buffer finishes loading so the canvas can repaint. */
   onAsset: () => void
 }
@@ -179,8 +179,8 @@ export function drawGrid(s: GridScene): void {
     ctx.strokeStyle = '#ffd36b'
     ctx.setLineDash([3, 2])
     ctx.beginPath()
-    ctx.moveTo(Math.round(s.sliceLine.x) + 0.5, s.sliceLine.y0)
-    ctx.lineTo(Math.round(s.sliceLine.x) + 0.5, s.sliceLine.y1)
+    ctx.moveTo(Math.round(s.sliceLine.x0) + 0.5, s.sliceLine.y0)
+    ctx.lineTo(Math.round(s.sliceLine.x1) + 0.5, s.sliceLine.y1)
     ctx.stroke()
     ctx.setLineDash([])
   }

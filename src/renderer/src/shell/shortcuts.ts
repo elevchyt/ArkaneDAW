@@ -7,6 +7,7 @@ import { cloneChannels, deleteChannels, moveChannels, routeToFreeInserts, select
 import { commands } from './commands'
 import { dispatchWindowKey } from './keys'
 import { recordLiveNote } from '@/audio/recording'
+import { TOOL_KEYS as PLAYLIST_TOOL_KEYS } from '@/windows/playlist/keys'
 
 // FL's typing keyboard layout: Q-row = the typing octave (C5, the sample's own pitch), Z-row = one octave below.
 const TYPING: Record<string, number> = {
@@ -23,7 +24,17 @@ function isTextInput(t: EventTarget | null): boolean {
 
 function typingNote(e: KeyboardEvent, down: boolean): boolean {
   const ui = useUI.getState()
-  if (!ui.typingKeyboard || e.ctrlKey || e.altKey || e.metaKey) return false
+  // always let go of a note that is sounding, whatever modifiers are held by now
+  if (!down && held.has(e.code)) {
+    const h = held.get(e.code)!
+    void initAudio().then((engine) => engine.noteOff(h.channelId, h.id, h.key))
+    recordLiveNote(h.channelId, h.key, 0, false, h.id)
+    held.delete(e.code)
+    return true
+  }
+  // modifiers are shortcuts (Shift+C, Shift+G...); the focused Playlist keeps its tool letters (P, B, C, D...)
+  if (!ui.typingKeyboard || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return false
+  if (ui.focused === 'playlist' && PLAYLIST_TOOL_KEYS[e.code]) return false
   const off = TYPING[e.code]
   if (off === undefined) return false
   const channelId = ui.selectedChannels[0] ?? ui.pianoRollChannel ?? getProject().channels[0]?.id

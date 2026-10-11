@@ -3,6 +3,8 @@ import { create } from 'zustand'
 import type { Clip, ClipKind } from '@/store/types'
 import type { Snap } from '@/store/ui'
 import { useUI } from '@/store/ui'
+import { getProject } from '@/store/project'
+import { withGroups } from './ops'
 
 export interface ClipSource {
   kind: ClipKind
@@ -77,8 +79,9 @@ export function toggleStretch(): void {
   useUI.getState().setHint(`Stretch ${on ? 'on: dragging an audio clip edge time-stretches it' : 'off: dragging an audio clip edge trims it'}`)
 }
 
+/** Select clips; grouped clips bring the rest of their group along. */
 export function setSelection(ids: Iterable<string>): void {
-  usePlaylist.getState().set({ selected: new Set(ids) })
+  usePlaylist.getState().set({ selected: withGroups(getProject().playlist.clips, ids) })
 }
 
 /** Size of the clip grid in px (written by the Grid's ResizeObserver; read by key handlers). */
