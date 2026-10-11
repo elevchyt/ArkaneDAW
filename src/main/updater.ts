@@ -4,7 +4,8 @@
 //   .deb/.rpm → download to ~/Downloads, reveal it and hand back the install command
 //   otherwise → open the release page (always in dev builds: never replace files there)
 import { app, ipcMain, net, shell, type BrowserWindow } from 'electron'
-import { readFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, dirname, basename } from 'node:path'
 import { access, constants, rm } from 'node:fs/promises'
 import { detectDistro } from '../renderer/src/system/distro'
@@ -137,11 +138,42 @@ async function install(win: BrowserWindow | null): Promise<InstallResult> {
   }
 }
 
+/** Environment for a fresh AppImage launch: drop what the running AppImage's runtime and AppRun set up. */
+function appImageEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+  const appDir = env.APPDIR
+  for (const k of ['APPDIR', 'APPIMAGE', 'ARGV0', 'OWD']) delete env[k]
+  if (appDir) {
+    // AppRun prepends paths inside its (soon unmounted) mount point
+    for (const k of ['PATH', 'LD_LIBRARY_PATH', 'XDG_DATA_DIRS', 'GSETTINGS_SCHEMA_DIR']) {
+      const v = env[k]
+      if (v === undefined) continue
+      const kept = v.split(':').filter((part) => part && !part.startsWith(appDir))
+      if (kept.length) env[k] = kept.join(':')
+      else delete env[k]
+    }
+  }
+  return env
+}
+
 function relaunch(): void {
-  // Inside an AppImage process.execPath points into the (soon unmounted) squashfs: relaunch the file itself.
   const appImage = process.env.APPIMAGE
-  if (appImage) app.relaunch({ execPath: appImage, args: process.argv.slice(1) })
-  else app.relaunch()
+  if (appImage) {
+    // app.relaunch() can't work here: its relauncher helper is the binary inside the AppImage's squashfs mount,
+    // which the AppImage runtime unmounts as soon as we exit, so the app just quits. Start the (replaced)
+    // AppImage file as its own detached process instead, a moment after we're gone. Inherited descriptors are
+    // closed first: one is the old runtime's keep-alive pipe, which would keep the old mount (and the replaced
+    // file) around for as long as the new instance runs.
+    const script = 'for f in /proc/$$/fd/*; do n=${f##*/}; [ "$n" -gt 2 ] && eval "exec $n>&-"; done 2>/dev/null; sleep 1; exec "$0" "$@"'
+    const sh = existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh'
+    const child = spawn(sh, ['-c', script, appImage, ...process.argv.slice(1)], {
+      cwd: process.env.OWD || app.getPath('home'),
+      env: appImageEnv(),
+      detached: true,
+      stdio: 'ignore'
+    })
+    child.unref()
+  } else app.relaunch()
   app.exit(0)
 }
 
