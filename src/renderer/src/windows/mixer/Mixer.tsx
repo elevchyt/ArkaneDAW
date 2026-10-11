@@ -1,7 +1,7 @@
 // FL Studio 20/21 style Mixer (compact): Master docked left, 125 narrow inserts in a horizontally
 // scrolling (virtualized) row, routing cables under the strips and the track inspector on the right.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Cable, ChevronDown, PanelRight, Plus } from 'lucide-react'
+import { ChevronDown, PanelRight, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MdiWindow } from '@/shell/MdiWindow'
 import { useWindowKeys } from '@/shell/keys'
@@ -47,7 +47,6 @@ const OVERSCAN = 2
 export default function Mixer({ win, bounds }: WindowProps) {
   const layout = useMixerView((s) => s.layout)
   const inspector = useMixerView((s) => s.inspector)
-  const cables = useMixerView((s) => s.cables)
   const sel = useUI((s) => s.selectedMixerTrack)
   const mixer = useProject((s) => s.project.mixer)
   const sw = STRIP_W[layout]
@@ -85,7 +84,7 @@ export default function Mixer({ win, bounds }: WindowProps) {
   // solo state → which strips look muted
   const audible = useMemo(() => soloAudible(mixer), [mixer])
 
-  const stripH = Math.max(0, view.height - (cables ? CABLE_H : 0) - 8 /* scrollbar */)
+  const stripH = Math.max(0, view.height - CABLE_H - 8 /* scrollbar */)
   const { nameH, faderH } = stripSplit(stripH)
   const first = Math.max(1, Math.floor(view.left / sw) + 1 - OVERSCAN)
   const last = Math.min(MIXER_INSERTS, Math.ceil((view.left + view.width) / sw) + OVERSCAN)
@@ -155,7 +154,6 @@ export default function Mixer({ win, bounds }: WindowProps) {
   const xOf = (i: number) => (i === 0 ? mw / 2 : mw + (i - 1) * sw + sw / 2 - view.left)
   const totalW = mw + view.width
   const cablePaths = useMemo(() => {
-    if (!cables) return []
     const out: { d: string; color: string; head: [number, number]; dim: boolean }[] = []
     const add = (from: number, to: number, color: string, dim: boolean) => {
       const x1 = xOf(from)
@@ -169,7 +167,7 @@ export default function Mixer({ win, bounds }: WindowProps) {
     if (sel !== 0) for (const m of mixer) if (m.index !== sel && m.sends.some((s) => s.target === sel)) add(m.index, sel, '#f79a2e', true)
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cables, mixer, sel, view.left, view.width, sw, mw])
+  }, [mixer, sel, view.left, view.width, sw, mw])
 
   const multi = useMixerView((s) => s.multi)
   const selList = multi.length ? multi : [sel]
@@ -193,9 +191,6 @@ export default function Mixer({ win, bounds }: WindowProps) {
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem checked={inspector} onSelect={() => useMixerView.getState().set({ inspector: !inspector })}>
               Track inspector
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem checked={cables} onSelect={() => useMixerView.getState().set({ cables: !cables })}>
-              Routing cables
             </DropdownMenuCheckboxItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
@@ -260,9 +255,6 @@ export default function Mixer({ win, bounds }: WindowProps) {
       >
         <Plus size={10} />
       </HeadBtn>
-      <HeadBtn active={cables} onClick={() => useMixerView.getState().set({ cables: !cables })} hint="Show routing cables">
-        <Cable size={10} />
-      </HeadBtn>
       <DropdownMenu>
         <DropdownMenuTrigger
           className="flex h-[15px] items-center gap-[2px] rounded-[2px] border border-[#1e2427] bg-[#3b464c] px-1 text-[10px] text-[#d3dadd] hover:bg-[#46525a]"
@@ -282,9 +274,6 @@ export default function Mixer({ win, bounds }: WindowProps) {
           <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem checked={inspector} onSelect={() => useMixerView.getState().set({ inspector: !inspector })}>
             Track inspector
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem checked={cables} onSelect={() => useMixerView.getState().set({ cables: !cables })}>
-            Routing cables
           </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -312,24 +301,22 @@ export default function Mixer({ win, bounds }: WindowProps) {
               </div>
             </div>
           </div>
-          {cables && (
-            <svg className="pointer-events-none shrink-0" width={totalW} height={CABLE_H} style={{ background: '#222a2e' }}>
-              <defs>
-                <clipPath id="mixer-cable-clip">
-                  <rect x={0} y={0} width={totalW} height={CABLE_H} />
-                </clipPath>
-              </defs>
-              <g clipPath="url(#mixer-cable-clip)">
-                {cablePaths.map((c, k) => (
-                  <g key={k} opacity={c.dim ? 0.75 : 1}>
-                    <path d={c.d} stroke="#0e1213" strokeWidth={3} fill="none" strokeLinecap="round" />
-                    <path d={c.d} stroke={c.color} strokeWidth={1.5} fill="none" strokeLinecap="round" />
-                    <path d={`M${c.head[0] - 3},${c.head[1] + 4} L${c.head[0]},${c.head[1] - 1} L${c.head[0] + 3},${c.head[1] + 4} Z`} fill={c.color} />
-                  </g>
-                ))}
-              </g>
-            </svg>
-          )}
+          <svg className="pointer-events-none shrink-0" width={totalW} height={CABLE_H} style={{ background: '#222a2e' }}>
+            <defs>
+              <clipPath id="mixer-cable-clip">
+                <rect x={0} y={0} width={totalW} height={CABLE_H} />
+              </clipPath>
+            </defs>
+            <g clipPath="url(#mixer-cable-clip)">
+              {cablePaths.map((c, k) => (
+                <g key={k} opacity={c.dim ? 0.75 : 1}>
+                  <path d={c.d} stroke="#0e1213" strokeWidth={3} fill="none" strokeLinecap="round" />
+                  <path d={c.d} stroke={c.color} strokeWidth={1.5} fill="none" strokeLinecap="round" />
+                  <path d={`M${c.head[0] - 3},${c.head[1] + 4} L${c.head[0]},${c.head[1] - 1} L${c.head[0] + 3},${c.head[1] + 4} Z`} fill={c.color} />
+                </g>
+              ))}
+            </g>
+          </svg>
         </div>
         {inspector && <TrackPanel index={sel} />}
       </div>

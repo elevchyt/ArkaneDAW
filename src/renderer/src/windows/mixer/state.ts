@@ -11,8 +11,6 @@ interface MixerViewState {
   renaming: number | null
   /** Show the track inspector (right panel). */
   inspector: boolean
-  /** Show routing cables. */
-  cables: boolean
   set: (p: Partial<MixerViewState>) => void
 }
 
@@ -21,7 +19,6 @@ export const useMixerView = create<MixerViewState>((set) => ({
   multi: [],
   renaming: null,
   inspector: true,
-  cables: true,
   set: (p) => set(p)
 }))
 

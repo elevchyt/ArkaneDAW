@@ -17,7 +17,8 @@ import {
   Timer,
   Repeat,
   Hourglass,
-  Keyboard
+  Keyboard,
+  Hand
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProject, editProject } from '@/store/project'
@@ -116,6 +117,18 @@ function TempoDialog({ onClose }: { onClose: () => void }) {
   const bpmVal = Number(bpm)
   const bpmOk = bpm.trim() !== '' && Number.isFinite(bpmVal) && bpmVal >= TEMPO_MIN && bpmVal <= TEMPO_MAX
   const sigVal = parseTimeSig(sig)
+  // Tap tempo: average of the last taps; a pause of 2 s starts over.
+  const taps = useRef<number[]>([])
+  const tap = () => {
+    const now = performance.now()
+    const t = taps.current
+    if (t.length && now - t[t.length - 1] > 2000) t.length = 0
+    t.push(now)
+    if (t.length > 9) t.shift()
+    if (t.length < 2) return
+    const bpmTapped = (60000 * (t.length - 1)) / (t[t.length - 1] - t[0])
+    setBpm(String(Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, bpmTapped)) * 100) / 100))
+  }
   const apply = () => {
     if (!bpmOk || !sigVal) return
     editProject('Tempo and time signature', (d) => {
@@ -134,7 +147,28 @@ function TempoDialog({ onClose }: { onClose: () => void }) {
     <div className="flex flex-col gap-2 text-[11px]">
       <label className="flex flex-col gap-0.5">
         <span className="text-fl-dim">Tempo (BPM)</span>
-        <input autoFocus className={cn(field, !bpmOk && 'text-[#ff7b72]')} value={bpm} onChange={(e) => setBpm(e.target.value)} onKeyDown={keys} onFocus={(e) => e.target.select()} inputMode="decimal" />
+        <div className="flex gap-1">
+          <input autoFocus className={cn(field, 'min-w-0 flex-1', !bpmOk && 'text-[#ff7b72]')} value={bpm} onChange={(e) => setBpm(e.target.value)} onKeyDown={keys} onFocus={(e) => e.target.select()} inputMode="decimal" />
+          <button
+            type="button"
+            title="Tap tempo: click in time with the beat"
+            className="flex h-[22px] w-[24px] shrink-0 items-center justify-center rounded-[3px] border border-[#1e2427] bg-[#46525a] fl-bevel hover:bg-[#515e66] active:bg-fl-orange active:text-[#1b1f22]"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              tap()
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                if (!e.repeat) tap()
+              }
+              if (e.key === 'Escape') onClose()
+            }}
+          >
+            <Hand size={12} />
+          </button>
+        </div>
       </label>
       <label className="flex flex-col gap-0.5">
         <span className="text-fl-dim">Time signature</span>

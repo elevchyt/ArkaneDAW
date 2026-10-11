@@ -24,6 +24,11 @@ function isTextInput(t: EventTarget | null): boolean {
   return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
 }
 
+/** Keys typed inside an open menu, popover or dialog belong to it (arrow navigation, Enter...), not the DAW. */
+function inOverlay(t: EventTarget | null): boolean {
+  return !!(t as HTMLElement | null)?.closest?.('[role=menu],[role=menubar],[role=listbox],[role=dialog],[role=alertdialog]')
+}
+
 function typingNote(e: KeyboardEvent, down: boolean): boolean {
   const ui = useUI.getState()
   // always let go of a note that is sounding, whatever modifiers are held by now
@@ -64,7 +69,7 @@ function typingNote(e: KeyboardEvent, down: boolean): boolean {
 export function useGlobalShortcuts(): void {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (isTextInput(e.target)) return
+      if (isTextInput(e.target) || inOverlay(e.target)) return
       const ui = useUI.getState()
       const ctrl = e.ctrlKey || e.metaKey
       if (typingNote(e, true)) {
