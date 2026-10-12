@@ -139,6 +139,14 @@ describe('Guitar DSP', () => {
     expect(tail(2)).toBeLessThan(sus * 0.01)
   })
 
+  it('the Reverb knob adds a long tail', () => {
+    const dead = (verb: number) => play({ art: 2, verb }, [{ at: 0, dur: 0.1, key: 52 }], 1.6)
+    const dry = rms(dead(0).L, 0.9, 1.4)
+    const wet = rms(dead(1).L, 0.9, 1.4)
+    expect(wet).toBeGreaterThan(dry * 10)
+    expect(stats(dead(1).L).nan).toBe(false)
+  })
+
   it('keyswitches change the articulation', () => {
     const plain = play({}, [{ at: 0, dur: 1.5, key: 45 }], 1)
     const ks = play({}, [{ at: 0, dur: 0.1, key: KS.PALM }, { at: 0.05, dur: 1.4, key: 45 }], 1)

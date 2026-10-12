@@ -133,6 +133,9 @@ class Guitar implements InstrumentDSP {
   private p: Record<string, number> = {}
   private players: Player[]
   private hall: Hall
+  /** the Reverb knob: a big, long hall on top of the Room ambience */
+  private verb: Hall
+  private verbOn = false
   private hallElectric: boolean | null = null
   private wetL = new Float32Array(1024)
   private wetR = new Float32Array(1024)
@@ -165,6 +168,8 @@ class Guitar implements InstrumentDSP {
     this.players[1].late = 9
     this.players[1].cents = 4
     this.hall = new Hall(this.sr)
+    this.verb = new Hall(this.sr)
+    this.verb.setSize(0.62)
     this.applyParams()
   }
 
@@ -244,6 +249,7 @@ class Guitar implements InstrumentDSP {
     if (hard) {
       for (const pl of this.players) pl.reset()
       this.hall.clear()
+      this.verb.clear()
     } else this.dampAll(0.1)
   }
 
@@ -778,6 +784,13 @@ class Guitar implements InstrumentDSP {
     }
     const rev = p.reverb
     if (rev > 0.001) this.hall.process(wetL, wetR, outL, outR, o, n, rev * rev * 0.9 * vol)
+    const verb = p.verb
+    if (verb > 0.001) {
+      // turned up from zero: start from silence, not from the tail left when it was turned off
+      if (!this.verbOn) this.verb.clear()
+      this.verb.process(wetL, wetR, outL, outR, o, n, verb * verb * 0.7 * vol)
+    }
+    this.verbOn = verb > 0.001
     this.clock += n
   }
 }

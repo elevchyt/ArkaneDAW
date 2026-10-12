@@ -71,6 +71,7 @@ export const params: ParamDef[] = [
   { id: 'double', name: 'Double Track', min: 0, max: 1, default: 0, step: 1, options: ['Off', 'On'] },
   { id: 'width', name: 'Width', min: 0, max: 1, default: 0.6, unit: '%' },
   { id: 'reverb', name: 'Room', min: 0, max: 1, default: 0.15, unit: '%' },
+  { id: 'verb', name: 'Reverb', min: 0, max: 1, default: 0, unit: '%' },
   { id: 'volume', name: 'Volume', min: -24, max: 12, default: 0, unit: 'dB' }
 ]
 

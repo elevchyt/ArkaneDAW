@@ -328,6 +328,7 @@ export function GuitarEditor(p: P) {
           </div>
           <K p={p} id="width" label="Width" />
           <K p={p} id="reverb" label="Room" />
+          <K p={p} id="verb" label="Reverb" />
           <K p={p} id="volume" label="Volume" />
         </Box>
       </div>
