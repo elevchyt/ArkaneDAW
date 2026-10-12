@@ -136,7 +136,8 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
 * Audio I/O is Chromium's (PulseAudio/PipeWire). Recording uses getUserMedia with all processing (AGC/NS/EC) disabled.
 * Record (right-click it) records **Mixer input into playlist** (armed mixer tracks become audio clips, song mode) and / or
   **MIDI into channel** (MIDI controller / typing keyboard → the first selected channel's notes in the current pattern);
-  both are on by default and remembered per machine.
+  both are on by default and remembered per machine. Recording MIDI in pattern mode doesn't loop: playback runs on past
+  the pattern end and the pattern grows. Space / Play during the count-in cancels it.
 
 ## 8. Content packs (optional sound libraries)
 

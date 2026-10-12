@@ -6,8 +6,8 @@
 //    (the first selected channel of the rack — liveChannelId()). "Mixer input into playlist" (recordAudio,
 //    audio-recording.ts) records armed mixer tracks at the same time.
 //
-//  • Pattern mode: notes go into the current pattern; the pattern loops, so positions wrap and a
-//    note held across the loop point is cut at the pattern end.
+//  • Pattern mode: notes go into the current pattern. Playback doesn't loop while recording MIDI (see
+//    Scheduler.region): it runs on past the pattern end and the pattern grows to fit what you play.
 //  • Song mode: notes go into the current pattern. If no clip of that pattern covers the position
 //    where recording started, a pattern clip is added there on the first free playlist track (FL);
 //    the clip grows to fit what you record.
@@ -20,9 +20,9 @@ import { editProject, getProject } from '../store/project'
 import { defaultNote, uid } from '../store/factory'
 import { currentPatternId, findPattern, liveChannelId } from '../store/actions'
 import { PLAYLIST_TRACKS, PPQ, type Project } from '../store/types'
-import { barTicks, patternLength } from './sequence'
+import { barTicks } from './sequence'
 import { getEngine, initAudio, transport } from './transport'
-import { firstFreeTrack, inRanges, quantizeRecordedNote, recordQuantizeGrid, sweptRanges, wrapPatternNote } from './recording-core'
+import { countInPlan, firstFreeTrack, grownPatternLength, inRanges, quantizeRecordedNote, recordQuantizeGrid, sweptRanges } from './recording-core'
 import { getAudioSettings } from '../windows/settings/settings-store'
 
 interface Pending {
@@ -106,8 +106,8 @@ function commit(pn: Pending, endTime: number): void {
   const rate = tps(project)
   const played = Math.max(1, (endTime - pn.time) * rate)
   let { pos, len } = quantizeRecordedNote(patternPos(tk, pn.tick, project), played, grid, { start: s.quantizeStart, end: s.quantizeEnd })
-  const loopLen = tk.mode === 'pattern' ? patternLength(pattern, project) : Infinity
-  if (tk.mode === 'pattern') ({ pos, len } = wrapPatternNote(pos, len, loopLen))
+  // neither mode loops while recording MIDI: positions run on (the pattern / its clip grow to fit)
+  const loopLen = Infinity
   pos = Math.max(0, pos)
 
   const replace = !useTransport.getState().loopRecord
@@ -133,7 +133,10 @@ function commit(pn: Pending, endTime: number): void {
       }
       list.push(note)
       list.sort((a, b) => a.pos - b.pos)
-      if (tk.mode !== 'song') return
+      if (tk.mode !== 'song') {
+        pat.length = grownPatternLength(pat.length, pos + len, bar)
+        return
+      }
       const origin = tk.origin ?? 0
       if (needClip) {
         // FL: a pattern clip is placed where recording started (bar-aligned) on the first free track.
@@ -259,10 +262,7 @@ async function countIn(): Promise<void> {
   const ctx = engine.ctx
   const p = getProject()
   const s = getAudioSettings()
-  const bars = Math.max(1, Math.min(4, Math.round(s.precountBars)))
-  const beatsPerBar = p.timeSig[0]
-  const beatSec = (60 / p.tempo) * (4 / p.timeSig[1])
-  const total = bars * beatsPerBar
+  const { beatsPerBar, beatSec, total } = countInPlan(p.tempo, p.timeSig, s.precountBars)
   counting = true
   clickBuf ??= makeClick(ctx)
   const t0 = ctx.currentTime + 0.08
@@ -311,9 +311,9 @@ function installTransportHooks(): void {
       t = useTransport.getState()
     }
     if (waiting || counting) {
-      // pressing play again while armed-and-waiting starts immediately (FL) — count-in skips ahead too
+      // play / Space again during the count-in (or while waiting for input) stops: nothing starts
       cancelRecordStart()
-      return origPlay!()
+      return
     }
     if (t.recording && t.waitForInput) {
       waiting = true

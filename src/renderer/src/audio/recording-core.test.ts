@@ -9,7 +9,8 @@ import {
   quantizeRecordedNote,
   recordQuantizeGrid,
   sweptRanges,
-  wrapPatternNote
+  grownPatternLength,
+  countInPlan
 } from './recording-core'
 
 describe('record quantize grid', () => {
@@ -40,15 +41,24 @@ describe('record quantize grid', () => {
   })
 })
 
-describe('pattern loop wrap', () => {
-  const bar = 384
-  it('wraps positions at the pattern length', () => {
-    expect(wrapPatternNote(400, 24, bar)).toEqual({ pos: 16, len: 24 })
-    expect(wrapPatternNote(384, 24, bar)).toEqual({ pos: 0, len: 24 })
+describe('count-in', () => {
+  it('counts the first number of the time signature, one beat unit each', () => {
+    expect(countInPlan(120, [4, 4], 1)).toEqual({ beatsPerBar: 4, beatSec: 0.5, total: 4 })
+    expect(countInPlan(120, [3, 4], 1)).toEqual({ beatsPerBar: 3, beatSec: 0.5, total: 3 })
+    expect(countInPlan(120, [6, 8], 1)).toEqual({ beatsPerBar: 6, beatSec: 0.25, total: 6 })
+    expect(countInPlan(120, [7, 8], 2)).toEqual({ beatsPerBar: 7, beatSec: 0.25, total: 14 })
   })
-  it('cuts notes held across the loop point at the pattern end', () => {
-    expect(wrapPatternNote(360, 96, bar)).toEqual({ pos: 360, len: 24 })
-    expect(wrapPatternNote(383, 1000, bar)).toEqual({ pos: 383, len: 1 })
+})
+
+describe('pattern recording runs past the pattern end', () => {
+  const bar = 384
+  it('grows a set pattern length to whole bars covering the note', () => {
+    expect(grownPatternLength(bar, 400, bar)).toBe(bar * 2)
+    expect(grownPatternLength(bar, bar * 3, bar)).toBe(bar * 3)
+    expect(grownPatternLength(bar * 2, 500, bar)).toBe(bar * 2)
+  })
+  it('leaves an automatic length (0) alone', () => {
+    expect(grownPatternLength(0, 5000, bar)).toBe(0)
   })
   it('swept ranges wrap for replace recording', () => {
     expect(sweptRanges(100, 50, bar)).toEqual([[100, 150]])

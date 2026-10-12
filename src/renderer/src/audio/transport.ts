@@ -107,6 +107,8 @@ class Scheduler {
   private region(p: Project): { start: number; end: number } {
     const t = useTransport.getState()
     if (t.mode === 'pattern') {
+      // Recording MIDI runs on past the pattern end instead of looping: the pattern grows as you play.
+      if (t.recording && t.recordMidi) return { start: 0, end: Number.POSITIVE_INFINITY }
       const pat = p.patterns.find((x) => x.id === useUI.getState().currentPattern) ?? p.patterns[0]
       return { start: 0, end: pat ? patternLength(pat, p) : barTicks(p) }
     }

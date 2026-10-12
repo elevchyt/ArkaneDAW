@@ -55,13 +55,23 @@ export function quantizeRecordedNote(
 }
 
 /**
- * Pattern-mode loop recording: the pattern loops while you play, so positions wrap at the pattern
- * length and a note held across the loop point is cut at the pattern end (it never grows the pattern).
+ * Count-in before recording: `bars` (1..4) bars of the time signature's beats — its first number (3 clicks a
+ * bar in 3/4, 6 in 6/8, 7 in 7/8), each one beat of its unit (a quarter in x/4, an eighth in x/8) long.
  */
-export function wrapPatternNote(pos: number, len: number, patternLen: number): { pos: number; len: number } {
-  if (patternLen <= 0) return { pos: Math.max(0, pos), len: Math.max(1, len) }
-  const p = ((Math.round(pos) % patternLen) + patternLen) % patternLen
-  return { pos: p, len: Math.max(1, Math.min(Math.round(len), patternLen - p)) }
+export function countInPlan(tempo: number, timeSig: readonly [number, number], bars: number): { beatsPerBar: number; beatSec: number; total: number } {
+  const beatsPerBar = Math.max(1, Math.round(timeSig[0]))
+  const beatSec = (60 / tempo) * (4 / timeSig[1])
+  return { beatsPerBar, beatSec, total: Math.max(1, Math.min(4, Math.round(bars) || 1)) * beatsPerBar }
+}
+
+/**
+ * Pattern-mode MIDI recording doesn't loop: playback runs on past the pattern end and the pattern grows to
+ * fit what you play. A pattern with a set length (≠ 0, i.e. not automatic) is lengthened to whole bars
+ * covering `noteEnd`; an automatic one (0) already follows its notes.
+ */
+export function grownPatternLength(length: number, noteEnd: number, bar: number): number {
+  if (length <= 0 || noteEnd <= length) return length
+  return Math.ceil(noteEnd / bar) * bar
 }
 
 /**
