@@ -102,7 +102,8 @@ plugins/<id>/index.tsx     export default definePlugin({ manifest, Editor?, edit
 Generators: **Sampler**, **Triple Osc** (3x Osc-style starter), **Mosaic** (flagship layered workstation, homage to
 Yamaha Montage: pianos, EPs, organs, strings, brass, choir, guitars, bells, pads, leads, basses), **Polygon** (homage to 90s Japanese
 digital synths — Roland JV/Sound Canvas, Yamaha MU/XG, Korg M1/01W/Trinity — the "PS1 soundtrack" sound), **Atmos** (atmospheric
-pads/textures/drones), **Bassline** (every kind of bass: 303 acid, sub, reese, Moog, FM, slap, finger, wobble…), **Classic Drum Machines** (id `drummachine`;
+pads/textures/drones), **Guitar** (modelled acoustic / classical / electric guitars, Ample / Shreddage style: every note on a
+string and fret, chord strumming, solo legato, keyswitches, strummer mode, double tracking, amp & cab), **Bassline** (every kind of bass: 303 acid, sub, reese, Moog, FM, slap, finger, wobble…), **Classic Drum Machines** (id `drummachine`;
 kits: TR-808, TR-909, LinnDrum, Oberheim DMX, CR-78, TR-707, SP-1200-ish, Simmons… GM key map: 36 kick, 38 snare, 39 clap,
 42 closed hat, 46 open hat, 49 crash, …), **Studio Drums** (realistic sampled acoustic kits, FPC / Power Drum Kit style: pad grid, per-piece mixer, genre groove library
 → "Send to pattern"), **Hexa** (DX7 clone: 6-op FM, 32 algorithms, loads DX7 .syx cartridges), **Chiptune** (Magical 8bit Plug homage: NES/GB pulse/tri/noise, envelopes & sequences,
@@ -137,7 +138,7 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
 ## 8. Content packs (optional sound libraries)
 
 Large sample libraries are **not shipped with the app** (keeps the AppImage small); users download them on demand.
-Packs: `concerto` (Concerto, ~181 MB, from `resources/concerto/`) and `studiodrums` (Studio Drums, ~86 MB, from
+Packs: `concerto` (Concerto, ~195 MB, from `resources/concerto/`) and `studiodrums` (Studio Drums, ~86 MB, from
 `resources/drumkits/`). The git-lfs files in those folders stay the source of truth for building the packs.
 
 * **Registry** `renderer/src/packs/packs.json` (id → version, source folder, sizeBytes, files, sha256 — the last three are

@@ -20,13 +20,14 @@ MP3/OGG/FLAC export needs `ffmpeg`; the app tells you how to install anything th
 | **Polygon** | 90s Japanese digital ROMpler homage (JV / M1 / SC-55 era): glassy pads, PS1-style pianos, slap bass, choirs, orchestra hits. |
 | **Hexa** | DX7-style 6-operator FM synth with all 32 algorithms; loads and exports DX7 `.syx` cartridges. |
 | **Atmos** | Atmospheric synth: wavetable, granular and air layers, shimmer reverb, freeze — pads, drones, textures. |
+| **Guitar** | Modelled steel-string acoustic, nylon classical and electric guitars: real string/fret voicing, strummed chords, hammer-ons, slides, palm mutes, harmonics, strummer keyswitches, double tracking and a built-in amp & cab. |
 | **Bassline** | Every kind of bass: 303 acid with slide/accent, Moog-style, 808/sub, reese, wobble, FM, and modelled finger/slap/fretless/upright. |
 | **Chiptune** | 8-bit synth (Magical 8bit Plug homage): NES/Game Boy channels, Famitracker-style sequences, arpeggiator, plus NES / Game Boy / Arcade drum kits and game SFX. |
 | **Triple Osc** | Simple three-oscillator starter synth. |
 | **Sampler** | Plays any audio file across the keyboard (drop files on the channel rack). |
 | **Classic Drum Machines** | Synthesized vintage kits: 808, 909, 606, CR-78, Linn, DMX, 707, SP-12, Simmons and more. |
 | **Studio Drums** | Sampled acoustic kits (rock, metal, jazz brushes, funk, latin) with a 21-genre groove library. *Downloadable sound library.* |
-| **Concerto** | Baroque/classical instruments: strings with articulations, harpsichord, organ, choir, woodwinds, brass, harp. *Downloadable sound library.* |
+| **Concerto** | Baroque/classical instruments: strings with articulations, harpsichord, organ, choir, woodwinds, brass, harp, timpani, cymbals and gong. *Downloadable sound library.* |
 
 ## Effects
 
