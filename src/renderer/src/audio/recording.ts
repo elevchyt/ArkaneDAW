@@ -4,8 +4,7 @@
 //
 //  • Only with the "MIDI into channel" record mode on (useTransport.recordMidi), and only into the live channel
 //    (the first selected channel of the rack — liveChannelId()). "Mixer input into playlist" (recordAudio,
-//    audio-recording.ts) records armed mixer tracks at the same time; with no track armed (or audio off) the
-//    live channel's piano roll opens on record.
+//    audio-recording.ts) records armed mixer tracks at the same time.
 //
 //  • Pattern mode: notes go into the current pattern; the pattern loops, so positions wrap and a
 //    note held across the loop point is cut at the pattern end.
@@ -25,7 +24,6 @@ import { barTicks, patternLength } from './sequence'
 import { getEngine, initAudio, transport } from './transport'
 import { firstFreeTrack, inRanges, quantizeRecordedNote, recordQuantizeGrid, sweptRanges, wrapPatternNote } from './recording-core'
 import { getAudioSettings } from '../windows/settings/settings-store'
-import { openPianoRoll } from '../windows/pianoroll/open'
 
 interface Pending {
   channelId: string
@@ -311,10 +309,6 @@ function installTransportHooks(): void {
       const ui = useUI.getState()
       if (!ui.windows.playlist?.open || ui.windows.playlist.minimized) ui.openWindow('playlist', { kind: 'playlist', title: 'Playlist - Arrangement' })
       t = useTransport.getState()
-    } else if (t.recording && !waiting && !counting && t.recordMidi) {
-      // A MIDI take: notes are recorded into the live channel's piano roll — show it.
-      const id = liveChannelId()
-      if (id) openPianoRoll(id)
     }
     if (waiting || counting) {
       // pressing play again while armed-and-waiting starts immediately (FL) — count-in skips ahead too

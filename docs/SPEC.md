@@ -136,7 +136,7 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
 * Audio I/O is Chromium's (PulseAudio/PipeWire). Recording uses getUserMedia with all processing (AGC/NS/EC) disabled.
 * Record (right-click it) records **Mixer input into playlist** (armed mixer tracks become audio clips, song mode) and / or
   **MIDI into channel** (MIDI controller / typing keyboard → the first selected channel's notes in the current pattern);
-  both are on by default and remembered per machine. A take with no armed track opens the channel's piano roll.
+  both are on by default and remembered per machine.
 
 ## 8. Content packs (optional sound libraries)
 
