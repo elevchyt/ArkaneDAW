@@ -12,6 +12,7 @@ import type { ExportFormat } from '@/windows/export/core'
 import { defaultTemplate } from '@/store/templates'
 import { confirmUnsaved } from '@/system/UnsavedDialog'
 import { recoverAutosave } from '@/store/autosave'
+import { importMidiDialog } from '@/midi/import'
 
 /** Run `fn` once unsaved changes are saved or discarded (no prompt when the project is clean). */
 const guarded = (action: string, fn: () => void) => () => void confirmUnsaved(action).then((ok) => ok && fn())
@@ -25,6 +26,7 @@ export const commands = {
   save: () => void saveProject(false),
   saveAs: () => void saveProject(true),
   saveNewVersion: () => void saveNewVersion(),
+  importMidi: () => void importMidiDialog(),
   exportWav: () => openExportWizard('wav'),
   exportAs: (format: ExportFormat) => openExportWizard(format),
   undo: () => useProject.getState().undo(),

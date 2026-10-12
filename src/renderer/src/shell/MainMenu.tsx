@@ -74,6 +74,12 @@ export function MainMenu() {
           <Item label="Save new version" shortcut="Ctrl+N" onSelect={commands.saveNewVersion} />
           <MenubarSeparator />
           <MenubarSub>
+            <MenubarSubTrigger>Import</MenubarSubTrigger>
+            <MenubarSubContent>
+              <Item label="MIDI file..." onSelect={commands.importMidi} />
+            </MenubarSubContent>
+          </MenubarSub>
+          <MenubarSub>
             <MenubarSubTrigger>Export</MenubarSubTrigger>
             <MenubarSubContent>
               <Item label="WAVE file..." shortcut="Ctrl+R" onSelect={commands.exportWav} />

@@ -16,6 +16,7 @@ import { decode } from '@/audio/samples'
 import { useVstCatalog } from '@/audio/vst'
 import { openChannelPlugin } from '@/windows/plugin/open'
 import { AUDIO_EXT } from '@/windows/channelrack/drop'
+import { MIDI_EXT } from '@/midi/convert'
 import { openMenu, type MenuItem } from '@/windows/playlist/PopupMenu'
 import { confirmAction } from '@/system/ConfirmDialog'
 
@@ -285,7 +286,7 @@ function DirNode({ path, name, depth, nodeKey, root, onRemoveRoot, onRenameRoot 
       .then((list) =>
         setEntries(
           list
-            .filter((d) => !d.name.startsWith('.') && (d.isDirectory() || AUDIO_EXT.test(d.name) || d.name.endsWith('.arkane')))
+            .filter((d) => !d.name.startsWith('.') && (d.isDirectory() || AUDIO_EXT.test(d.name) || MIDI_EXT.test(d.name) || d.name.endsWith('.arkane')))
             .map((d) => ({ name: d.name, dir: d.isDirectory() }))
             .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
         )
@@ -320,7 +321,15 @@ function DirNode({ path, name, depth, nodeKey, root, onRemoveRoot, onRenameRoot 
             <Row
               key={e.name}
               depth={depth + 1}
-              icon={e.name.endsWith('.arkane') ? <Box size={12} className="shrink-0 text-fl-orange" /> : <Waves size={12} className="shrink-0 text-[#8fd0e3]" />}
+              icon={
+                e.name.endsWith('.arkane') ? (
+                  <Box size={12} className="shrink-0 text-fl-orange" />
+                ) : MIDI_EXT.test(e.name) ? (
+                  <Music size={12} className="shrink-0 text-[#b6e38f]" />
+                ) : (
+                  <Waves size={12} className="shrink-0 text-[#8fd0e3]" />
+                )
+              }
               label={e.name}
               active={sel === e.name}
               onClick={() => {

@@ -37,7 +37,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { handleChannelRackDrop } from './drop'
+import { dragHasFiles, handleChannelDrop, handleChannelRackDrop } from './drop'
 import { PatternSelector } from '@/shell/PatternSelector'
 import { useWindowKeys } from '@/shell/keys'
 import type { WindowProps } from '../types'
@@ -174,6 +174,7 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
           setDragOver(true)
         }}
         onDragLeave={() => setDragOver(false)}
+        onDropCapture={() => setDragOver(false)}
         onDrop={(e) => {
           setDragOver(false)
           void handleChannelRackDrop(e)
@@ -194,7 +195,7 @@ export default function ChannelRack({ win, bounds }: WindowProps) {
               paint={paint}
             />
           ))}
-          {channels.length === 0 && <div className="px-4 py-6 text-center text-fl-dim">Click + to add an instrument, or drop audio files here.</div>}
+          {channels.length === 0 && <div className="px-4 py-6 text-center text-fl-dim">Click + to add an instrument, or drop audio or MIDI files here.</div>}
         </div>
         <div className="flex h-7 shrink-0 items-center gap-2 border-t border-[#1d2326] bg-[#2a3236] px-2">
           <AddChannelButton />
@@ -253,13 +254,33 @@ function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSel
   const instruments = useAllPlugins('instrument')
   const editing = useRef(false)
   const [renaming, setRenaming] = useState(false)
+  const [midiOver, setMidiOver] = useState(false)
   const selectedIds = () => {
     const s = useUI.getState().selectedChannels
     return s.includes(ch.id) ? s : [ch.id]
   }
 
   return (
-    <div data-chrow className="flex w-max items-center gap-1 px-1.5 [&>*]:shrink-0" style={{ height: ROW_H }}>
+    <div
+      data-chrow
+      className={cn('flex w-max items-center gap-1 px-1.5 [&>*]:shrink-0', midiOver && 'bg-fl-orange/20 outline outline-1 -outline-offset-1 outline-fl-orange')}
+      style={{ height: ROW_H }}
+      onDragOver={(e) => {
+        if (!dragHasFiles(e)) return
+        e.preventDefault()
+        if (!midiOver) {
+          setMidiOver(true)
+          setHint(`Drop a MIDI file to replace ${ch.name}'s notes in this pattern`)
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setMidiOver(false)
+      }}
+      onDrop={(e) => {
+        setMidiOver(false)
+        handleChannelDrop(e, ch.id, patternId)
+      }}
+    >
       <Led
         on={!ch.muted}
         onClick={() => updateChannel(ch.id, { muted: !ch.muted }, 'Mute channel')}
