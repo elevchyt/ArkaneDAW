@@ -8,7 +8,10 @@ import type { Automation, Channel, Note, Pattern, Project } from '@/store/types'
 import { barTicks } from '@/audio/sequence'
 import { getPlugin } from '@/plugins/registry'
 import { showOnlyChannelRack } from '@/store/io'
-import { MIDI_EXT, allNotes, initialTempo, midiParts, targetFor, tempoPoints, toNotes } from './convert'
+import { packDecision } from '@/packs/guard'
+import { refreshPacks } from '@/packs/store'
+import { packForPlugin } from '@/packs/registry'
+import { GM_DRUM_TARGET, MIDI_EXT, allNotes, initialTempo, midiParts, targetFor, tempoPoints, toNotes } from './convert'
 import { parseMidi, type MidiFile } from './smf'
 
 export { MIDI_EXT }
@@ -71,6 +74,17 @@ export async function importMidiIntoChannel(src: MidiSource, channelId: string, 
   return true
 }
 
+/** Studio Drums can play right now (its content pack is installed, or packs don't apply here). */
+async function sampledDrumsAvailable(): Promise<boolean> {
+  const id = GM_DRUM_TARGET[0]
+  let d = packDecision(id)
+  if (d.action === 'check') {
+    await refreshPacks(packForPlugin(id)?.id)
+    d = packDecision(id)
+  }
+  return d.action === 'run'
+}
+
 /**
  * FILE › Import MIDI file / drop on the channel rack: one new channel per part (track × MIDI channel) with a
  * matching built-in instrument, all in a new pattern that is placed at the start of the first empty playlist
@@ -84,11 +98,12 @@ export async function importMidiAsChannels(src: MidiSource): Promise<boolean> {
     report(`${baseName(src)} has no notes`)
     return false
   }
+  const sampled = parts.some((x) => x.drums) ? await sampledDrumsAvailable() : true
   const p = getProject()
   const blank = isBlank(p)
   const name = baseName(src)
   const channels: Channel[] = parts.map((part, i) => {
-    const [pluginId, presetName] = targetFor(part)
+    const [pluginId, presetName] = targetFor(part, sampled)
     const preset = getPlugin(pluginId)?.manifest.presets?.find((x) => x.name === presetName)
     return makeChannel(part.name, newPluginState(pluginId, preset), {
       color: CHANNEL_COLORS[(p.channels.length + i) % CHANNEL_COLORS.length],
@@ -137,7 +152,8 @@ export async function importMidiAsChannels(src: MidiSource): Promise<boolean> {
   useUI.getState().set({ currentPattern: pattern.id, selectedChannels: [channels[0].id], pianoRollChannel: channels[0].id })
   if (blank) showOnlyChannelRack()
   const total = parts.reduce((s, x) => s + x.notes.length, 0)
-  report(`${name}: ${parts.length} channel${parts.length === 1 ? '' : 's'}, ${total} notes${blank && tempo ? `, ${Math.round(tempo * 100) / 100} BPM` : ''}`)
+  const drumsNote = sampled ? '' : ' – install the Studio Drums sound library (OPTIONS › Sound libraries) for sampled acoustic drums'
+  report(`${name}: ${parts.length} channel${parts.length === 1 ? '' : 's'}, ${total} notes${blank && tempo ? `, ${Math.round(tempo * 100) / 100} BPM` : ''}${drumsNote}`)
   return true
 }
 

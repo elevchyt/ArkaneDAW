@@ -143,7 +143,8 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
   program → built-in plugin/preset table, `import.ts` store actions). Ticks are rescaled to PPQ 96, velocity → `vel/128`,
   the MIDI channel goes into the note colour. Three entry points, each one undo step:
   - **FILE › Import › MIDI file…** and MIDI files dropped on the channel rack (or its empty area): one new channel per part
-    (track × MIDI channel; channel 10 → Classic Drum Machines), all in a new pattern named after the file, placed at bar 1
+    (track × MIDI channel; channel 10 → Studio Drums' sampled "Studio Rock" kit, or Classic Drum Machines' synthesized
+    Studio kit when the Studio Drums pack isn't installed), all in a new pattern named after the file, placed at bar 1
     of the first empty playlist track. A blank project also takes the file's first tempo and time signature.
   - **MIDI file dropped on a channel row** (from the OS or the browser): all the file's notes replace that channel's notes
     in the current pattern (FL behaviour). A fixed-length pattern grows to fit; an automatic one stays automatic.

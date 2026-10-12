@@ -64,11 +64,18 @@ export const GM_TARGETS: Target[] = [
   ATMOS('Dust Motes'), ATMOS('Breathing Fog'), ATMOS('Tidal Swell'), ATMOS('Ghost Whistle'), M('FM Bell'), ATMOS('Pressure Front'), ATMOS('Particle Cloud'), ATMOS('Dead Signal')
 ]
 
-/** Drums (MIDI channel 10) play on the Classic Drum Machines plugin, which uses the GM drum key map. */
-export const GM_DRUM_TARGET: Target = ['drummachine', 'Studio']
+/**
+ * Drums (MIDI channel 10) play on Studio Drums: a sampled acoustic kit with the full GM drum map (both crashes,
+ * ride and bell, china, splash, closed / pedal / open hats, toms, Latin percussion; only whistles and cuíca are
+ * missing). Without its content pack they fall back to the Classic Drum Machines' synthesized acoustic kit,
+ * whose cymbals are additive sine partials and sound tonal / bell-like next to real ones.
+ */
+export const GM_DRUM_TARGET: Target = ['studiodrums', 'Studio Rock']
+export const GM_DRUM_FALLBACK: Target = ['drummachine', 'Studio']
 
-export function targetFor(part: Pick<MidiPart, 'program' | 'drums'>): Target {
-  return part.drums ? GM_DRUM_TARGET : (GM_TARGETS[part.program] ?? GM_TARGETS[0])
+export function targetFor(part: Pick<MidiPart, 'program' | 'drums'>, sampledDrums = true): Target {
+  if (part.drums) return sampledDrums ? GM_DRUM_TARGET : GM_DRUM_FALLBACK
+  return GM_TARGETS[part.program] ?? GM_TARGETS[0]
 }
 
 /** Split a file into parts (track × MIDI channel), in file order, skipping tracks without notes. */

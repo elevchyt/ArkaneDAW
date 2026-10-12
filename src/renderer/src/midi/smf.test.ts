@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MidiParseError, parseMidi } from './smf'
-import { GM_DRUM_TARGET, GM_TARGETS, allNotes, initialTempo, midiParts, tempoPoints, toNotes } from './convert'
+import { GM_DRUM_FALLBACK, GM_DRUM_TARGET, GM_TARGETS, allNotes, initialTempo, midiParts, tempoPoints, toNotes } from './convert'
 import { normToTempo } from '@/audio/tempo'
 import { PPQ } from '@/store/types'
 import type { PluginManifest } from '@/plugins/sdk/types'
@@ -155,7 +155,7 @@ describe('MIDI → ArkaneDAW', () => {
 
   it('maps every General MIDI program to an existing built-in preset', () => {
     expect(GM_TARGETS).toHaveLength(128)
-    for (const [pluginId, preset] of [...GM_TARGETS, GM_DRUM_TARGET]) {
+    for (const [pluginId, preset] of [...GM_TARGETS, GM_DRUM_TARGET, GM_DRUM_FALLBACK]) {
       const m = MANIFESTS.find((x) => x.id === pluginId)
       expect(m, pluginId).toBeTruthy()
       expect(m!.presets?.some((p) => p.name === preset), `${pluginId} › ${preset}`).toBe(true)
