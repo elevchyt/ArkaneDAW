@@ -8,7 +8,9 @@ import { ParamKnob } from '@/components/controls'
 import type { PluginEditorProps } from '../sdk/module'
 import { useHeldKeys } from '../sdk/ui'
 import { ENSEMBLES, INSTRUMENTS, SECTIONS } from './instruments.gen'
-import { instStatus, subscribeStatus, type LoadState } from './loader'
+import { instStatus, PACK_ID, subscribeStatus, type LoadState } from './loader'
+import { isBusy } from '../../packs/status'
+import { installPack, usePackStatus } from '../../packs/store'
 import { presets } from './manifest'
 import { layer, MAX_LAYERS, readData, type ConcertoData, type ConcertoStatus, type InstrumentMeta } from './types'
 
@@ -200,11 +202,35 @@ function LoadLine({ statuses, names, dsp }: { statuses: LoadState[]; names: stri
       </div>
     )
   }
-  const bad = statuses.find((s) => s.state === 'error' || s.state === 'unavailable') as { message: string } | undefined
+  const bad = statuses.find((s) => s.state === 'error' || s.state === 'unavailable') as { message: string; update?: boolean } | undefined
+  if (bad?.update) return <UpdateLine message={bad.message} />
   if (bad) return <div className="truncate text-[9.5px] text-[#e2846f]" title={bad.message}>● {bad.message}</div>
   const files = statuses.reduce((a, s) => a + (s.state === 'ready' ? s.files : 0), 0)
   if (files) return <div className="text-[9.5px]" style={{ color: '#a9c98a' }}>● {files} samples ready{dsp ? ` · ${dsp.voices} voices` : ''}{dsp?.missing ? ` · ${dsp.missing} missing` : ''}</div>
   return <div className="text-[9.5px]" style={{ color: '#9b8a6d' }}>● waiting for the audio engine</div>
+}
+
+/** Instrument missing from an outdated installed pack: offer the update right here. */
+function UpdateLine({ message }: { message: string }) {
+  const st = usePackStatus(PACK_ID)
+  const busy = isBusy(st)
+  const pct = st.state === 'downloading' && st.total ? Math.round((100 * st.received) / st.total) : null
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 text-[9.5px] text-[#e2846f]">
+      <span className="truncate" title={message}>
+        ● {st.state === 'error' ? st.message : message}
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void installPack(PACK_ID)}
+        className="shrink-0 rounded-[2px] border px-1.5 leading-[14px] disabled:opacity-60"
+        style={{ borderColor: GOLD_DIM, color: GOLD, background: '#1a1213' }}
+      >
+        {busy ? (pct != null ? `Updating… ${pct}%` : 'Updating…') : 'Update library'}
+      </button>
+    </div>
+  )
 }
 
 function TuningSelect({ p }: { p: PluginEditorProps }) {

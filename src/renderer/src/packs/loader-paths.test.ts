@@ -5,6 +5,7 @@ import * as path from 'node:path'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import defs from './packs.json'
 
 const root = mkdtempSync(path.join(tmpdir(), 'arkane-loader-'))
 afterAll(() => rmSync(root, { recursive: true, force: true }))
@@ -20,11 +21,11 @@ function fakeHost(o: { packsDir: string; resources: string; isPackaged: boolean;
   }
 }
 
-function writeConcerto(dir: string, marker: boolean): void {
+function writeConcerto(dir: string, marker: boolean, version = defs.concerto.version): void {
   mkdirSync(path.join(dir, 'lute'), { recursive: true })
   writeFileSync(path.join(dir, 'index.json'), '{"format":1}')
   writeFileSync(path.join(dir, 'lute', 'instrument.json'), JSON.stringify({ id: 'lute', name: `Lute @ ${dir}`, articulations: [] }))
-  if (marker) writeFileSync(path.join(dir, 'pack.json'), '{"id":"concerto","version":"1.0.0"}')
+  if (marker) writeFileSync(path.join(dir, 'pack.json'), JSON.stringify({ id: 'concerto', version }))
 }
 
 const lute = { layers: [{ inst: 'lute', lo: 0, hi: 127, gain: 0, transpose: 0 }] }
@@ -60,6 +61,17 @@ describe('Concerto loader sample root', () => {
     expect(await loader.concertoDir()).toBe(path.join(packs, 'concerto'))
     const b = await loader.resolveConcerto(lute, ctx)
     expect(b.defs?.lute.name).toBe(`Lute @ ${path.join(packs, 'concerto')}`)
+  })
+
+  it('instrument missing from an outdated installed pack → "update" error', async () => {
+    const base = path.join(root, 'e')
+    const packs = path.join(base, 'packs')
+    writeConcerto(path.join(packs, 'concerto'), true, '0.9.0')
+    fakeHost({ packsDir: packs, resources: path.join(base, 'resources'), isPackaged: true })
+    const loader = await import('../plugins/concerto/loader')
+    const r = await loader.resolveConcerto({ layers: [{ inst: 'cymbals', lo: 0, hi: 127, gain: 0, transpose: 0 }] }, ctx)
+    expect(r.defs?.cymbals).toBeUndefined()
+    expect(loader.instStatus('cymbals')).toMatchObject({ state: 'error', update: true, message: expect.stringMatching(/installed 0\.9\.0/) })
   })
 
   it('works with a main process without pack IPC (dev fallback only)', async () => {

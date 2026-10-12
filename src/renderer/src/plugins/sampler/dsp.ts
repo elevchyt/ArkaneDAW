@@ -20,6 +20,10 @@ class Voice implements VoiceLike {
   dir = 1
   vel = 1
   pan = 0
+  /** Cut itself: frames left of the fade-out started by a newer note (0 = not cut) */
+  cut = 0
+  /** has rendered audio (notes starting at the same instant, e.g. a chord, don't cut each other) */
+  started = false
   env: ADSR
   fl: SVF
   fr: SVF
@@ -33,6 +37,8 @@ class Voice implements VoiceLike {
 const PRE = new Set<string>(PRECOMPUTED)
 /** Time / pitch params: they change the sample data in the pitch-keeping stretch modes. */
 const STRETCH = new Set(['stretchMode', 'pitch', 'mul', 'time', 'tempo'])
+/** Cut itself fade-out: short enough to sound like a stop, long enough not to click. */
+const CUT_SECONDS = 0.004
 
 class Sampler implements InstrumentDSP {
   private p: Record<string, number> = {}
@@ -84,8 +90,14 @@ class Sampler implements InstrumentDSP {
   noteOn(n: NoteOn): void {
     const s = this.current()
     if (!s || !s.channels.length) return
-    const v = allocVoice(this.voices, this.clock)
     const p = this.p
+    if ((p.cutSelf ?? 0) >= 0.5) {
+      const frames = Math.max(1, Math.round(CUT_SECONDS * this.ctx.sampleRate))
+      for (const o of this.voices) if (o.active && o.started && !o.cut) o.cut = frames
+    }
+    const v = allocVoice(this.voices, this.clock)
+    v.cut = 0
+    v.started = false
     v.active = true
     v.releasing = false
     v.noteId = n.id
@@ -141,8 +153,10 @@ class Sampler implements InstrumentDSP {
     const le = Math.max(ls + 1, Math.min(len - 1, Math.floor((this.p.loopEnd ?? 1) * len)))
     const gain = this.p.gain ?? 1
     const filt = (this.p.cutoff ?? 20000) < 19500
+    const cutFrames = Math.max(1, Math.round(CUT_SECONDS * this.ctx.sampleRate))
     for (const v of this.voices) {
       if (!v.active) continue
+      if (end > start) v.started = true
       const [gl, gr] = panGains(v.pan)
       for (let i = start; i < end; i++) {
         let pos = v.pos
@@ -167,7 +181,14 @@ class Sampler implements InstrumentDSP {
           l = v.fl.process(l)
           r = v.fr.process(r)
         }
-        const a = v.env.next() * v.vel * gain
+        let a = v.env.next() * v.vel * gain
+        if (v.cut) {
+          a *= v.cut / cutFrames
+          if (--v.cut === 0) {
+            v.active = false
+            break
+          }
+        }
         outL[i] += l * a * gl
         outR[i] += r * a * gr
         v.pos = pos + v.rate * v.dir

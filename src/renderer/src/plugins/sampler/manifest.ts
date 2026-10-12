@@ -16,6 +16,7 @@ export const manifest: PluginManifest = {
     { id: 'root', name: 'Root note', min: 0, max: 127, default: 60, step: 1 },
     { id: 'pitchToKey', name: 'Key tracking', min: 0, max: 1, default: 1, options: ONOFF },
     { id: 'oneShot', name: 'One shot', min: 0, max: 1, default: 1, options: ONOFF },
+    { id: 'cutSelf', name: 'Cut itself', min: 0, max: 1, default: 0, options: ONOFF },
     // playback / looping
     { id: 'start', name: 'Start offset', min: 0, max: 1, default: 0, unit: '%' },
     { id: 'loop', name: 'Use loop points', min: 0, max: 1, default: 0, options: ONOFF },

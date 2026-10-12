@@ -27,6 +27,7 @@ import { editProject } from '@/store/project'
 import { defaultNote } from '@/store/factory'
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -373,6 +374,25 @@ function ChannelRow({ ch, notes, steps, stepsPerBeat, selected, patternId, onSel
               ))}
             </ContextMenuSubContent>
           </ContextMenuSub>
+          {ch.plugin?.pluginId === 'sampler' && (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuCheckboxItem
+                checked={(ch.plugin.params.cutSelf ?? 0) >= 0.5}
+                onSelect={() => {
+                  const on = !((ch.plugin?.params.cutSelf ?? 0) >= 0.5)
+                  const ids = new Set(selectedIds())
+                  editProject(on ? 'Cut itself on' : 'Cut itself off', (d) => {
+                    for (const c of d.channels) if (ids.has(c.id) && c.plugin?.pluginId === 'sampler') c.plugin.params.cutSelf = on ? 1 : 0
+                  })
+                }}
+                onMouseEnter={() => setHint('Cut itself: a new note stops the sample that is still playing on this channel')}
+              >
+                Cut itself
+              </ContextMenuCheckboxItem>
+              <ContextMenuSeparator />
+            </>
+          )}
           <ContextMenuItem onSelect={() => cloneChannels(selectedIds())}>Clone<span className="ml-auto pl-4 text-fl-dim">Alt+C</span></ContextMenuItem>
           <ContextMenuItem onSelect={() => deleteChannels(selectedIds())}>Delete...<span className="ml-auto pl-4 text-fl-dim">Alt+Del</span></ContextMenuItem>
           <ContextMenuSeparator />

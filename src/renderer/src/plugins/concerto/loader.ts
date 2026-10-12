@@ -8,13 +8,14 @@
 // the definitions and the DSP picks the PCM from its shared store.
 import { host } from '../../platform'
 import { onPackRootChange, packRoot } from '../../packs/paths'
+import { getPack } from '../../packs/registry'
 import { readData, type InstrumentJson, type ResolvedConcertoData } from './types'
 
 export type LoadState =
   | { state: 'idle' }
   | { state: 'loading'; done: number; total: number }
   | { state: 'ready'; files: number }
-  | { state: 'error'; message: string }
+  | { state: 'error'; message: string; /** the installed pack is older than this app's: updating it fixes this */ update?: boolean }
   | { state: 'unavailable'; message: string }
 
 const status = new Map<string, LoadState>()
@@ -43,10 +44,14 @@ export class NotInstalledError extends Error {
 
 /** Sample root (installed pack, or the dev checkout's resources/concerto). Rejects with NotInstalledError. */
 export async function concertoDir(): Promise<string> {
+  return (await concertoRoot()).dir
+}
+
+async function concertoRoot(): Promise<{ dir: string; version?: string }> {
   if (!host) throw new Error('no host')
   const r = await packRoot(PACK_ID)
   if (!r) throw new NotInstalledError()
-  return r.dir
+  return r
 }
 
 const jsonCache = new Map<string, Promise<InstrumentJson>>()
@@ -107,8 +112,9 @@ export async function resolveConcerto(data: unknown, ctx: BaseAudioContext): Pro
     return { ...d, error: 'no-host' }
   }
   let dir: string
+  let version: string | undefined
   try {
-    dir = await concertoDir()
+    ;({ dir, version } = await concertoRoot())
   } catch (e) {
     if (e instanceof NotInstalledError) {
       for (const id of ids) setStatus(id, { state: 'unavailable', message: NOT_INSTALLED })
@@ -127,7 +133,10 @@ export async function resolveConcerto(data: unknown, ctx: BaseAudioContext): Pro
       def = await loadInstrumentJson(id)
     } catch (e) {
       anyError = String(e)
-      setStatus(id, { state: 'error', message: `Instrument "${id}" not found in the Concerto sound library (${dir}) — reinstall it from OPTIONS › Sound libraries. (${String(e)})` })
+      const latest = getPack(PACK_ID)?.version
+      if (version && latest && version !== latest)
+        setStatus(id, { state: 'error', update: true, message: `Instrument "${id}" needs a newer Concerto sound library (installed ${version}, this version of ArkaneDAW uses ${latest}) — update it.` })
+      else setStatus(id, { state: 'error', message: `Instrument "${id}" not found in the Concerto sound library (${dir}) — reinstall it from OPTIONS › Sound libraries. (${String(e)})` })
       continue
     }
     defs[id] = def

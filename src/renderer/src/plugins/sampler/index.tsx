@@ -193,6 +193,7 @@ function EnvelopeTab({ p }: { p: PluginEditorProps }) {
           <div className="flex flex-col gap-1.5 pt-1">
             <PToggle p={p} id="pitchToKey" />
             <PToggle p={p} id="oneShot" />
+            <PToggle p={p} id="cutSelf" />
           </div>
         </div>
       </Section>

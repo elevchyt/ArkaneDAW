@@ -117,6 +117,14 @@ describe('pack root resolution', () => {
   it('a pack folder without pack.json (interrupted install) is not installed', async () => {
     expect(await resolvePackRoot('concerto', 'concerto', env({}), fsWith(['/u/packs/concerto/index.json']), join)).toBeNull()
   })
+  it('outdated installed pack loses to the dev checkout (unpackaged only)', async () => {
+    const files = fsWith(['/u/packs/concerto/pack.json', '/app/resources/concerto/index.json'])
+    const opts = { latest: '1.2.0', readVersion: async () => '1.0.0' }
+    expect(await resolvePackRoot('concerto', 'concerto', env({ isPackaged: false }), files, join, opts)).toEqual({ dir: '/app/resources/concerto', source: 'dev' })
+    expect(await resolvePackRoot('concerto', 'concerto', env({ isPackaged: true }), files, join, opts)).toEqual({ dir: '/u/packs/concerto', source: 'pack', version: '1.0.0' })
+    const current = { latest: '1.2.0', readVersion: async () => '1.2.0' }
+    expect(await resolvePackRoot('concerto', 'concerto', env({ isPackaged: false }), files, join, current)).toEqual({ dir: '/u/packs/concerto', source: 'pack', version: '1.2.0' })
+  })
   it('no pack IPC (packsDir null) → dev fallback only', async () => {
     expect(await resolvePackRoot('concerto', 'concerto', env({ packsDir: null, isPackaged: false }), fsWith(['/app/resources/concerto/index.json']), join)).toMatchObject({ source: 'dev' })
   })

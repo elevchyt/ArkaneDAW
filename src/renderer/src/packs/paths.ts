@@ -1,5 +1,6 @@
 // Where a pack's files are on disk: <userData>/packs/<id>/ when installed (pack.json present), else — only when
 // running unpackaged from a dev checkout — <resources>/<devDir>/, else nowhere (not installed).
+// Unpackaged, an outdated installed pack loses to the dev checkout (which always matches the code).
 // No React / store imports: plugin loaders use this.
 import { host } from '../platform'
 import { getPack } from './registry'
@@ -16,22 +17,41 @@ export interface PackEnv {
 export interface PackRoot {
   dir: string
   source: 'pack' | 'dev'
+  /** installed pack version (source 'pack', when its pack.json is readable) */
+  version?: string
 }
 
 type Exists = (p: string) => Promise<boolean>
 type Join = (...p: string[]) => string
+/** version from <dir>/pack.json, null when unreadable */
+type ReadVersion = (dir: string) => Promise<string | null>
 
-/** Pure resolution (tested): installed pack first, dev checkout fallback only when unpackaged. */
-export async function resolvePackRoot(id: string, devDir: string, env: PackEnv, exists: Exists, join: Join): Promise<PackRoot | null> {
+/** Pure resolution (tested): installed pack first, dev checkout fallback only when unpackaged (or the pack is outdated). */
+export async function resolvePackRoot(
+  id: string,
+  devDir: string,
+  env: PackEnv,
+  exists: Exists,
+  join: Join,
+  opts: { latest?: string; readVersion?: ReadVersion } = {}
+): Promise<PackRoot | null> {
+  const devRoot = async (): Promise<PackRoot | null> => {
+    if (env.isPackaged || !env.resources) return null
+    const dir = join(env.resources, devDir)
+    return (await exists(join(dir, 'index.json'))) ? { dir, source: 'dev' } : null
+  }
   if (env.packsDir) {
     const dir = join(env.packsDir, id)
-    if (await exists(join(dir, 'pack.json'))) return { dir, source: 'pack' }
+    if (await exists(join(dir, 'pack.json'))) {
+      const version = (await opts.readVersion?.(dir)) ?? undefined
+      if (opts.latest && version && version !== opts.latest) {
+        const dev = await devRoot()
+        if (dev) return dev
+      }
+      return version ? { dir, source: 'pack', version } : { dir, source: 'pack' }
+    }
   }
-  if (!env.isPackaged && env.resources) {
-    const dir = join(env.resources, devDir)
-    if (await exists(join(dir, 'index.json'))) return { dir, source: 'dev' }
-  }
-  return null
+  return devRoot()
 }
 
 let envPromise: Promise<PackEnv> | null = null
@@ -66,6 +86,15 @@ const exists: Exists = async (p) => {
   }
 }
 
+const readVersion: ReadVersion = async (dir) => {
+  try {
+    const j = JSON.parse(await host!.fsp.readFile(host!.path.join(dir, 'pack.json'), 'utf8')) as { version?: unknown }
+    return typeof j.version === 'string' ? j.version : null
+  } catch {
+    return null
+  }
+}
+
 const roots = new Map<string, PackRoot>()
 const listeners = new Set<(id: string) => void>()
 
@@ -76,7 +105,7 @@ export async function packRoot(id: string): Promise<PackRoot | null> {
   const def = getPack(id)
   if (!def || !host) return null
   const env = await packEnv()
-  const r = await resolvePackRoot(id, def.devDir, env, exists, (...p) => host!.path.join(...p))
+  const r = await resolvePackRoot(id, def.devDir, env, exists, (...p) => host!.path.join(...p), { latest: def.version, readVersion })
   if (r) roots.set(id, r)
   return r
 }
