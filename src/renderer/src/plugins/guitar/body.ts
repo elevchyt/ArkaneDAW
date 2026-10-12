@@ -1,93 +1,126 @@
-// Guitar body impulse responses for commuted synthesis. A body is a set of decaying modes (Helmholtz air
-// resonance, top / back plate modes, a dense upper series) plus a short burst of filtered noise for the
-// "wood" in the attack. The response is computed once per model; each pluck low-passes it by its pulse width
-// and feeds it into the string loop (string.ts), so every note carries the body's colour and boom.
+// Guitar body for the Guitar plugin: the transfer from the force on the bridge to the sound in the room.
+// A chain of resonances (Helmholtz air mode, the top's main modes, a few higher plate modes, a broad presence
+// region) on top of the radiation roll-off below the air mode and above a few kHz. It sits after the strings
+// (not inside their loops), so a note that lands on a body mode gets the boom a real guitar gives it — a few dB —
+// instead of building up without limit. Each pluck also knocks the top: a short burst of noise rung through the
+// same resonances (the "wood" in the attack).
+import { Biquad } from '../sdk/dsp'
 import { MODEL } from './manifest'
 
-type Mode = [freq: number, decayMs: number, gain: number]
+/** [freq Hz, Q, gain dB at the default Body amount] */
+type Res = [freq: number, q: number, db: number]
 
-// Measured-guitar-like mode sets (frequencies from published modal analyses of dreadnought and classical
-// guitars; decays and gains tuned by ear).
-const STEEL: Mode[] = [
-  [102, 110, 1.0], [198, 85, 0.95], [226, 60, 0.45], [287, 55, 0.5], [395, 45, 0.42], [462, 38, 0.36],
-  [548, 34, 0.32], [652, 30, 0.3], [781, 26, 0.3], [930, 22, 0.28], [1110, 19, 0.26], [1340, 16, 0.24],
-  [1620, 14, 0.22], [1990, 12, 0.2], [2450, 10, 0.18], [3050, 8, 0.15], [3800, 6, 0.12], [4700, 5, 0.1]
-]
-const NYLON: Mode[] = [
-  [96, 130, 1.0], [184, 95, 0.9], [236, 65, 0.4], [272, 60, 0.42], [380, 48, 0.36], [440, 40, 0.3],
-  [530, 36, 0.27], [630, 32, 0.25], [750, 28, 0.23], [900, 24, 0.2], [1080, 20, 0.18], [1300, 16, 0.15],
-  [1580, 13, 0.12], [1950, 10, 0.1], [2400, 8, 0.08], [3000, 6, 0.06]
-]
-// Archtop / hollow electric: smaller, stiffer top, a nasal mid hump.
-const HOLLOW: Mode[] = [
-  [128, 60, 0.7], [240, 50, 0.6], [330, 40, 0.5], [520, 32, 0.45], [760, 26, 0.4], [1050, 20, 0.3],
-  [1450, 15, 0.22], [2000, 11, 0.15]
-]
-// Solid bodies barely move: a faint neck/body resonance only.
-const SOLID: Mode[] = [[140, 40, 0.3], [310, 30, 0.2], [680, 20, 0.12]]
-
-const SETS: Record<number, { modes: Mode[]; noise: number; noiseMs: number; noiseHz: number; lengthMs: number }> = {
-  [MODEL.STEEL]: { modes: STEEL, noise: 0.35, noiseMs: 7, noiseHz: 5200, lengthMs: 140 },
-  [MODEL.NYLON]: { modes: NYLON, noise: 0.22, noiseMs: 9, noiseHz: 3200, lengthMs: 150 },
-  [MODEL.SINGLE]: { modes: SOLID, noise: 0.05, noiseMs: 3, noiseHz: 6000, lengthMs: 60 },
-  [MODEL.HUMBUCKER]: { modes: SOLID, noise: 0.05, noiseMs: 3, noiseHz: 5000, lengthMs: 60 },
-  [MODEL.HOLLOW]: { modes: HOLLOW, noise: 0.12, noiseMs: 5, noiseHz: 4000, lengthMs: 90 }
+interface BodySpec {
+  hp: number // radiation high-pass, Hz
+  lp: number // top end of the radiation, Hz
+  res: Res[]
+  /** knock: level, decay (ms) and brightness (Hz) of the top being hit by the pluck */
+  knock: number
+  knockMs: number
+  knockHz: number
 }
 
-export const BODY_MAX_SECONDS = 0.15
+// Mode sets after published modal analyses of dreadnought and classical guitars (air ≈ 100 Hz, top ≈ 200 Hz),
+// gains and widths tuned by ear.
+const SPECS: Record<number, BodySpec> = {
+  [MODEL.STEEL]: {
+    hp: 72,
+    lp: 9500,
+    res: [[101, 9, 7], [196, 12, 6], [232, 9, 2.5], [288, 8, 3], [392, 7, 2.5], [545, 5, 2], [760, 2.5, -2.5], [1250, 3, 1.5], [2600, 1.2, 2.5], [5200, 1.5, -2]],
+    knock: 0.5,
+    knockMs: 3,
+    knockHz: 3500
+  },
+  [MODEL.NYLON]: {
+    hp: 68,
+    lp: 7000,
+    res: [[96, 8, 7.5], [186, 11, 6], [240, 8, 2.5], [276, 8, 3], [385, 7, 2.5], [520, 5, 1.5], [800, 2, -2], [1500, 2.5, 1.5], [3000, 1.2, -2.5]],
+    knock: 0.45,
+    knockMs: 4,
+    knockHz: 2400
+  },
+  // archtop: smaller, stiffer top — a nasal mid hump, little air boom (feeds the pickup through the top)
+  [MODEL.HOLLOW]: {
+    hp: 60,
+    lp: 12000,
+    res: [[128, 5, 3], [240, 6, 2.5], [520, 3, 3], [1050, 2.5, 1.5]],
+    knock: 0.12,
+    knockMs: 2,
+    knockHz: 3000
+  },
+  // solid bodies barely move: a faint neck / body resonance
+  [MODEL.SINGLE]: { hp: 30, lp: 16000, res: [[145, 4, 1], [310, 4, 0.6]], knock: 0, knockMs: 1, knockHz: 3000 },
+  [MODEL.HUMBUCKER]: { hp: 30, lp: 16000, res: [[140, 4, 1.2], [300, 4, 0.6]], knock: 0, knockMs: 1, knockHz: 3000 }
+}
 
-/** Write the body response of `model` into `out` (preallocated, ≥ BODY_MAX_SECONDS·sr); returns its length. */
-export function makeBody(model: number, sr: number, out: Float32Array): number {
-  const set = SETS[model] ?? SETS[MODEL.STEEL]
-  const len = Math.min(out.length, Math.round((Math.min(set.lengthMs, BODY_MAX_SECONDS * 1000) / 1000) * sr))
-  out.fill(0, 0, len)
-  let seed = 12345 + model * 977
-  const rnd = (): number => {
-    seed = (seed * 1664525 + 1013904223) >>> 0
-    return seed / 4294967296
+const MAX_RES = 12
+const DEFAULT_AMOUNT = 0.6
+
+export class Body {
+  private sr: number
+  private hp: Biquad
+  private lp: Biquad
+  private res: Biquad[] = []
+  private n = 0
+  private spec: BodySpec = SPECS[MODEL.STEEL]
+  private amount = DEFAULT_AMOUNT
+  // knock
+  private kEnv = 0
+  private kDec = 0
+  private kLp = 0
+  private kC = 0
+  private rnd: number
+
+  constructor(sr: number, seed: number) {
+    this.sr = sr
+    this.hp = new Biquad(sr)
+    this.lp = new Biquad(sr)
+    for (let i = 0; i < MAX_RES; i++) this.res.push(new Biquad(sr))
+    this.rnd = seed | 1
   }
-  // modes: decaying sinusoids with a fixed random phase per model
-  for (const [f, ms, g] of set.modes) {
-    if (f >= sr * 0.45) continue
-    const ph = rnd() * Math.PI * 2
-    const w = (2 * Math.PI * f) / sr
-    const dec = Math.exp(-1 / ((ms / 1000) * sr))
-    // recursive oscillator: cheaper than sin() per sample
-    let a = Math.sin(ph)
-    let b = Math.sin(ph - w)
-    const k = 2 * Math.cos(w)
-    let env = g
-    for (let i = 0; i < len; i++) {
-      out[i] += a * env
-      const c = k * a - b
-      b = a
-      a = c
-      env *= dec
+
+  set(model: number, amount: number): void {
+    const spec = (this.spec = SPECS[model] ?? SPECS[MODEL.STEEL])
+    this.amount = amount
+    // Body 0 → a flat, slightly thin pickup-like tone; the default → the modelled guitar; 1 → boomier
+    const k = amount / DEFAULT_AMOUNT
+    this.hp.set('hp', spec.hp * (1.6 - 0.6 * Math.min(1, k)), 0.7)
+    this.lp.set('lp', spec.lp, 0.6)
+    this.n = Math.min(MAX_RES, spec.res.length)
+    for (let i = 0; i < this.n; i++) {
+      const [f, q, db] = spec.res[i]
+      this.res[i].set('peak', f, q, db * k)
     }
+    this.kDec = Math.exp(-1 / ((spec.knockMs / 1000) * this.sr))
+    this.kC = 1 - Math.exp((-2 * Math.PI * spec.knockHz) / this.sr)
   }
-  // wood: short noise burst, low-passed
-  const nLen = Math.min(len, Math.round((set.noiseMs / 1000) * sr * 4))
-  const nDec = Math.exp(-1 / ((set.noiseMs / 1000) * sr))
-  const c = 1 - Math.exp((-2 * Math.PI * set.noiseHz) / sr)
-  let lp = 0
-  let env = set.noise * 3
-  for (let i = 0; i < nLen; i++) {
-    lp += (rnd() * 2 - 1 - lp) * c
-    out[i] += lp * env
-    env *= nDec
+
+  /** The pluck knocks the top (vel 0..1). */
+  knock(vel: number): void {
+    const a = this.spec.knock * this.amount * (0.3 + 0.7 * vel) * 0.06
+    if (a > this.kEnv) this.kEnv = a
   }
-  // fade the tail, remove DC, normalise to unit energy
-  const fade = Math.round(len * 0.3)
-  for (let i = 0; i < fade; i++) out[len - 1 - i] *= i / fade
-  let mean = 0
-  for (let i = 0; i < len; i++) mean += out[i]
-  mean /= len
-  let e = 0
-  for (let i = 0; i < len; i++) {
-    out[i] -= mean
-    e += out[i] * out[i]
+
+  reset(): void {
+    this.hp.reset()
+    this.lp.reset()
+    for (const r of this.res) r.reset()
+    this.kEnv = this.kLp = 0
   }
-  const norm = 1 / Math.sqrt(Math.max(1e-9, e / (0.004 * sr)))
-  for (let i = 0; i < len; i++) out[i] *= norm
-  return len
+
+  process(x: number): number {
+    if (this.kEnv > 1e-6) {
+      let r = this.rnd
+      r ^= r << 13
+      r ^= r >>> 17
+      r ^= r << 5
+      this.rnd = r
+      this.kLp += ((r >>> 0) / 2147483648 - 1 - this.kLp) * this.kC
+      x += this.kLp * this.kEnv
+      this.kEnv *= this.kDec
+    }
+    let y = this.hp.process(x)
+    for (let i = 0; i < this.n; i++) y = this.res[i].process(y)
+    return this.lp.process(y)
+  }
 }

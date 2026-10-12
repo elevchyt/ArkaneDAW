@@ -8,12 +8,15 @@
 //   Strummer mode: chord keys only choose the grip; the strum keyswitches play it
 //   Keyswitches: articulation (sustain / palm mute / muted / harmonics) and down / up / mute strums
 //   Double track: a second guitarist plays the same part with his own timing, pick and tuning, panned opposite
-//   Electric models go through a magnetic pickup → amp & cab (amp.ts); acoustic models carry a body (body.ts)
+//   Electric models go through a magnetic pickup → amp & cab (amp.ts); acoustic models are heard through the
+//   force on the bridge and a modelled body (body.ts)
+//   Realism: wound and plain strings lose their treble at different rates, hard plucks start a little sharp
+//   (tension modulation) and settle, every fretted note is a hair off perfect intonation (Humanize)
 import type { DSPContext, DSPFactory, InstrumentDSP, NoteOn } from '../sdk/types'
 import { Biquad, dbToGain } from '../sdk/dsp'
 import { Hall } from '../concerto/reverb'
 import { GuitarString, type PluckSpec } from './string'
-import { BODY_MAX_SECONDS, makeBody } from './body'
+import { Body } from './body'
 import { Amp } from './amp'
 import { assignChord, chooseString, type StringInfo } from './fretboard'
 import { AMP, ART, KS, KS_HI, KS_LO, MODEL, PLAY, STRINGS, TUNINGS, isElectric, params as PARAM_DEFS } from './manifest'
@@ -43,12 +46,18 @@ interface Slot {
   age: number
   /** release in progress / done */
   released: boolean
+  /** pitch offsets in semitones: tension modulation after a pluck (decays) and this note's intonation */
+  tm: number
+  fine: number
 }
 
 class Player {
   strings: GuitarString[] = []
   slots: Slot[] = []
   amp: Amp
+  /** body per side (acoustic stereo pair); bodyL alone for electric hollow-bodies */
+  bodyL: Body
+  bodyR: Body
   pickupLp: Biquad
   pickupLp2: Biquad
   /** mono render buffer */
@@ -68,9 +77,11 @@ class Player {
   constructor(sr: number, seed: number) {
     for (let s = 0; s < STRINGS; s++) {
       this.strings.push(new GuitarString(sr))
-      this.slots.push({ id: -1, key: 0, held: false, delay: -1, vel: 0, art: 0, legato: 0, cur: 60, target: 60, glide: 1, age: 0, released: true })
+      this.slots.push({ id: -1, key: 0, held: false, delay: -1, vel: 0, art: 0, legato: 0, cur: 60, target: 60, glide: 1, age: 0, released: true, tm: 0, fine: 0 })
     }
     this.amp = new Amp(sr)
+    this.bodyL = new Body(sr, seed ^ 0x5bd1e995)
+    this.bodyR = new Body(sr, seed ^ 0x27d4eb2f)
     this.pickupLp = new Biquad(sr)
     this.pickupLp2 = new Biquad(sr)
     this.squeak = new Biquad(sr)
@@ -99,6 +110,8 @@ class Player {
       sl.released = true
     }
     this.amp.reset()
+    this.bodyL.reset()
+    this.bodyR.reset()
     this.pickupLp.reset()
     this.pickupLp2.reset()
     this.squeak.reset()
@@ -119,9 +132,6 @@ class Guitar implements InstrumentDSP {
   private post: (msg: unknown) => void
   private p: Record<string, number> = {}
   private players: Player[]
-  private body: Float32Array
-  private bodyLen = 0
-  private bodyModel = -1
   private hall: Hall
   private hallElectric: boolean | null = null
   private wetL = new Float32Array(1024)
@@ -154,7 +164,6 @@ class Guitar implements InstrumentDSP {
     this.players = [new Player(this.sr, 0x1234567), new Player(this.sr, 0x7654321)]
     this.players[1].late = 9
     this.players[1].cents = 4
-    this.body = new Float32Array(Math.ceil(BODY_MAX_SECONDS * this.sr) + 8)
     this.hall = new Hall(this.sr)
     this.applyParams()
   }
@@ -169,16 +178,14 @@ class Guitar implements InstrumentDSP {
   private applyParams(): void {
     const p = this.p
     const model = Math.round(p.model)
-    if (model !== this.bodyModel) {
-      this.bodyModel = model
-      this.bodyLen = makeBody(model, this.sr, this.body)
-    }
     const electric = isElectric(model)
     const pickup = electric ? PICKUP_POS[Math.round(p.pickup)] ?? 0.085 : 0
     const amp = Math.round(p.amp)
     for (const pl of this.players) {
       for (const s of pl.strings) s.setPickup(pickup)
       pl.amp.set(amp, p.gain, p.bass, p.mid, p.treble, p.gate)
+      pl.bodyL.set(model, p.body)
+      pl.bodyR.set(model, p.body)
       // pickup coil resonance: single-coil bright & peaky, humbucker darker, archtop darker still
       if (model === MODEL.SINGLE) pl.pickupLp.set('lp', 5200, 2.2)
       else if (model === MODEL.HUMBUCKER) pl.pickupLp.set('lp', 3300, 1.5)
@@ -398,6 +405,8 @@ class Guitar implements InstrumentDSP {
       sl.cur = slide ? fromKey : key
       sl.glide = slide ? 1 - Math.exp(-CTRL / ((glideMs / 1000) * this.sr * 0.35)) : 1
       sl.age = 0
+      // a fretted note is never perfectly intonated (finger pressure, fret position): ± ~2.5 cents
+      sl.fine = key === this.open[s] ? 0 : (pl.random() - 0.5) * 0.05 * human
       sl.delay = Math.max(0, Math.round((d / 1000) * this.sr))
     })
   }
@@ -484,7 +493,7 @@ class Guitar implements InstrumentDSP {
     const fretted = sl.key !== open[s]
     const art = sl.art
     const t = art === ART.HARMONIC ? 0.9 : fretted ? 0.09 + 0.06 * this.p.sustain : 0.45
-    pl.strings[s].setDamping(t, 0.2)
+    pl.strings[s].setDamping(t, t * 0.3)
     // finger lifting off a wound string: a small squeak on acoustic models
     const model = Math.round(this.p.model)
     if (fretted && !isElectric(model) && this.p.noise > 0 && pl.random() < 0.35) pl.squeakTarget = Math.max(pl.squeakTarget, 0.12 + 0.2 * pl.random())
@@ -496,7 +505,7 @@ class Guitar implements InstrumentDSP {
       sl.held = false
       sl.released = true
       sl.delay = -1
-      pl.strings[s].setDamping(t60, 0.22)
+      pl.strings[s].setDamping(t60, t60 * 0.3)
     }
   }
 
@@ -521,87 +530,89 @@ class Guitar implements InstrumentDSP {
     const f = mtof(sl.key)
     const vel = sl.vel
     const attack = p.attack
-    const tone = p.tone
     const sus = Math.pow(2, (p.sustain - 0.6) * 3)
+    // Tone: how long the treble rings (×0.5 … ×2)
+    const bright = Math.pow(2, (p.tone - 0.55) * 2)
     let t60: number
-    let loss: number
+    let t60hi: number
     let cutoff: number
     let scrape: number
-    let bodyAmt = p.body
     // pick brightness: attack knob + velocity (harder picking = brighter)
     const hard = Math.min(1, 0.65 * attack + 0.45 * vel)
+    // wound strings (the low three, four on a steel acoustic) eat their treble faster than plain ones —
+    // except on a classical guitar, where the plain nylon trebles are the dull ones
+    const wound = s <= (model === MODEL.STEEL ? 3 : 2)
     switch (model) {
       case MODEL.NYLON:
-        t60 = 7 * Math.pow(82 / f, 0.45)
-        loss = 0.15 - 0.08 * tone
-        cutoff = 700 * Math.pow(6, hard)
-        scrape = 0.06 * attack
+        t60 = 7 * Math.pow(82 / f, 0.5)
+        t60hi = wound ? 0.55 : 0.28
+        cutoff = 900 * Math.pow(5, hard)
+        scrape = 0.05 * attack
         break
       case MODEL.SINGLE:
       case MODEL.HUMBUCKER:
         t60 = 12 * Math.pow(82 / f, 0.45)
-        loss = 0.07 - 0.05 * tone
-        cutoff = 1500 * Math.pow(7, hard)
+        t60hi = wound ? 1.4 : 2.2
+        cutoff = 2200 * Math.pow(5, hard)
         scrape = 0.2 * attack
-        bodyAmt *= 0.25
         break
       case MODEL.HOLLOW:
         t60 = 6 * Math.pow(82 / f, 0.45)
-        loss = 0.1 - 0.06 * tone
-        cutoff = 1000 * Math.pow(5, hard)
+        t60hi = wound ? 0.8 : 1.2
+        cutoff = 1500 * Math.pow(4.5, hard)
         scrape = 0.12 * attack
-        bodyAmt *= 0.6
         break
       default:
         t60 = 10 * Math.pow(82 / f, 0.45)
-        loss = 0.085 - 0.06 * tone
-        cutoff = 1200 * Math.pow(7, hard)
-        scrape = 0.35 * attack
+        t60hi = wound ? 0.85 : 1.5
+        cutoff = 1600 * Math.pow(6, hard)
+        scrape = 0.3 * attack
     }
     let pluckPos = p.pickPos * (0.85 + 0.3 * pl.random())
     t60 *= sus
-    // the loop filter acts once per period: high notes need less of it
-    loss *= Math.min(1, Math.pow(196 / f, 0.7))
+    t60hi *= bright * Math.sqrt(sus)
+    // tension modulation: a hard pluck stretches the string and starts sharp (nylon stretches most)
+    let tm = vel * vel * (model === MODEL.NYLON ? 0.11 : model === MODEL.STEEL ? 0.06 : 0.04) * Math.pow(f / 110, -0.3)
     switch (sl.art) {
       case ART.PALM:
         t60 = 0.2 * Math.pow(82 / f, 0.25) * (0.7 + 0.6 * p.sustain)
-        loss = 0.22
+        t60hi = 0.035
         cutoff *= 0.6
         pluckPos = Math.min(pluckPos, 0.1)
+        tm *= 0.3
         break
       case ART.MUTED:
         t60 = 0.04
-        loss = 0.25
+        t60hi = 0.012
         scrape *= 1.6
+        tm = 0
         break
       case ART.HARMONIC:
         t60 *= 1.4
-        loss = 0.015
+        t60hi = Math.max(t60hi * 1.6, 2)
         cutoff = f * 1.5
         pluckPos = 0.5
-        bodyAmt *= 0.4
         scrape *= 0.3
+        tm *= 0.3
         break
     }
+    sl.tm = sl.legato > 0 ? 0 : tm
     out.vel = vel
     out.cutoff = cutoff
     out.scrape = scrape * (0.4 + 0.6 * vel)
     out.pluckPos = Math.min(0.5, Math.max(0.03, pluckPos))
-    out.body = bodyAmt > 0 ? this.body : null
-    out.bodyLen = this.bodyLen
-    out.bodyAmt = bodyAmt
     out.t60 = t60
-    out.loss = Math.max(0, loss)
+    out.t60hi = t60hi
     out.angle = 0.15 + 0.35 * pl.random()
     out.detune = (pl.random() - 0.5) * 2.4
     out.legato = sl.legato > 0 ? sl.legato : 0
     out.seed = (pl.random() * 0xffffffff) | 1
   }
 
-  private pluckSpec: PluckSpec = { vel: 0, cutoff: 1000, scrape: 0, pluckPos: 0, body: null, bodyLen: 0, bodyAmt: 0, t60: 1, loss: 0, angle: 0, detune: 0, seed: 1 }
+  private pluckSpec: PluckSpec = { vel: 0, cutoff: 1000, scrape: 0, pluckPos: 0, t60: 1, t60hi: 0.5, angle: 0, detune: 0, seed: 1 }
 
   private freqOf(pl: Player, sl: Slot, vib: number): number {
-    return mtof(sl.cur + this.bend + vib) * (pl === this.players[1] ? Math.pow(2, pl.cents / 1200) : 1)
+    return mtof(sl.cur + this.bend + vib + sl.tm + sl.fine) * (pl === this.players[1] ? Math.pow(2, pl.cents / 1200) : 1)
   }
 
   /** Control rate: glides, vibrato, editor feedback. */
@@ -611,12 +622,15 @@ class Guitar implements InstrumentDSP {
     if (this.vibPhase > 2 * Math.PI) this.vibPhase -= 2 * Math.PI
     const lfo = Math.sin(this.vibPhase)
     const onset = 0.22 * this.sr
+    // tension modulation settles as the string's amplitude decays (~120 ms)
+    const tmDecay = Math.exp(-CTRL / (0.12 * this.sr))
     for (const pl of this.players) {
       for (let s = 0; s < STRINGS; s++) {
         const sl = pl.slots[s]
         if (sl.released && pl.strings[s].level < 1e-4) continue
         const prev = sl.cur
         sl.cur += (sl.target - sl.cur) * sl.glide
+        sl.tm *= tmDecay
         if (Math.abs(sl.cur - prev) > 0.004 && !isElectric(Math.round(this.p.model))) pl.squeakTarget = Math.max(pl.squeakTarget, Math.min(0.6, Math.abs(sl.cur - prev) * 4))
         let vib = 0
         if (vibDepth > 0 && sl.held && !sl.released) {
@@ -695,8 +709,13 @@ class Guitar implements InstrumentDSP {
             if (sl.delay === 0) {
               str.setFreq(this.freqOf(pl, sl, 0))
               this.spec(pl, s, sl, this.pluckSpec)
+              str.setFreq(this.freqOf(pl, sl, 0))
               if (sl.legato > 0) str.tap(sl.legato, this.pluckSpec.seed)
-              else str.pluck(this.pluckSpec)
+              else {
+                str.pluck(this.pluckSpec)
+                pl.bodyL.knock(sl.vel)
+                pl.bodyR.knock(sl.vel)
+              }
               if (!sl.held) this.releaseSlot(pl, s, open)
             }
             sl.delay--
@@ -724,7 +743,8 @@ class Guitar implements InstrumentDSP {
         br[i] = r * 0.5
       }
       if (electric || ampOn) {
-        for (let i = 0; i < n; i++) buf[i] = pl.pickupLp2.process(pl.pickupLp.process(buf[i]))
+        // the body (an archtop's top, or an acoustic's under a piezo) colours what the pickup hears
+        for (let i = 0; i < n; i++) buf[i] = pl.pickupLp2.process(pl.pickupLp.process(pl.bodyL.process(buf[i])))
         pl.amp.process(buf, 0, n)
         // mono guitar: centred, or hard-ish left / right when double tracked
         const pan = double ? (pi === 0 ? -1 : 1) * width : 0
@@ -739,6 +759,8 @@ class Guitar implements InstrumentDSP {
         const w = double ? width : width * 0.6
         const pan = double ? (pi === 0 ? -0.7 : 0.7) * width : 0
         for (let i = 0; i < n; i++) {
+          bl[i] = pl.bodyL.process(bl[i])
+          br[i] = pl.bodyR.process(br[i])
           const m = (bl[i] + br[i]) * 0.5
           const sideL = m + (bl[i] - m) * w
           const sideR = m + (br[i] - m) * w
@@ -749,7 +771,7 @@ class Guitar implements InstrumentDSP {
       // squeak decays even when idle
       if (pl.squeakEnv < 1e-4 && pl.squeakTarget < 1e-4) pl.squeakEnv = pl.squeakTarget = 0
     }
-    const vol = dbToGain(p.volume) * (double ? 0.75 : 1) * (ampOn ? 1 : electric ? 0.6 : 0.45)
+    const vol = dbToGain(p.volume) * (double ? 0.75 : 1) * (ampOn ? 1 : electric ? 0.6 : 0.85)
     for (let i = 0; i < n; i++) {
       outL[o + i] += wetL[i] * vol
       outR[o + i] += wetR[i] * vol

@@ -35,6 +35,30 @@ function pitch(x: Float32Array, at: number, f0: number): number {
   return SR / (bestL + (a - c) / (2 * (a - 2 * b + c)))
 }
 const cents = (f: number, key: number): number => 1200 * Math.log2(f / (440 * Math.pow(2, (key - 69) / 12)))
+/** Phase of partial `f` (Hann-windowed DFT bin) in a 0.2 s window at `t`. */
+function phase(x: Float32Array, t: number, f: number): number {
+  const s = Math.floor(t * SR)
+  const N = Math.floor(0.2 * SR)
+  let re = 0
+  let im = 0
+  for (let i = 0; i < N; i++) {
+    const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N)
+    const a = (2 * Math.PI * f * (s + i)) / SR
+    re += x[s + i] * w * Math.cos(a)
+    im -= x[s + i] * w * Math.sin(a)
+  }
+  return Math.atan2(im, re)
+}
+/**
+ * Offset in cents of the partial near `f` from its phase drift between `t` and `t + span` (exact for a decaying
+ * partial, unlike autocorrelation, which a bright decaying tone pulls a few cents sharp).
+ */
+function partialCents(x: Float32Array, t: number, f: number, span = 0.3): number {
+  let d = phase(x, t + span, f) - phase(x, t, f)
+  while (d > Math.PI) d -= 2 * Math.PI
+  while (d < -Math.PI) d += 2 * Math.PI
+  return 1200 * Math.log2(1 + d / (2 * Math.PI * f * span))
+}
 const play = (params: Record<string, number>, notes: { at: number; dur: number; key: number; vel?: number }[], seconds: number) =>
   renderInstrument(factory, { params: { reverb: 0, human: 0, ...params }, notes: notes.map((n) => ({ at: n.at, dur: n.dur, note: note(n.key, { vel: n.vel ?? 0.8 }) })), seconds })
 
@@ -70,8 +94,8 @@ describe('Guitar DSP', () => {
   it('is in tune on every string and model', () => {
     for (const model of [0, 1, 2, 3, 4]) {
       for (const key of [...STD, 57, 76]) {
-        const r = play({ model }, [{ at: 0, dur: 1, key }], 0.6)
-        const c = cents(pitch(r.L, 0.25, 440 * Math.pow(2, (key - 69) / 12)), key)
+        const r = play({ model }, [{ at: 0, dur: 1, key }], 0.85)
+        const c = partialCents(r.L, 0.25, 440 * Math.pow(2, (key - 69) / 12))
         expect(Math.abs(c), `model ${model} key ${key}: ${c.toFixed(2)} cents`).toBeLessThan(3)
       }
     }
@@ -95,7 +119,7 @@ describe('Guitar DSP', () => {
       expect(s.peak, p.name).toBeLessThan(1.3)
       expect(s.rms, p.name).toBeGreaterThan(0.005)
     }
-  })
+  }, 30000)
 
   it('strums: a strummed chord builds up later than a struck one', () => {
     const chord = [40, 47, 52, 55, 59, 64].map((key) => ({ at: 0, dur: 1, key }))
