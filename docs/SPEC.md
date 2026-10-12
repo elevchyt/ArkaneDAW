@@ -134,6 +134,9 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
   scan `~/.vst ~/.vst3 ~/.clap /usr/lib/{vst,vst3,clap}` (+ yabridge-wrapped Windows plugins appear automatically).
 * No root needed: dev headers can be fetched with `apt-get download` into a private sysroot (see Kabee's `scripts/local-deps.sh`).
 * Audio I/O is Chromium's (PulseAudio/PipeWire). Recording uses getUserMedia with all processing (AGC/NS/EC) disabled.
+* Record (right-click it) records **Mixer input into playlist** (armed mixer tracks become audio clips, song mode) and / or
+  **MIDI into channel** (MIDI controller / typing keyboard → the first selected channel's notes in the current pattern);
+  both are on by default and remembered per machine. A take with no armed track opens the channel's piano roll.
 
 ## 8. Content packs (optional sound libraries)
 

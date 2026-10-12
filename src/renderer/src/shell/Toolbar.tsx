@@ -18,7 +18,8 @@ import {
   Repeat,
   Hourglass,
   Keyboard,
-  Hand
+  Hand,
+  Mic
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProject, editProject } from '@/store/project'
@@ -30,6 +31,7 @@ import { addPattern, selectPattern } from '@/store/actions'
 import { Knob } from '@/components/controls'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuLabel, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { MainMenu } from './MainMenu'
 import { WindowControls } from './WindowControls'
 import { UpdateIndicator } from '@/system/UpdateDialog'
@@ -89,10 +91,64 @@ function TransportButtons() {
       <Btn title="Stop" onClick={() => transport.stop()} className="h-[34px] w-[34px]">
         <Square size={13} fill="currentColor" />
       </Btn>
-      <Btn title="Record (R)" active={recording} color="var(--fl-red)" onClick={() => useTransport.getState().set({ recording: !recording })} className="h-[34px] w-[34px]">
-        <Circle size={14} fill="currentColor" className={recording ? 'text-[#2a0d0b]' : 'text-[#ff6a5f]'} />
-      </Btn>
+      <RecordButton />
     </div>
+  )
+}
+
+/**
+ * Record (R). Right-click: what it records — mixer input into the playlist and / or MIDI into the selected
+ * channel (both on by default; they don't conflict).
+ */
+function RecordButton() {
+  const recording = useTransport((s) => s.recording)
+  const recordAudio = useTransport((s) => s.recordAudio)
+  const recordMidi = useTransport((s) => s.recordMidi)
+  const setHint = useUI((s) => s.setHint)
+  const what = [recordAudio && 'mixer input into playlist', recordMidi && 'MIDI into channel'].filter(Boolean).join(' + ') || 'nothing'
+  // a badge only when one mode is off, so the default button looks as it always did
+  const Badge = recordAudio && !recordMidi ? Mic : recordMidi && !recordAudio ? Piano : null
+  const toggle = (key: 'recordAudio' | 'recordMidi', label: string) => {
+    const on = !useTransport.getState()[key]
+    useTransport.getState().set({ [key]: on })
+    // MIDI into channel plays from the typing keyboard too
+    if (key === 'recordMidi' && on && !useUI.getState().typingKeyboard) useUI.getState().set({ typingKeyboard: true })
+    setHint(`Record ${label}: ${on ? 'on' : 'off'}`)
+  }
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div>
+          <Btn
+            title={`Record (R) — ${what}. Right-click to choose what it records`}
+            active={recording}
+            color="var(--fl-red)"
+            onClick={() => useTransport.getState().set({ recording: !recording })}
+            className="relative h-[34px] w-[34px]"
+          >
+            <Circle size={14} fill="currentColor" className={recording ? 'text-[#2a0d0b]' : 'text-[#ff6a5f]'} />
+            {Badge && <Badge size={9} strokeWidth={2.5} className={cn('absolute right-[2px] bottom-[2px]', recording ? 'text-[#2a0d0b]' : 'text-[#c9d2d7]')} />}
+          </Btn>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuLabel>Record</ContextMenuLabel>
+        <ContextMenuCheckboxItem
+          checked={recordAudio}
+          onSelect={() => toggle('recordAudio', 'mixer input into playlist')}
+          onMouseEnter={() => setHint('Mixer input into playlist: armed mixer tracks (microphones, line inputs…) are recorded as audio clips')}
+        >
+          Mixer input into playlist
+        </ContextMenuCheckboxItem>
+        <ContextMenuCheckboxItem
+          checked={recordMidi}
+          onSelect={() => toggle('recordMidi', 'MIDI into channel')}
+          onMouseEnter={() => setHint('MIDI into channel: a MIDI controller or the typing keyboard records notes into the first selected channel, in the current pattern')}
+        >
+          MIDI into channel
+        </ContextMenuCheckboxItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 

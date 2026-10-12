@@ -4,6 +4,8 @@
 import { create } from 'zustand'
 import { useUI } from '../store/ui'
 import { getProject } from '../store/project'
+import { useTransport } from '../store/transport'
+import { liveChannelId } from '../store/actions'
 import { getEngine, initAudio, transport } from './transport'
 import { recordLiveNote } from './recording'
 import { bendSemitones, parseMidi, SustainTracker, velocityCurve } from './midi-core'
@@ -42,12 +44,14 @@ let modX = 0.5
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const noteName = (k: number): string => `${NOTE_NAMES[k % 12]}${Math.floor(k / 12)}` // FL naming (60 = C5)
 
-/** Target channel for a MIDI message. Omni → selected channel; per-channel → Nth rack channel. */
+/**
+ * Target channel for a MIDI message. Omni → the first selected channel; per-channel → Nth rack channel —
+ * except while recording with "MIDI into channel" on, where everything plays the channel being recorded.
+ */
 function targetChannel(midiCh: number): string | null {
-  const ui = useUI.getState()
-  const p = getProject()
-  if (getAudioSettings().midiChannelMode === 'perChannel') return p.channels[midiCh]?.id ?? null
-  return ui.selectedChannels[0] ?? ui.pianoRollChannel ?? p.channels[0]?.id ?? null
+  const t = useTransport.getState()
+  if (getAudioSettings().midiChannelMode === 'perChannel' && !(t.recording && t.recordMidi)) return getProject().channels[midiCh]?.id ?? null
+  return liveChannelId()
 }
 
 function release(voices: Voice[]): void {

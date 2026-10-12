@@ -4,7 +4,7 @@ import { useTransport } from '@/store/transport'
 import { getProject } from '@/store/project'
 import { DEFAULT_NOTE_KEY } from '@/store/types'
 import { initAudio, transport } from '@/audio/transport'
-import { cloneChannels, deleteChannels, moveChannels, routeToFreeInserts, selectPattern, nextEmptyPattern, addPattern } from '@/store/actions'
+import { cloneChannels, deleteChannels, moveChannels, routeToFreeInserts, selectPattern, nextEmptyPattern, addPattern, liveChannelId } from '@/store/actions'
 import { commands } from './commands'
 import { dispatchWindowKey } from './keys'
 import { recordLiveNote } from '@/audio/recording'
@@ -44,7 +44,7 @@ function typingNote(e: KeyboardEvent, down: boolean): boolean {
   if (ui.focused === 'playlist' && PLAYLIST_TOOL_KEYS[e.code]) return false
   const off = TYPING[e.code]
   if (off === undefined) return false
-  const channelId = ui.selectedChannels[0] ?? ui.pianoRollChannel ?? getProject().channels[0]?.id
+  const channelId = liveChannelId()
   if (!channelId) return true
   if (down) {
     if (e.repeat || held.has(e.code)) return true

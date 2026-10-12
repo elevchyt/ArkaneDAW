@@ -497,8 +497,11 @@ export function initAudioRecording(): void {
     }
   })
   useTransport.subscribe((s, prev) => {
-    const startRec = s.playing && s.recording && (!prev.playing || !prev.recording)
-    const stopRec = (prev.playing && prev.recording && (!s.playing || !s.recording)) || false
+    // only with the "Mixer input into playlist" record mode on
+    const on = s.playing && s.recording && s.recordAudio
+    const was = prev.playing && prev.recording && prev.recordAudio
+    const startRec = on && !was
+    const stopRec = was && !on
     if (startRec) {
       // The scheduler renders the start tick 60 ms after play() (see audio/transport.ts).
       const ctx = getEngine()?.ctx as AudioContext | undefined

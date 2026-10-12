@@ -1,6 +1,11 @@
-// Live note recording (typing keyboard / MIDI / on-screen keys) into the current pattern, plus the
+// Live note recording (typing keyboard / MIDI controller) into the current pattern, plus the
 // record-start behaviours FL has on the transport: count-in (precount) and "wait for input".
 // Audio recording lives in audio/audio-recording.ts.
+//
+//  • Only with the "MIDI into channel" record mode on (useTransport.recordMidi), and only into the live channel
+//    (the first selected channel of the rack — liveChannelId()). "Mixer input into playlist" (recordAudio,
+//    audio-recording.ts) records armed mixer tracks at the same time; with no track armed (or audio off) the
+//    live channel's piano roll opens on record.
 //
 //  • Pattern mode: notes go into the current pattern; the pattern loops, so positions wrap and a
 //    note held across the loop point is cut at the pattern end.
@@ -14,12 +19,13 @@ import { useTransport, playhead } from '../store/transport'
 import { useUI } from '../store/ui'
 import { editProject, getProject } from '../store/project'
 import { defaultNote, uid } from '../store/factory'
-import { currentPatternId, findPattern } from '../store/actions'
+import { currentPatternId, findPattern, liveChannelId } from '../store/actions'
 import { PLAYLIST_TRACKS, PPQ, type Project } from '../store/types'
 import { barTicks, patternLength } from './sequence'
 import { getEngine, initAudio, transport } from './transport'
 import { firstFreeTrack, inRanges, quantizeRecordedNote, recordQuantizeGrid, sweptRanges, wrapPatternNote } from './recording-core'
 import { getAudioSettings } from '../windows/settings/settings-store'
+import { openPianoRoll } from '../windows/pianoroll/open'
 
 interface Pending {
   channelId: string
@@ -146,9 +152,16 @@ function commit(pn: Pending, endTime: number): void {
   )
 }
 
+/** Notes of `channelId` are recorded: MIDI into channel is on, and it is the live (first selected) channel. */
+function recordsNotes(channelId: string): boolean {
+  return useTransport.getState().recordMidi && channelId === liveChannelId()
+}
+
+const audioArmed = (): boolean => getProject().mixer.some((m) => m.armed && m.index > 0)
+
 /**
- * Called for every live note on/off (typing keyboard, MIDI, on-screen keys). Adds notes to the
- * current pattern while recording + playing; with "wait for input" armed the first note starts playback.
+ * Called for every live note on/off (typing keyboard, MIDI). Adds notes to the current pattern while
+ * recording + playing in MIDI record mode; with "wait for input" armed the first note starts playback.
  */
 export function recordLiveNote(channelId: string, key: number, vel: number, on: boolean, id: number): void {
   const t = useTransport.getState()
@@ -157,12 +170,13 @@ export function recordLiveNote(channelId: string, key: number, vel: number, on: 
       // Wait for input: this note starts the song and lands on the start position.
       const from = startFrom()
       startNow()
+      if (!recordsNotes(channelId)) return
       pending.set(id, { channelId, key, vel, tick: from, time: clock() + 0.06 })
       take = newTake(from)
       markSweep(from)
       return
     }
-    if (!t.recording || !t.playing) return
+    if (!t.recording || !t.playing || !recordsNotes(channelId)) return
     const tick = transport.tick()
     if (!take) take = newTake(useTransport.getState().mode === 'song' ? takeStartTick ?? tick : tick)
     pending.set(id, { channelId, key, vel, tick, time: clock() })
@@ -291,12 +305,16 @@ function installTransportHooks(): void {
   transport.play = async () => {
     let t = useTransport.getState()
     if (t.playing) return origPlay!()
-    if (t.recording && !waiting && !counting && getProject().mixer.some((m) => m.armed && m.index > 0)) {
+    if (t.recording && !waiting && !counting && t.recordAudio && audioArmed()) {
       // Audio takes are recorded into the playlist: switch to song mode and show it.
       if (t.mode === 'pattern') transport.setMode('song')
       const ui = useUI.getState()
       if (!ui.windows.playlist?.open || ui.windows.playlist.minimized) ui.openWindow('playlist', { kind: 'playlist', title: 'Playlist - Arrangement' })
       t = useTransport.getState()
+    } else if (t.recording && !waiting && !counting && t.recordMidi) {
+      // A MIDI take: notes are recorded into the live channel's piano roll — show it.
+      const id = liveChannelId()
+      if (id) openPianoRoll(id)
     }
     if (waiting || counting) {
       // pressing play again while armed-and-waiting starts immediately (FL) — count-in skips ahead too
@@ -329,6 +347,15 @@ function installTransportHooks(): void {
   }
 }
 
+function recordingHint(): string {
+  const t = useTransport.getState()
+  const parts: string[] = []
+  if (t.recordAudio && audioArmed()) parts.push('mixer input into the playlist')
+  if (t.recordMidi) parts.push(`MIDI into ${getProject().channels.find((c) => c.id === liveChannelId())?.name ?? 'the selected channel'}`)
+  if (!parts.length) return t.recordAudio ? 'Recording — arm a mixer track to record its input' : 'Recording — right-click Record to choose what it records'
+  return `Recording ${parts.join(' and ')}${t.recordMidi ? ' — play the typing keyboard or a MIDI controller' : '…'}`
+}
+
 let installed = false
 /** Boot note recording (idempotent). */
 export function initNoteRecording(): void {
@@ -338,12 +365,9 @@ export function initNoteRecording(): void {
   useTransport.subscribe((s, prev) => {
     if (s.playing && !prev.playing) {
       takeStartTick = prev.paused ? playhead.tick : s.startTick
-      if (s.recording) {
-        const n = pending.size
-        useUI.getState().setHint(n ? 'Recording…' : 'Recording — play notes on the typing keyboard or a MIDI controller')
-      }
+      if (s.recording) useUI.getState().setHint(recordingHint())
     }
-    if ((!s.playing && prev.playing) || (!s.recording && prev.recording)) flushRecording()
+    if ((!s.playing && prev.playing) || (!s.recording && prev.recording) || (!s.recordMidi && prev.recordMidi)) flushRecording()
     if (!s.playing && prev.playing) takeStartTick = null
     if (!s.recording && prev.recording && (waiting || counting)) cancelRecordStart()
     if (s.mode !== prev.mode) take = null

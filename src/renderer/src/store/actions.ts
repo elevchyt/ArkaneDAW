@@ -23,6 +23,20 @@ export function currentPatternId(): string {
   return id
 }
 
+/**
+ * The channel live notes (typing keyboard, MIDI in omni mode) play and record into: the first selected channel
+ * in rack order, else the piano roll's channel, else the first channel.
+ */
+export function liveChannelId(): string | null {
+  const ui = useUI.getState()
+  const p = getProject()
+  if (ui.selectedChannels.length) {
+    const first = p.channels.find((c) => ui.selectedChannels.includes(c.id))
+    if (first) return first.id
+  }
+  return (findChannel(p, ui.pianoRollChannel)?.id ?? p.channels[0]?.id) || null
+}
+
 export function newPluginState(pluginId: string, preset?: Preset): PluginInstanceState {
   const mod = getPlugin(pluginId)
   const params = mod ? (preset ? presetParams(mod.manifest, preset) : defaultParams(mod.manifest)) : {}
