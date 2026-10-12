@@ -2,7 +2,7 @@
 
 ArkaneDAW is a Linux-first, pattern-based DAW whose UX copies **FL Studio (20/21/24)** as faithfully as possible:
 same windows, same mouse/keyboard conventions, same workflow (Channel rack → patterns → Playlist → Mixer).
-No AI features. It ships its own family of built-in plugins (named plainly: "Compressor", "Reverb", … — no brand prefix),
+No AI features inside the app (outside tools may edit projects, see PROJECT_FORMAT.md). It ships its own family of built-in plugins (named plainly: "Compressor", "Reverb", … — no brand prefix),
 hosts third-party VST2/VST3/CLAP plugins, and records audio and notes.
 
 Reference: FL Studio manual — <https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/>
@@ -32,7 +32,8 @@ src/main/                 Electron main (window, app:// protocol w/ COOP/COEP, d
 src/preload/              host API (fs, path, dialogs, window controls) → globalThis.arkaneHost
 src/renderer/src/
   store/                  types.ts (project model), project.ts (undoable store), ui.ts, transport.ts,
-                          actions.ts (shared mutations), io.ts (save/load), templates.ts, factory.ts
+                          actions.ts (shared mutations), io.ts (save/load), normalize.ts (repair loaded JSON),
+                          filewatch.ts (reload on outside edits), templates.ts, factory.ts
   audio/                  context.ts, engine.ts (graph), transport.ts (scheduler), sequence.ts (pure timing),
                           plugin-node.ts (PluginHostNode + external factories), samples.ts (pool, WAV),
                           export.ts (offline render), recording.ts (live notes), worklet/processor.ts
@@ -49,7 +50,7 @@ src/renderer/src/
                           MdiWindow (FL window chrome), shortcuts.ts, keys.ts (per-window key routing), commands.ts
   windows/                channelrack/ pianoroll/ playlist/ mixer/ plugin/ (wrapper) + registry.tsx
 native/                   vsthost/ (C++ sidecar), bridge/ (N-API), kabee/ (WASM build)
-docs/                     this spec
+docs/                     this spec, PROJECT_FORMAT.md (.arkane for scripts/agents), plugins.json (npm run catalog)
 ```
 
 ## 3. Core model (store/types.ts)

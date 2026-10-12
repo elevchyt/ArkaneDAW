@@ -5,17 +5,17 @@ import { useProject, getProject } from './project'
 import { useUI } from './ui'
 import { useTransport } from './transport'
 import { makeEmptyProject } from './factory'
+import { normalizeProject } from './normalize'
 import type { Project } from './types'
 import { encodeWav, getBuffer } from '../audio/samples'
 import { flushVstStates } from '../audio/vst'
+import { noteSynced } from './filewatch'
 
 export const PROJECT_EXT = 'arkane'
 
-export function migrate(raw: Project): Project {
-  const base = makeEmptyProject()
-  const p: Project = { ...base, ...raw }
-  while (p.mixer.length < base.mixer.length) p.mixer.push(base.mixer[p.mixer.length])
-  while (p.playlist.tracks.length < base.playlist.tracks.length) p.playlist.tracks.push(base.playlist.tracks[p.playlist.tracks.length])
+/** Loaded JSON → a valid project (fills defaults, drops broken references, see normalize.ts) + format upgrades. */
+export function migrate(raw: unknown): Project {
+  const p = normalizeProject(raw)
   // "Chiptune Drums" was folded into Chiptune (its Drums mode).
   p.channels = p.channels.map((c) =>
     c.plugin?.pluginId === 'chiptunedrums' ? { ...c, plugin: { ...c.plugin, pluginId: 'chiptune', params: { ...c.plugin.params, mode: 1 } } } : c
@@ -46,7 +46,10 @@ export async function saveProjectTo(path: string): Promise<void> {
     } else samples.push(s)
   }
   const out: Project = { ...project, samples, name: project.name === 'Untitled' ? base : project.name }
-  await host.fsp.writeFile(path, JSON.stringify(out))
+  // indented so the file can be diffed and edited by hand / by other tools (see docs/PROJECT_FORMAT.md)
+  const text = `${JSON.stringify(out, null, 1)}\n`
+  await host.fsp.writeFile(path, text)
+  noteSynced(path, text)
   useProject.setState({ project: { ...getProject(), samples, name: out.name } })
   useProject.getState().markSaved(path)
   addRecent(path)
@@ -77,8 +80,9 @@ export async function saveNewVersion(): Promise<void> {
 
 export async function openProjectFrom(path: string): Promise<void> {
   if (!host) return
-  const raw = JSON.parse(await host.fsp.readFile(path, 'utf8')) as Project
-  const project = migrate(raw)
+  const text = await host.fsp.readFile(path, 'utf8')
+  const project = migrate(JSON.parse(text))
+  noteSynced(path, text)
   useTransport.getState().set({ playing: false, paused: false, startTick: 0 })
   useProject.getState().load(project, path)
   useUI.getState().set({ currentPattern: project.patterns[0]?.id ?? null, selectedChannels: [], pianoRollChannel: project.channels[0]?.id ?? null })

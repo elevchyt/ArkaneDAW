@@ -15,6 +15,7 @@ import { ConfirmDialog } from '@/system/ConfirmDialog'
 import { PopupMenuHost } from '@/windows/playlist/PopupMenu'
 import { PromptHost } from '@/windows/playlist/Prompt'
 import { startAutosave } from '@/store/autosave'
+import { startFileWatch } from '@/store/filewatch'
 
 export default function App() {
   const browser = useUI((s) => s.browserVisible)
@@ -22,6 +23,7 @@ export default function App() {
   useEffect(() => installHintTracking(), [])
   useEffect(() => installMiddleClickReset(), [])
   useEffect(() => startAutosave(), [])
+  useEffect(() => startFileWatch(), [])
 
   useEffect(() => {
     // Boot audio right away in Electron; in a browser wait for the first gesture.

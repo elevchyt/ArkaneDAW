@@ -43,6 +43,13 @@ MP3/OGG/FLAC export needs `ffmpeg`; the app tells you how to install anything th
 | **VocalTune** | Simple pitch correction: pick a key and scale, set the retune speed. |
 | **Kabee** | Guitar and bass amp with a pedalboard ([elevchyt/kabee](https://github.com/elevchyt/kabee), compiled to WebAssembly). |
 
+## Scripting and AI agents
+
+Projects (`.arkane`) are plain JSON, so scripts and coding agents (Claude Code, Codex, …) can write or edit them
+directly. ArkaneDAW reloads the open project when the file changes on disk. See
+[docs/PROJECT_FORMAT.md](docs/PROJECT_FORMAT.md) for the format and [docs/plugins.json](docs/plugins.json) for every
+plugin's parameters.
+
 ## Development
 
 ```bash

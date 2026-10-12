@@ -18,6 +18,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
+    "catalog": "UPDATE_CATALOG=1 vitest run src/renderer/src/plugins/catalog-doc.test.ts",
     "build:native": "bash native/build.sh",
     "test:native": "bash native/build.sh --test",
     "drumkits": "node scripts/drumkits/build.mjs",
