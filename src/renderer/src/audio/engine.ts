@@ -393,7 +393,7 @@ export class AudioEngine {
         }
       }
     }
-    this.pushTempo(project.tempo)
+    this.pushTempo(this.automatedTempo ?? project.tempo)
   }
 
   /**
@@ -401,11 +401,26 @@ export class AudioEngine {
    * Sent only when it changes per node.
    */
   private tempoSent = new WeakMap<PluginHostNode, number>()
-  private pushTempo(tempo: number): void {
+  /** Tempo set by tempo automation during playback (project edits mustn't reset synced plugins to the project tempo). */
+  private automatedTempo: number | null = null
+  /** Tempo automation: tempo-synced plugins switch to `tempo` at context time `at`. */
+  scheduleTempo(tempo: number, at: number): void {
+    this.automatedTempo = tempo
+    this.pushTempo(tempo, at)
+  }
+  /** Playback stopped: tempo-synced plugins go back to the project tempo. */
+  endTempoAutomation(projectTempo: number): void {
+    this.automatedTempo = null
+    this.pushTempo(projectTempo)
+  }
+  /** Send `tempo` now, or at context time `at`, to every plugin with a hidden 'tempo' param (only when it changed). */
+  private pushTempo(tempo: number, at?: number): void {
     const send = (n: PluginHostNode | null) => {
       if (!n || this.tempoSent.get(n) === tempo) return
       this.tempoSent.set(n, tempo)
-      if (getPlugin(n.pluginId)?.manifest.params.some((p) => p.id === 'tempo' && p.hidden)) n.setParam('tempo', tempo)
+      if (!getPlugin(n.pluginId)?.manifest.params.some((p) => p.id === 'tempo' && p.hidden)) return
+      if (at === undefined) n.setParam('tempo', tempo)
+      else n.schedule([{ kind: 'param', time: at, id: 'tempo', value: tempo }])
     }
     for (const c of this.channels.values()) send(c.instrument)
     for (const m of this.mixer) if (m) for (let i = 0; i < m.slots.length; i++) send(m.getSlotPlugin(i))

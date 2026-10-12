@@ -21,6 +21,7 @@ import { defaultNote, uid } from '../store/factory'
 import { currentPatternId, findPattern, liveChannelId } from '../store/actions'
 import { PLAYLIST_TRACKS, PPQ, type Project } from '../store/types'
 import { barTicks } from './sequence'
+import { tempoMapFor } from './tempo'
 import { getEngine, initAudio, transport } from './transport'
 import { countInPlan, firstFreeTrack, grownPatternLength, inRanges, quantizeRecordedNote, recordQuantizeGrid, sweptRanges } from './recording-core'
 import { getAudioSettings } from '../windows/settings/settings-store'
@@ -52,7 +53,8 @@ interface Take {
 const pending = new Map<number, Pending>()
 let take: Take | null = null
 
-const tps = (p: Pick<Project, 'tempo'>): number => (p.tempo * PPQ) / 60
+/** Song ticks per second where `tick` plays (tempo automation in song mode). */
+const tps = (p: Project, tick: number): number => (tempoMapFor(p, useTransport.getState().mode).bpmAt(tick) * PPQ) / 60
 
 /** A monotonic clock in seconds — the audio clock when audio is running. */
 function clock(): number {
@@ -103,7 +105,7 @@ function commit(pn: Pending, endTime: number): void {
   if (!pattern) return
   const s = getAudioSettings()
   const grid = recordQuantizeGrid(useUI.getState().globalSnap, project.timeSig)
-  const rate = tps(project)
+  const rate = tps(project, pn.tick)
   const played = Math.max(1, (endTime - pn.time) * rate)
   let { pos, len } = quantizeRecordedNote(patternPos(tk, pn.tick, project), played, grid, { start: s.quantizeStart, end: s.quantizeEnd })
   // neither mode loops while recording MIDI: positions run on (the pattern / its clip grow to fit)

@@ -10,6 +10,7 @@ import { normalize } from '@/plugins/sdk/params'
 import { applyClipDiff, diffClips } from './ops'
 import { getPl, setSelection, type ClipSource } from './state'
 import { makePoint } from './automation'
+import { tempoToNorm } from '@/audio/tempo'
 
 export const ticksPerSecond = (p: Pick<Project, 'tempo'>): number => (p.tempo * PPQ) / 60
 
@@ -333,6 +334,8 @@ export function targetValue(p: Project, t: AutomationTarget): number {
     }
     case 'masterVolume':
       return p.masterVolume / 1.25
+    case 'tempo':
+      return tempoToNorm(p.tempo)
     default:
       return 0.5
   }

@@ -4,11 +4,11 @@ import { editProject, getProject } from '@/store/project'
 import { useUI } from '@/store/ui'
 import { findChannel, findPattern, newPluginState } from '@/store/actions'
 import { CHANNEL_COLORS, PATTERN_COLORS, makeChannel, uid } from '@/store/factory'
-import type { Channel, Note, Pattern, Project } from '@/store/types'
+import type { Automation, Channel, Note, Pattern, Project } from '@/store/types'
 import { barTicks } from '@/audio/sequence'
 import { getPlugin } from '@/plugins/registry'
 import { showOnlyChannelRack } from '@/store/io'
-import { MIDI_EXT, allNotes, initialTempo, midiParts, targetFor, toNotes } from './convert'
+import { MIDI_EXT, allNotes, initialTempo, midiParts, targetFor, tempoPoints, toNotes } from './convert'
 import { parseMidi, type MidiFile } from './smf'
 
 export { MIDI_EXT }
@@ -113,11 +113,26 @@ export async function importMidiAsChannels(src: MidiSource): Promise<boolean> {
     d.channels.push(...channels)
     d.patterns.push(pattern)
     const used = new Set(d.playlist.clips.map((c) => c.track))
-    let track = 0
-    while (used.has(track) && track < d.playlist.tracks.length - 1) track++
+    const freeTrack = () => {
+      let t = 0
+      while (used.has(t) && t < d.playlist.tracks.length - 1) t++
+      used.add(t)
+      return t
+    }
     const end = Object.values(pattern.notes).flat().reduce((m, n) => Math.max(m, n.pos + n.len), 0)
     const bar = barTicks(d)
-    d.playlist.clips.push({ id: uid(), kind: 'pattern', ref: pattern.id, track, start: 0, length: Math.max(1, Math.ceil(end / bar)) * bar, offset: 0, muted: false })
+    const length = Math.max(1, Math.ceil(end / bar)) * bar
+    d.playlist.clips.push({ id: uid(), kind: 'pattern', ref: pattern.id, track: freeTrack(), start: 0, length, offset: 0, muted: false })
+    // A blank project also gets the file's tempo changes, as a tempo automation clip next to the pattern.
+    const points = blank ? tempoPoints(file, length) : null
+    if (points) {
+      const a: Automation = { id: uid(), name: 'Tempo', color: '#7d6e9c', target: { kind: 'tempo' }, points, length }
+      const track = freeTrack()
+      d.automations.push(a)
+      d.playlist.clips.push({ id: uid(), kind: 'automation', ref: a.id, track, start: 0, length, offset: 0, muted: false })
+      const tr = d.playlist.tracks[track]
+      if (tr && /^Track \d+$/.test(tr.name)) tr.name = a.name
+    }
   })
   useUI.getState().set({ currentPattern: pattern.id, selectedChannels: [channels[0].id], pianoRollChannel: channels[0].id })
   if (blank) showOnlyChannelRack()

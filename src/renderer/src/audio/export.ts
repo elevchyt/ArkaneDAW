@@ -8,6 +8,7 @@ import { getProject } from '../store/project'
 import { hasFades, scheduleClipFades } from './fades'
 import { useUI } from '../store/ui'
 import { PPQ, type Project } from '../store/types'
+import { constantTempo, tempoMap } from './tempo'
 import { host } from '../platform'
 import { AudioEngine, usedMixerTracks } from './engine'
 import { prepareContext } from './context'
@@ -75,7 +76,7 @@ function pickPattern(p: Project, id?: string | null) {
 export function projectSpan(p: Project, mode: RenderMode, patternId?: string | null): { ticks: number; seconds: number } {
   const pattern = pickPattern(p, patternId)
   const ticks = mode === 'song' ? songLength(p) : pattern ? patternLength(pattern, p) : 0
-  return { ticks, seconds: ticks / ((p.tempo * PPQ) / 60) }
+  return { ticks, seconds: (mode === 'song' ? tempoMap(p) : constantTempo(p.tempo)).secondsAt(ticks) }
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -134,7 +135,8 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
   const mode = req.mode === 'song' && p.playlist.clips.length ? 'song' : 'pattern'
   const pattern = pickPattern(p, req.patternId)
   const { ticks: lenTicks, seconds: songSec } = projectSpan(p, mode, req.patternId)
-  const tps = (p.tempo * PPQ) / 60
+  // Same tick ⇄ time mapping as live playback (tempo automation only plays in song mode).
+  const map = mode === 'song' ? tempoMap(p) : constantTempo(p.tempo)
   const totalSec = LEAD + songSec + (req.tail === 'cut' ? 0 : MAX_TAIL_SECONDS)
   const length = Math.max(1, Math.ceil(totalSec * sr))
 
@@ -159,7 +161,8 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
     throwIfAborted(signal)
     const audible = applyTarget(engine, req.target ?? { kind: 'master' })
 
-    const at = (tick: number) => LEAD + tick / tps
+    const at = (tick: number) => LEAD + map.secondsAt(tick)
+    if (map.automated) engine.scheduleTempo(map.bpmAt(0), at(0))
     if (audible && pattern) {
       const muted = new Set(p.channels.filter((c) => c.muted).map((c) => c.id))
       const hits = mode === 'song' ? songHits(p, 0, lenTicks) : patternHits(p, pattern, 0, 0, lenTicks, undefined, muted)
@@ -168,7 +171,7 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
         const id = engine.nextNoteId()
         const n = h.note
         const list = byCh.get(h.channelId) ?? []
-        list.push({ kind: 'on', time: at(h.start), note: { id, key: n.key, vel: n.vel, pan: n.pan, fine: n.fine, rel: n.rel, modX: n.modX, modY: n.modY, porta: n.porta, slide: n.slide, color: n.color, length: (h.end - h.start) / tps } })
+        list.push({ kind: 'on', time: at(h.start), note: { id, key: n.key, vel: n.vel, pan: n.pan, fine: n.fine, rel: n.rel, modX: n.modX, modY: n.modY, porta: n.porta, slide: n.slide, color: n.color, length: at(h.end) - at(h.start) } })
         list.push({ kind: 'off', time: at(h.end), id, key: n.key, rel: n.rel })
         byCh.set(h.channelId, list)
       }
@@ -184,12 +187,14 @@ export async function renderRaw(req: RenderRequest): Promise<RawRender> {
           const src = ctx.createBufferSource()
           const strip = clip.channelId ? engine.channels.get(clip.channelId) : null
           const dest = strip ? strip.input : engine.mixer[0]!.input
+          // Audio clips aren't stretched by tempo automation: they play at the tempo where they start.
+          const bpm = map.bpmAt(clip.start)
           if (hasFades(clip)) {
             const g = ctx.createGain()
-            scheduleClipFades(g.gain, clip, at(clip.start), 0, tps)
+            scheduleClipFades(g.gain, clip, at(clip.start), 0, (bpm * PPQ) / 60)
             src.connect(g).connect(dest)
           } else src.connect(dest)
-          startClip(src, pb, clip, p.tempo, at(clip.start))
+          startClip(src, pb, clip, bpm, at(clip.start))
         } else if (clip.kind === 'automation') {
           // Same sampling as the live scheduler (transport.ts scheduleAutomation): every 1/16 beat.
           const a = p.automations.find((x) => x.id === clip.ref)

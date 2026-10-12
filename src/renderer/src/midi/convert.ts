@@ -1,7 +1,8 @@
 // MIDI → ArkaneDAW conversion (pure: no store, no DOM). Ticks are rescaled to PPQ 96, velocities to 0..1
 // (MIDI 100 ≈ FL's default 0.78), the MIDI channel goes into the note colour (FL does the same).
 import { defaultNote } from '@/store/factory'
-import { PPQ, type Note } from '@/store/types'
+import { PPQ, type AutomationPoint, type Note } from '@/store/types'
+import { tempoToNorm } from '@/audio/tempo'
 import type { MidiFile, MidiNote } from './smf'
 
 export const MIDI_EXT = /\.(mid|midi|smf|kar|rmi)$/i
@@ -126,6 +127,29 @@ export function allNotes(file: MidiFile): Note[] {
     file.tracks.flatMap((t) => t.notes),
     file.ppq
   )
+}
+
+/**
+ * The file's tempo changes as tempo automation points (PPQ 96, every point 'hold' so the tempo steps like MIDI's),
+ * from tick 0 to `length`. Null when the tempo never changes.
+ */
+export function tempoPoints(file: MidiFile, length: number): AutomationPoint[] | null {
+  const k = PPQ / file.ppq
+  const pts: AutomationPoint[] = []
+  let bpm = 120 // MIDI's default before the first tempo event
+  for (const e of file.tempos) {
+    const t = Math.round(e.tick * k)
+    if (t >= length) break
+    if (pts.length && pts[pts.length - 1].t === t) pts.pop() // last event on a tick wins
+    if (!pts.length && t > 0) pts.push({ t: 0, v: tempoToNorm(bpm), tension: 0, mode: 'hold' })
+    bpm = e.bpm
+    pts.push({ t, v: tempoToNorm(bpm), tension: 0, mode: 'hold' })
+  }
+  if (new Set(pts.map((p) => p.v)).size < 2) return null
+  // drop repeats: a point equal to the previous one changes nothing
+  const out = pts.filter((p, i) => i === 0 || p.v !== pts[i - 1].v)
+  out.push({ t: length, v: out[out.length - 1].v, tension: 0, mode: 'hold' })
+  return out
 }
 
 /** Initial tempo, rounded to 3 decimals, or null when the file doesn't set one at the start. */

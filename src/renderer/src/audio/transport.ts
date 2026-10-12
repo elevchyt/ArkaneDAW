@@ -13,6 +13,7 @@ import { clipPlayback, startClip } from './clips'
 import { getPlugin } from '../plugins/registry'
 import { denormalize } from '../plugins/sdk/params'
 import { getAudioSettings } from '../windows/settings/settings-store'
+import { normToTempo, tempoMapFor, type TempoMap } from './tempo'
 
 const LOOKAHEAD_MS = 25
 const HORIZON = 0.12 // seconds
@@ -44,6 +45,7 @@ export function initAudio(): Promise<AudioEngine> {
 interface Wrap {
   time: number // ctx time where this segment starts
   tick: number // song tick at that time
+  map: TempoMap // tick ⇄ time inside this segment
 }
 
 class Scheduler {
@@ -51,7 +53,7 @@ class Scheduler {
   private cursorTime = 0 // ctx time scheduled up to
   private cursorTick = 0 // song tick at cursorTime
   private wraps: Wrap[] = []
-  private tempo = 130
+  private map: TempoMap | null = null
   private sources = new Set<AudioBufferSourceNode>()
   private clickBuf: AudioBuffer | null = null
   private regionStart = 0
@@ -60,10 +62,13 @@ class Scheduler {
     const e = engine
     if (!e) return
     const ctx = e.ctx as AudioContext
-    this.tempo = getProject().tempo
+    const p = getProject()
+    const map = (this.map = tempoMapFor(p, useTransport.getState().mode))
     this.cursorTime = ctx.currentTime + START_DELAY
     this.cursorTick = fromTick
-    this.wraps = [{ time: this.cursorTime, tick: fromTick }]
+    this.wraps = [{ time: this.cursorTime, tick: fromTick, map }]
+    // Starting inside or after tempo automation: synced plugins begin at the tempo that plays there.
+    if (map.automated) e.scheduleTempo(map.bpmAt(fromTick), this.cursorTime)
     this.startAudioClipsAt(fromTick, this.cursorTime)
     this.tick()
     this.timer = window.setInterval(() => this.tick(), LOOKAHEAD_MS)
@@ -81,6 +86,8 @@ class Scheduler {
     }
     this.sources.clear()
     engine?.stopScheduled()
+    if (this.map?.automated) engine?.endTempoAutomation(getProject().tempo)
+    this.map = null
   }
 
   get running(): boolean {
@@ -97,11 +104,7 @@ class Scheduler {
     for (const x of this.wraps) if (x.time <= now) w = x
     // drop old wraps
     while (this.wraps.length > 2 && this.wraps[1].time <= now) this.wraps.shift()
-    return w.tick + Math.max(0, now - w.time) * this.tps()
-  }
-
-  private tps(): number {
-    return (this.tempo * PPQ) / 60
+    return w.map.tickAt(w.map.secondsAt(w.tick) + Math.max(0, now - w.time))
   }
 
   private region(p: Project): { start: number; end: number } {
@@ -123,9 +126,11 @@ class Scheduler {
     if (!e) return
     const ctx = e.ctx as AudioContext
     const p = getProject()
-    if (p.tempo !== this.tempo) {
-      // Re-anchor at the cursor so tempo changes apply from the next scheduled event.
-      this.tempo = p.tempo
+    const map = tempoMapFor(p, useTransport.getState().mode)
+    if (map !== this.map) {
+      // Tempo or tempo automation edited: re-anchor at the cursor so the change applies from the next scheduled event.
+      this.map = map
+      this.wraps.push({ time: this.cursorTime, tick: this.cursorTick, map })
     }
     const horizon = ctx.currentTime + HORIZON
     let guard = 0
@@ -134,20 +139,19 @@ class Scheduler {
       this.regionStart = start
       if (this.cursorTick >= end || this.cursorTick < start) {
         this.cursorTick = start
-        this.wraps.push({ time: this.cursorTime, tick: start })
+        this.wraps.push({ time: this.cursorTime, tick: start, map })
         this.startAudioClipsAt(start, this.cursorTime)
       }
-      const tps = this.tps()
-      const spanTicks = Math.min(end - this.cursorTick, (horizon - this.cursorTime) * tps)
-      if (spanTicks <= 0) break
       const from = this.cursorTick
-      const to = from + spanTicks
+      const fromSec = map.secondsAt(from)
+      const to = Math.min(end, map.tickAt(fromSec + (horizon - this.cursorTime)))
+      if (to - from <= 0) break
       this.scheduleRange(p, from, to, this.cursorTime)
-      this.cursorTime += spanTicks / tps
+      this.cursorTime += map.secondsAt(to) - fromSec
       this.cursorTick = to
       if (to >= end - 1e-6) {
         this.cursorTick = start
-        this.wraps.push({ time: this.cursorTime, tick: start })
+        this.wraps.push({ time: this.cursorTime, tick: start, map })
         this.startAudioClipsAt(start, this.cursorTime)
       }
     }
@@ -155,8 +159,9 @@ class Scheduler {
 
   private scheduleRange(p: Project, from: number, to: number, t0: number): void {
     const e = engine!
-    const tps = this.tps()
-    const at = (tick: number) => t0 + (tick - from) / tps
+    const map = this.map!
+    const fromSec = map.secondsAt(from)
+    const at = (tick: number) => t0 + map.secondsAt(tick) - fromSec
     const t = useTransport.getState()
     let hits: NoteHit[]
     if (t.mode === 'pattern') {
@@ -217,15 +222,16 @@ class Scheduler {
     const src = ctx.createBufferSource()
     const strip = clip.channelId ? e.channels.get(clip.channelId) : null
     const dest = strip ? strip.input : e.mixer[0]!.input
-    const tps = this.tps()
+    // Audio clips aren't stretched by tempo automation: they play at the tempo where they start.
+    const bpm = this.map?.bpmAt(clip.start + intoTicks) ?? p.tempo
     const startAt = Math.max(when, ctx.currentTime)
     if (hasFades(clip)) {
       const g = ctx.createGain()
-      scheduleClipFades(g.gain, clip, startAt, intoTicks, tps)
+      scheduleClipFades(g.gain, clip, startAt, intoTicks, (bpm * PPQ) / 60)
       src.connect(g).connect(dest)
       src.addEventListener('ended', () => g.disconnect(), { once: true })
     } else src.connect(dest)
-    if (!startClip(src, pb, clip, this.tempo, startAt, intoTicks)) {
+    if (!startClip(src, pb, clip, bpm, startAt, intoTicks)) {
       src.disconnect()
       return
     }
@@ -317,6 +323,10 @@ export function applyAutomation(p: Project, _a: Automation, target: AutomationTa
     }
     case 'masterVolume':
       eng.masterOut.gain.setValueAtTime(faderToGain(v * 1.25), time)
+      return
+    case 'tempo':
+      // Note timing follows the tempo map (tempo.ts); here only tempo-synced plugins need the new tempo.
+      eng.scheduleTempo(normToTempo(v), time)
       return
     default:
       return

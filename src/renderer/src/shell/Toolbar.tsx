@@ -27,6 +27,7 @@ import { useTransport, playhead } from '@/store/transport'
 import { useUI, SNAP_LABELS, type Snap } from '@/store/ui'
 import { PPQ, TICKS_PER_STEP } from '@/store/types'
 import { transport, getEngine } from '@/audio/transport'
+import { tempoMapFor } from '@/audio/tempo'
 import { addPattern, selectPattern } from '@/store/actions'
 import { Knob } from '@/components/controls'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -245,8 +246,23 @@ function TempoDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** The tempo that plays at the playhead: tempo automation in song mode, else the project tempo. */
+function useLiveTempo(): number {
+  const project = useProject((s) => s.project)
+  const mode = useTransport((s) => s.mode)
+  const [tempo, setTempo] = useState(project.tempo)
+  useEffect(() => {
+    const map = tempoMapFor(project, mode)
+    const render = (tick: number) => setTempo(Math.round(map.bpmAt(tick) * 1000) / 1000)
+    render(playhead.tick)
+    return map.automated ? playhead.subscribe(render) : undefined
+  }, [project, mode])
+  return tempo
+}
+
 function TempoDisplay() {
   const tempo = useProject((s) => s.project.tempo)
+  const shown = useLiveTempo()
   const timeSig = useProject((s) => s.project.timeSig)
   const setHint = useUI((s) => s.setHint)
   const drag = useRef<{ y: number; v: number; fine: boolean } | null>(null)
@@ -285,8 +301,8 @@ function TempoDisplay() {
           onWheel={(e) => editProject('Tempo', (p) => void (p.tempo = Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.floor(p.tempo) - Math.sign(e.deltaY))) + (p.tempo % 1)), { coalesceKey: 'tempo' })}
         >
           <span className="font-mono text-[17px] leading-none text-[#e9f3ff]">
-            {Math.floor(tempo)}
-            <span data-decimals className="text-[12px] text-[#9fb2bd]">.{(tempo % 1).toFixed(3).slice(2)}</span>
+            {Math.floor(shown)}
+            <span data-decimals className="text-[12px] text-[#9fb2bd]">.{(shown % 1).toFixed(3).slice(2)}</span>
           </span>
           <span className="text-[8px] uppercase tracking-wider text-fl-dim">
             {timeSig[0] !== 4 || timeSig[1] !== 4 ? `${timeSig[0]}/${timeSig[1]} · ` : ''}tempo
@@ -304,12 +320,14 @@ function TimeDisplay() {
   const ref = useRef<HTMLSpanElement>(null)
   const [msMode, setMsMode] = useState(true)
   const timeSig = useProject((s) => s.project.timeSig)
-  const tempo = useProject((s) => s.project.tempo)
+  const project = useProject((s) => s.project)
+  const mode = useTransport((s) => s.mode)
   useEffect(() => {
+    const map = tempoMapFor(project, mode)
     const render = (tick: number) => {
       if (!ref.current) return
       if (msMode) {
-        const sec = (tick / PPQ) * (60 / tempo)
+        const sec = map.secondsAt(tick)
         const m = Math.floor(sec / 60)
         const s = Math.floor(sec % 60)
         const cs = Math.floor((sec * 100) % 100)
@@ -325,7 +343,7 @@ function TimeDisplay() {
     }
     render(playhead.tick)
     return playhead.subscribe(render)
-  }, [msMode, timeSig, tempo])
+  }, [msMode, timeSig, project, mode])
   return (
     <div className="flex h-[34px] cursor-pointer items-center gap-1 rounded-[3px] bg-fl-well px-2 fl-inset" onClick={() => setMsMode(!msMode)} title="Song position – click to switch B:S:T / M:S:CS">
       <span ref={ref} className="min-w-[96px] text-right font-mono text-[22px] leading-none tracking-wide text-[#e9f3ff]" />

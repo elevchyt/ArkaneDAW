@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MidiParseError, parseMidi } from './smf'
-import { GM_DRUM_TARGET, GM_TARGETS, allNotes, initialTempo, midiParts, toNotes } from './convert'
+import { GM_DRUM_TARGET, GM_TARGETS, allNotes, initialTempo, midiParts, tempoPoints, toNotes } from './convert'
+import { normToTempo } from '@/audio/tempo'
 import { PPQ } from '@/store/types'
 import type { PluginManifest } from '@/plugins/sdk/types'
 
@@ -131,6 +132,25 @@ describe('MIDI → ArkaneDAW', () => {
     ])
     expect(notes[1].vel).toBeCloseTo(100 / 128)
     expect(initialTempo(file)).toBe(100)
+  })
+
+  it('turns tempo changes into stepped tempo automation points', () => {
+    const tempos = smf(1, 96, [
+      track([
+        [0, ...meta(0x51, [0x07, 0xa1, 0x20])], // 120
+        [384, ...meta(0x51, [0x0f, 0x42, 0x40])], // 60 at bar 2
+        [0, ...meta(0x51, [0x0f, 0x42, 0x40])], // repeat: no new point
+        [384, ...meta(0x51, [0x03, 0xd0, 0x90])] // 240 at bar 3
+      ])
+    ])
+    const pts = tempoPoints(parseMidi(tempos), 4 * 384)!
+    expect(pts.map((p) => [p.t, Math.round(normToTempo(p.v)), p.mode])).toEqual([
+      [0, 120, 'hold'],
+      [384, 60, 'hold'],
+      [768, 240, 'hold'],
+      [1536, 240, 'hold']
+    ])
+    expect(tempoPoints(file, 384)).toBeNull() // one tempo only
   })
 
   it('maps every General MIDI program to an existing built-in preset', () => {

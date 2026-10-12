@@ -104,7 +104,8 @@ export function automationTargetItems(onPick: (t: AutomationTarget) => void): Me
   return [
     { label: 'Channels', items: chans.length ? chans : [{ label: '(no channels)', disabled: true }] },
     { label: 'Mixer', items: mix },
-    { label: 'Main volume', onSelect: () => onPick({ kind: 'masterVolume' }) }
+    { label: 'Main volume', onSelect: () => onPick({ kind: 'masterVolume' }) },
+    { label: 'Tempo', onSelect: () => onPick({ kind: 'tempo' }) }
   ]
 }
 

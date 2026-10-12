@@ -34,7 +34,7 @@ src/renderer/src/
   store/                  types.ts (project model), project.ts (undoable store), ui.ts, transport.ts,
                           actions.ts (shared mutations), io.ts (save/load), normalize.ts (repair loaded JSON),
                           filewatch.ts (reload on outside edits), templates.ts, factory.ts
-  audio/                  context.ts, engine.ts (graph), transport.ts (scheduler), sequence.ts (pure timing),
+  audio/                  context.ts, engine.ts (graph), transport.ts (scheduler), sequence.ts (pure timing), tempo.ts (tempo map),
                           plugin-node.ts (PluginHostNode + external factories), samples.ts (pool, WAV),
                           export.ts (offline render), recording.ts (live notes), worklet/processor.ts
   plugins/
@@ -147,7 +147,14 @@ pedalboard, from github.com/elevchyt/kabee, compiled to WASM).
     of the first empty playlist track. A blank project also takes the file's first tempo and time signature.
   - **MIDI file dropped on a channel row** (from the OS or the browser): all the file's notes replace that channel's notes
     in the current pattern (FL behaviour). A fixed-length pattern grows to fit; an automatic one stays automatic.
-  - Only the initial tempo is used (tempo automation isn't applied by the transport yet). The browser lists `.mid` files.
+  - A blank project also gets the file's tempo changes as a stepped **Tempo** automation clip on the next free track.
+    The browser lists `.mid` files.
+* **Tempo automation** (`audio/tempo.ts`, pure): `tempoMap(project)` maps song ticks ⇄ seconds for song mode. Tempo
+  clips are sampled on the 1/16-beat automation grid (constant tempo inside a step); the project tempo plays before
+  the first tempo clip and a clip's last value holds after it ends (FL); where clips overlap the later-starting one
+  wins; values are linear over 10–522 BPM. Live scheduler, offline export, the toolbar clock / tempo readout and MIDI
+  recording all use the same map; tempo-synced plugins (hidden `tempo` param) get the tempo as scheduled param events.
+  Pattern mode ignores tempo automation. Audio clips aren't stretched: they play at the tempo where they start.
 
 ## 8. Content packs (optional sound libraries)
 
