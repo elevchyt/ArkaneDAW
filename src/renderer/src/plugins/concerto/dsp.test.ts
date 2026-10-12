@@ -255,6 +255,100 @@ describe.skipIf(!ok)('Concerto DSP', () => {
     expect(stats(L.subarray(SR / 2 + 128)).peak).toBe(0)
   })
 
+  // ─── unpitched percussion (cymbals, gong) ───
+  /** bright 100 + modX 1 keep the tone filter off, so the output is a plain linear mix of the sample's channels */
+  const OPEN = { ...DRY, bright: 100 }
+  const hit = (id: string, key: number, vel: number, p: Record<string, number> = {}, seconds = 0.8) =>
+    renderInstrument(factory, { data: data[id], params: { ...OPEN, ...p }, seconds, notes: [{ at: 0, dur: seconds - 0.05, note: note(key, { vel, modX: 1 }) }] })
+  /** Residual energy (relative) of fitting out ≈ a·x + b·y over [0, n): ~0 when out is the sample at its own rate. */
+  function fitResidual(out: Float32Array, pcm: Int16Array[], n: number): number {
+    const x = pcm[0], y = pcm[1] ?? pcm[0]
+    n = Math.min(n, out.length, x.length)
+    let xx = 0, yy = 0, xy = 0, ox = 0, oy = 0, oo = 0
+    for (let i = 0; i < n; i++) {
+      xx += x[i] * x[i]; yy += y[i] * y[i]; xy += x[i] * y[i]
+      ox += out[i] * x[i]; oy += out[i] * y[i]; oo += out[i] * out[i]
+    }
+    const det = xx * yy - xy * xy
+    let a: number, b: number
+    if (Math.abs(det) < 1e-9 * xx * yy) { a = ox / xx; b = 0 } else { a = (ox * yy - oy * xy) / det; b = (oy * xx - ox * xy) / det }
+    let res = 0
+    for (let i = 0; i < n; i++) { const e = out[i] - a * x[i] - b * y[i]; res += e * e }
+    return res / (oo + 1e-20)
+  }
+  const maxDiff = (a: Float32Array, b: Float32Array): number => {
+    let d = 0
+    for (let i = 0; i < a.length; i++) d = Math.max(d, Math.abs(a[i] - b[i]))
+    return d
+  }
+
+  it('unpitched: every key plays the sample at its recorded rate (no transposition, tuning standard or vibrato)', () => {
+    for (const id of ['cymbals', 'suscymbal', 'gong']) {
+      const def = readInstrument(id)
+      expect(def.articulations.every((a) => a.unpitched), id).toBe(true)
+      const [lo, hi] = def.range
+      const top = def.articulations[0].zones[0].layers.at(-1)!.files[0].f
+      const a = hit(id, lo, 1)
+      expect(rms(a.L), id).toBeGreaterThan(1e-3)
+      // the output is exactly the (top-layer) sample, un-resampled …
+      expect(fitResidual(a.L, data[id].pcm![top], SR * 0.5), id).toBeLessThan(1e-6)
+      // … on every key, and A=415 tuning / full vibrato don't move it either
+      for (const r of [hit(id, Math.round((lo + hi) / 2), 1), hit(id, hi, 1), hit(id, lo, 1, { pitch: 2, vibrato: 100 })]) expect(maxDiff(a.L, r.L), id).toBeLessThan(1e-6)
+    }
+    // pitched instruments still transpose: the harp an octave up is not its own sample at the recorded rate
+    const h0 = hit('harp', 60, 1), h12 = hit('harp', 72, 1)
+    const f0 = pitchAt(h0.L, SR * 0.15, 150, 600), f12 = pitchAt(h12.L, SR * 0.15, 300, 1200)
+    expect(Math.abs(f12 / f0 - 2)).toBeLessThan(0.04)
+    expect(Math.abs(f0 / midiHz(60) - 1)).toBeLessThan(0.03)
+  })
+
+  it('unpitched velocity layers follow the dynamics: each velocity plays its own take, louder as it goes up', () => {
+    // suspended cymbal, mallet hits: pp, mp, mf, f, fff (one take each)
+    const z = readInstrument('suscymbal').articulations[0].zones[0]
+    expect(z.layers.length).toBe(5)
+    const files = z.layers.map((l) => data.suscymbal.pcm![l.files[0].f])
+    const levels = z.layers.map((l, i) => {
+      const r = hit('suscymbal', 60, l.vel / 127) // the layer's centre: no crossfade
+      const res = files.map((f) => fitResidual(r.L, f, SR * 0.5))
+      expect(res[i], `layer ${i + 1}`).toBeLessThan(1e-6)
+      for (let j = 0; j < files.length; j++) if (j !== i) expect(res[j], `layer ${i + 1} vs ${j + 1}`).toBeGreaterThan(0.05)
+      return rms(r.L, 0, SR * 0.15) // the attack (where the build normalises one-shots)
+    })
+    for (let i = 1; i < levels.length; i++) expect(levels[i]).toBeGreaterThan(levels[i - 1] * 1.2)
+    // clash cymbals: repeated hits (on any key) alternate between the two round robins
+    const rrs = readInstrument('cymbals').articulations[0].zones[0].layers.at(-1)!.files.map((f) => data.cymbals.pcm![f.f])
+    expect(rrs.length).toBe(2)
+    const n1 = note(50, { id: 1, vel: 1, modX: 1 }), n2 = note(64, { id: 2, vel: 1, modX: 1 })
+    const one = renderEvents(mkDsp(data.cymbals, OPEN), [[0, 'on', n1]], 1.5).L
+    const two = renderEvents(mkDsp(data.cymbals, OPEN), [[0, 'on', n1], [1, 'on', n2]], 1.5).L
+    expect(fitResidual(one, rrs[0], SR * 0.4)).toBeLessThan(1e-6)
+    const second = two.subarray(SR).map((x, i) => x - one[SR + i]) // the second hit alone (the first keeps ringing)
+    expect(fitResidual(second, rrs[1], SR * 0.4)).toBeLessThan(1e-6)
+  })
+
+  it('suspended cymbal roll: loops while held, then crossfades into its recorded ending (per dynamic) on release', () => {
+    const params = { ...DRY, art: 3 }
+    const play = (d: ResolvedConcertoData) => renderInstrument(factory, { data: d, params, seconds: 9, notes: [{ at: 0, dur: 3, note: note(60, { vel: 0.8 }) }] })
+    const r = play(data.suscymbal)
+    const held = rms(r.L, SR * 2.5, SR * 3)
+    expect(held).toBeGreaterThan(1e-3)
+    // no gap and no jump across the release
+    for (let t = 3; t < 3.4; t += 0.05) {
+      const x = rms(r.L, SR * t, SR * (t + 0.05))
+      expect(x, `t=${t.toFixed(2)}`).toBeGreaterThan(held * 0.35)
+      expect(x, `t=${t.toFixed(2)}`).toBeLessThan(held * 2)
+    }
+    // the ending rings on, then dies away
+    expect(rms(r.L, SR * 3.5, SR * 4)).toBeGreaterThan(held * 0.2)
+    expect(rms(r.L, SR * 8.5, SR * 9)).toBeLessThan(held * 0.01)
+    // without its release samples the roll would just stop (Release knob, 0.5 s)
+    const def = readInstrument('suscymbal')
+    const bare = { ...def, articulations: def.articulations.map((a) => ({ ...a, release: undefined, releaseTail: undefined })) }
+    const nr = play({ ...data.suscymbal, defs: { suscymbal: bare }, pcm: undefined })
+    expect(rms(nr.L, SR * 2.5, SR * 3)).toBeCloseTo(held, 6)
+    expect(rms(nr.L, SR * 3.5, SR * 4)).toBeLessThan(rms(r.L, SR * 3.5, SR * 4) * 0.1)
+  })
+
   it('benchmark: 64 voices (3-layer ensemble, chords, filter, vibrato, hall) render much faster than real time', async () => {
     const preset = presets.find((p) => p.name === 'Chamber Orchestra')!
     const d = await resolved((preset.data as { layers: never[] }).layers)

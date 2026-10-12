@@ -2,7 +2,9 @@
 //
 // • key / velocity zones with crossfaded velocity layers and round robins
 // • sustain loops (crossfade baked into the samples at build time → plain jump, click-free)
-// • release samples (harpsichord jacks, piano dampers), damper / ring-out behaviour per articulation
+// • release samples (harpsichord jacks, piano dampers, cymbal-roll endings), damper / ring-out behaviour per
+//   articulation
+// • unpitched articulations (cymbals, gongs): every key plays the samples at their recorded rate
 // • articulations via param or keyswitches (C0.. = MIDI 12..), up to 3 instrument layers with key splits
 // • legato (mono, overlapping notes): the new note starts past its attack and crossfades in while both notes
 //   glide in pitch (portamento time = Glide); releasing the top note returns to the held one
@@ -35,6 +37,9 @@ const KIND_RING = 2
 /** Output trim: a few sustained chords stay well below 0 dBFS at default settings. */
 const OUT_TRIM = 0.9
 const STATUS_INTERVAL = 0.25 // s
+/** tail releases (cymbal roll endings): the note fades out over this time (s) while its ending fades in */
+const TAIL_OUT = 0.2
+const TAIL_IN = 0.04
 
 interface FileRT {
   f: string
@@ -66,6 +71,10 @@ interface ArtRT {
   name: string
   kind: number
   damp: number
+  /** play every key at the sample's own rate (cymbals, gongs) */
+  unpitched: boolean
+  /** release samples are the note's ending, one per velocity layer, at the note's level */
+  relTail: boolean
   zones: ZoneRT[]
   /** key → zone indices */
   byKey: Int16Array[]
@@ -110,6 +119,10 @@ class Voice {
   loopE = 0
   /** semitone offset from the sample root (incl. tune, transpose, pitch standard) */
   semis = 0
+  /** 1 = pitched; 0 = unpitched (the tuning standard doesn't move it) */
+  pitched = 1
+  /** index of the velocity layer in its zone (tail releases pick the matching layer) */
+  layerIdx = 0
   bend = 0
   bendTarget = 0
   bendStep = 0
@@ -194,6 +207,8 @@ function buildInstrument(def: InstrumentJson, sr: number): InstRT {
       name: a.name,
       kind: a.kind === 'sustain' ? KIND_SUSTAIN : a.kind === 'decay' ? KIND_DECAY : KIND_RING,
       damp: a.damp ?? 0.15,
+      unpitched: !!a.unpitched,
+      relTail: !!a.releaseTail && !!a.release?.length,
       zones: main.zones,
       byKey: main.byKey,
       release: rel.zones,
@@ -443,16 +458,17 @@ class Concerto implements InstrumentDSP {
         }
       }
       const zg = z.gain * s.gain
-      if (i1 < 0) this.startVoice(si, s, art, z, layers[i0], (zg * target) / layers[i0].amp, n, key, fine, fromKey, xf, glide)
+      if (i1 < 0) this.startVoice(si, s, art, z, i0, (zg * target) / layers[i0].amp, n, key, fine, fromKey, xf, glide)
       else {
-        this.startVoice(si, s, art, z, layers[i0], (zg * target * Math.cos((w1 * Math.PI) / 2)) / layers[i0].amp, n, key, fine, fromKey, xf, glide)
-        this.startVoice(si, s, art, z, layers[i1], (zg * target * Math.sin((w1 * Math.PI) / 2)) / layers[i1].amp, n, key, fine, fromKey, xf, glide)
+        this.startVoice(si, s, art, z, i0, (zg * target * Math.cos((w1 * Math.PI) / 2)) / layers[i0].amp, n, key, fine, fromKey, xf, glide)
+        this.startVoice(si, s, art, z, i1, (zg * target * Math.sin((w1 * Math.PI) / 2)) / layers[i1].amp, n, key, fine, fromKey, xf, glide)
       }
     }
   }
 
-  private startVoice(si: number, s: LayerSlot, art: ArtRT, z: ZoneRT, layer: LayerRT, amp: number, n: HeldNote, key: number, fine: number, fromKey: number, xf: number, glide: number): void {
+  private startVoice(si: number, s: LayerSlot, art: ArtRT, z: ZoneRT, li: number, amp: number, n: HeldNote, key: number, fine: number, fromKey: number, xf: number, glide: number): void {
     if (amp <= 0.0002) return
+    const layer: LayerRT = z.layers[li]
     const nf = layer.files.length
     let fi = 0
     if (nf === 2) fi = layer.last === 0 ? 1 : 0
@@ -475,7 +491,10 @@ class Concerto implements InstrumentDSP {
     v.looping = art.kind === KIND_SUSTAIN && file.loopE > file.loopS + 8 && file.loopE <= v.len
     v.loopS = file.loopS
     v.loopE = file.loopE
-    v.semis = key - z.root + (z.tune + fine) / 100
+    // unpitched: the same sound on every key (only per-note fine tuning / pitch bend move it)
+    v.semis = art.unpitched ? (z.tune + fine) / 100 : key - z.root + (z.tune + fine) / 100
+    v.pitched = art.unpitched ? 0 : 1
+    v.layerIdx = li
     v.gain = Math.min(6, amp)
     v.baseGain = v.gain
     v.vel = n.vel
@@ -489,7 +508,7 @@ class Concerto implements InstrumentDSP {
     v.bendTarget = 0
     v.bendStep = 0
     v.vibPhase = Math.random()
-    v.vibAmt = clamp((n.modY - 0.5) * 2, -1, 1)
+    v.vibAmt = art.unpitched ? -1 : clamp((n.modY - 0.5) * 2, -1, 1)
     v.vibOnset = 0
     v.brightOfs = (n.modX - 0.5) * 0.8 + (n.vel - 0.75) * 0.12
     v.lp1L = v.lp2L = v.lp1R = v.lp2R = 0
@@ -499,7 +518,7 @@ class Concerto implements InstrumentDSP {
       v.pos = Math.min(file.ofs, Math.max(0, (v.looping ? v.loopS : v.len) - 2))
       v.env = 0
       v.atkStep = 1 / Math.max(1, xf * this.sr)
-      if (glide > 0) {
+      if (glide > 0 && !art.unpitched) {
         v.bend = fromKey - key
         v.bendStep = -v.bend / Math.max(1, glide * this.sr)
       }
@@ -541,7 +560,7 @@ class Concerto implements InstrumentDSP {
   }
 
   private rateOf(v: Voice): number {
-    return Math.pow(2, (v.semis + v.bend + this.pitchSemis + this.bendSemis) / 12)
+    return Math.pow(2, (v.semis + v.bend + this.pitchSemis * v.pitched + this.bendSemis) / 12)
   }
 
   noteOff(id: number, key: number): void {
@@ -572,7 +591,7 @@ class Concerto implements InstrumentDSP {
       if (v.kind === KIND_SUSTAIN) {
         anySus = true
         v.fadeStep = Math.max(v.fadeStep, fadeStep)
-        if (glide > 0) {
+        if (glide > 0 && v.pitched) {
           v.bendTarget = to.key - from.key
           v.bendStep = (v.bendTarget - v.bend) / Math.max(1, glide * this.sr)
         }
@@ -596,9 +615,11 @@ class Concerto implements InstrumentDSP {
     // level and the note never dies
     v.atkStep = 0
     if (v.kind === KIND_RING) return
-    const t = v.kind === KIND_DECAY ? Math.min(v.art?.damp ?? 0.15, this.release) : this.release
+    // tail releases: the recorded ending takes over, the note itself crossfades out
+    const tail = !!v.art && v.art.relTail
+    const t = tail ? Math.min(TAIL_OUT, this.release) : v.kind === KIND_DECAY ? Math.min(v.art?.damp ?? 0.15, this.release) : this.release
     v.relCoef = Math.exp(-6.9 / Math.max(1, t * this.sr))
-    if (v.kind === KIND_DECAY && v.art && v.art.release.length) this.triggerRelease(v)
+    if (tail || (v.kind === KIND_DECAY && v.art && v.art.release.length)) this.triggerRelease(v)
   }
 
   private triggerRelease(v: Voice): void {
@@ -610,7 +631,8 @@ class Concerto implements InstrumentDSP {
     const zl = art.relByKey[key]
     if (!zl.length) return
     const z = art.release[zl[0]]
-    const layer = z.layers[0]
+    const tail = art.relTail
+    const layer = tail ? z.layers[Math.min(v.layerIdx, z.layers.length - 1)] : z.layers[0]
     if (!layer) return
     const nf = layer.files.length
     const fi = nf > 1 ? (layer.last + 1) % nf : 0
@@ -631,17 +653,19 @@ class Concerto implements InstrumentDSP {
     r.len = pcm[0].length
     r.looping = false
     r.pos = 0
-    r.semis = key - z.root
+    r.semis = art.unpitched ? 0 : key - z.root
+    r.pitched = art.unpitched ? 0 : 1
     r.bend = r.bendTarget = r.bendStep = 0
-    r.gain = Math.min(2, 0.55 + 0.6 * v.vel) * (s.gain ?? 1)
-    r.env = 1
-    r.atkStep = 0
+    // tail: same level as the note (same gain as its layer), fading in while the note fades out
+    r.gain = tail ? v.baseGain * Math.min(1, v.env * v.fade) : Math.min(2, 0.55 + 0.6 * v.vel) * (s.gain ?? 1)
+    r.env = tail ? 0 : 1
+    r.atkStep = tail ? 1 / Math.max(1, TAIL_IN * this.sr) : 0
     r.relCoef = 1
     r.fade = 1
     r.fadeStep = 0
     r.vibAmt = -1
     r.vibOnset = 0
-    r.brightOfs = 0
+    r.brightOfs = tail ? v.brightOfs : 0
     r.lp1L = r.lp2L = r.lp1R = r.lp2R = 0
     r.art = null
     r.seatPan = v.seatPan
@@ -759,7 +783,7 @@ class Concerto implements InstrumentDSP {
       vibCents = Math.sin(v.vibPhase * 2 * Math.PI) * depth * 32 * v.vibOnset * v.vibOnset
     }
     const r0 = v.lastRate
-    const r1 = Math.pow(2, (v.semis + v.bend + vibCents / 100 + this.pitchSemis + this.bendSemis) / 12)
+    const r1 = Math.pow(2, (v.semis + v.bend + vibCents / 100 + this.pitchSemis * v.pitched + this.bendSemis) / 12)
     v.lastRate = r1
     const dr = (r1 - r0) / n
     // tone: brightness + per-note modX/velocity + expression, scaled by the instrument's voicing

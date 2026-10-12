@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import plugin from './index'
 import { INSTRUMENTS } from './instruments.gen'
 import { CONCERTO_DIR, decodeAll, hasData, hasFfmpeg, instrumentIds, readInstrument } from './testkit'
 
@@ -30,13 +31,14 @@ describe.skipIf(!hasData)('Concerto instrument.json', () => {
         const tag = `${id}/${a.id}`
         const covered = new Set<number>()
         for (const z of [...a.zones, ...(a.release ?? [])]) {
+          const isRelease = !a.zones.includes(z)
           if (z.lo > z.hi) failures.push(`${tag}: zone ${z.root} lo>hi`)
           if (z.lo < def.keyswitchBase + 5) failures.push(`${tag}: zone ${z.root} reaches keyswitch keys (${z.lo})`)
           for (const l of z.layers) {
             if (!l.files.length) failures.push(`${tag}: empty layer`)
             for (const f of l.files) {
               if (!existsSync(join(CONCERTO_DIR, f.f))) failures.push(`${tag}: missing ${f.f}`)
-              if (a.kind === 'sustain' && !f.loop) failures.push(`${tag}: ${f.f} has no loop`)
+              if (a.kind === 'sustain' && !isRelease && !f.loop) failures.push(`${tag}: ${f.f} has no loop`)
               if (f.loop && !(f.loop[0] > 0 && f.loop[1] > f.loop[0] + 1000)) failures.push(`${tag}: ${f.f} bad loop ${f.loop}`)
               if (f.ofs !== undefined && f.loop && f.ofs > f.loop[0]) failures.push(`${tag}: ${f.f} legato offset after loop start`)
             }
@@ -55,6 +57,45 @@ describe.skipIf(!hasData)('Concerto instrument.json', () => {
       }
     }
     expect(failures).toEqual([])
+  })
+
+  it('unpitched percussion: dynamic layers get louder pp → fff, tail releases mirror their layers, swell keys are named', () => {
+    const failures: string[] = []
+    let unpitched = 0
+    for (const id of instrumentIds()) {
+      const def = readInstrument(id)
+      for (const a of def.articulations) {
+        if (!a.unpitched) continue
+        unpitched++
+        const tag = `${id}/${a.id}`
+        for (const z of a.zones) {
+          if (z.tune) failures.push(`${tag}: unpitched zone with tune`)
+          for (let i = 1; i < z.layers.length; i++) if (!(z.layers[i].amp > z.layers[i - 1].amp)) failures.push(`${tag}: layer ${i + 1} not louder than layer ${i}`)
+        }
+        if (a.releaseTail) {
+          if (!a.release?.length) failures.push(`${tag}: releaseTail without release samples`)
+          for (const r of a.release ?? []) {
+            const z = a.zones.find((q) => q.root === r.root)
+            if (!z || z.lo !== r.lo || z.hi !== r.hi || z.layers.length !== r.layers.length) failures.push(`${tag}: release zone ${r.root} does not mirror its zone`)
+            else r.layers.forEach((l, i) => l.vel !== z.layers[i].vel && failures.push(`${tag}: release layer ${i + 1} velocity`))
+          }
+        }
+      }
+    }
+    expect(unpitched).toBeGreaterThanOrEqual(10)
+    expect(failures).toEqual([])
+    // piano-roll names: every key of the range plays; the swell articulation names its key ranges
+    const layers = [{ inst: 'suscymbal', lo: 0, hi: 127, gain: 0, transpose: 0 }]
+    const swell = INSTRUMENTS.find((i) => i.id === 'suscymbal')!.arts.findIndex((a) => a.id === 'swell')
+    const mallet = plugin.keyNames!({ params: { art: 0 }, data: { layers } })!
+    const sw = plugin.keyNames!({ params: { art: swell }, data: { layers } })!
+    expect(mallet[48]?.group).toBe('Suspended Cymbal')
+    expect(mallet[72]?.group).toBe('Suspended Cymbal')
+    expect(mallet[47]).toBeUndefined()
+    expect(mallet[50].name).toBe('D4')
+    expect(sw[50].name).toMatch(/^D4 Swell \d+\.\d s$/)
+    expect(sw[72].name).toMatch(/Swell/)
+    expect(new Set([48, 54, 60, 66].map((k) => sw[k].name.slice(sw[k].name.indexOf(' ')))).size).toBe(4)
   })
 
   it.skipIf(!hasFfmpeg)('sustain loops are continuous: the wrap jump is no larger than the local waveform slope', async () => {

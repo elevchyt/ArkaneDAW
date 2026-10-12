@@ -32,6 +32,8 @@ export interface Zone {
   pan?: number
   gain?: number
   part?: string
+  /** what this key range plays when it differs from the rest (e.g. swells: "Swell 2.3 s") — piano-roll key names */
+  label?: string
   layers: VelLayer[]
 }
 
@@ -41,11 +43,21 @@ export interface ArticulationJson {
   id: string
   name: string
   kind: ArtKind
+  /**
+   * unpitched percussion (cymbals, gongs): every key of a zone plays its samples at the recorded rate — no
+   * transposition, tuning standard, vibrato or glide; velocity layers / round robins work as usual
+   */
+  unpitched?: boolean
   /** decay kinds: damper time on note-off (s) */
   damp?: number
   zones: Zone[]
   /** release (jack / damper) samples, one-shot, triggered on note-off */
   release?: Zone[]
+  /**
+   * the release samples are the note's own ending (e.g. a cymbal roll's last strokes and ring): one per velocity
+   * layer (same order as the zone's layers), played at the note's level while the note crossfades out
+   */
+  releaseTail?: boolean
 }
 
 export interface InstrumentJson {
@@ -74,7 +86,7 @@ export interface InstrumentMeta {
   range: [number, number]
   solo: boolean
   stage: { pan: number; width: number }
-  arts: { id: string; name: string; kind: ArtKind }[]
+  arts: { id: string; name: string; kind: ArtKind; unpitched?: boolean; keys?: { lo: number; hi: number; name: string }[] }[]
   files: number
 }
 

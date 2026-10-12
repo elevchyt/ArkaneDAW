@@ -5,7 +5,8 @@
 //   vsco(sfz)                  — VSCO 2 CE SFZ mapping (root keys / velocity splits / round robins from the SFZ)
 //   vcsl(dir, regex)           — VCSL folder; regex named groups: note (e.g. "A#3"), vel (number or dynamic
 //                                word), rr. Root keys come from the note name; the octave convention is verified
-//                                (and corrected) by pitch detection.
+//                                (and corrected) by pitch detection. Unpitched files (no note name): option
+//                                `root` gives the zone's root key instead.
 //   sf2(program)               — FluidR3_GM preset (bank 0); loops are unrolled and re-looped at 48 kHz.
 //   ref(instrument, art, opts) — reuse another instrument's built zones (ensembles); opts: lo, hi, pan, gainDb
 //
@@ -17,6 +18,14 @@
 // Options: layers (indices of the source's velocity layers to keep, soft → loud), rr (max round robins),
 //          every (keep every n-th root), keys [lo, hi] (root filter), maxLen (s), gainDb, mono (downmix),
 //          releaseMaxLen (s, release samples of decay articulations; default 1.2)
+//          unpitched — percussion without a pitch (cymbals, gongs): no pitch detection, velocity layers ordered by
+//                      their dynamic marking, and the DSP plays the samples at their recorded rate on every key of
+//                      the zone (the zone's key range is the instrument range; several roots = several sounds
+//                      side by side on the keyboard)
+//          releaseTail — release samples continue the note (cymbal roll endings): one per velocity layer, matched by
+//                      dynamic, at the note's level; works for sustain articulations too
+//          trimDb (onset threshold re peak), peakLabels (swells: label each zone with its time to peak),
+//          afterPeak (s of ring kept after a swell's peak), skip (source option: seconds to skip at the start)
 
 const vsco = (sfz, o = {}) => ({ type: 'vsco', sfz, ...o })
 const vcsl = (dir, re, o = {}) => ({ type: 'vcsl', dir, re, ...o })
@@ -28,6 +37,9 @@ const R = (id, name, src, o = {}) => ({ id, name, kind: 'ring', src, ...o })
 const D = (id, name, src, o = {}) => ({ id, name, kind: 'decay', src, ...o })
 
 const NOTE = '(?<note>[A-G]#?-?\\d)'
+const VCSL_PERC = 'Idiophones/Struck Idiophones/'
+/** unpitched percussion: the root identifying the (single) zone */
+const PERC_ROOT = 60
 const VCSL_REC = 'Aerophones/Edge-blown Aerophones/'
 const VCSL_ORG = 'Aerophones/Edge-blown Aerophones/'
 
@@ -262,6 +274,47 @@ export const INSTRUMENTS = [
     arts: [
       R('hit', 'Hits', vsco('Timpani.sfz'), { maxLen: 4.0, noPitchCheck: true }),
       S('roll', 'Roll', vsco('TimpaniRolls.sfz'), { maxLen: 3.2, noPitchCheck: true })
+    ]
+  },
+  // Unpitched: every key of the range plays the same sound (velocity layers + round robins), un-transposed.
+  {
+    id: 'cymbals', name: 'Clash Cymbals', section: 'Percussion', range: [48, 72], stage: { pan: 0.3, width: 0.5 },
+    description: 'Orchestral clash cymbals (VCSL), two pairs: crashes in 4 and 3 dynamics with round robins, and choked crashes. Unpitched: every key plays.',
+    arts: [
+      R('crash', 'Crash', vcsl(`${VCSL_PERC}Clash Cymbals 1`, '^cymbal_crash1_(?<vel>pp|mp|mf|ff)(?<rr>\\d)\\.wav$', { root: PERC_ROOT, rr: 2 }), { maxLen: 8.0, unpitched: true }),
+      R('crash2', 'Crash II', vcsl(`${VCSL_PERC}Clash Cymbals 2`, '^cymbal_crash2_(?<vel>mp|f|fff)(?<rr>\\d)\\.wav$', { root: PERC_ROOT, rr: 2 }), { maxLen: 8.0, unpitched: true }),
+      R('choke', 'Choke', vcsl(`${VCSL_PERC}Clash Cymbals 1`, '^cymbal_crash1_short(?<rr>\\d)\\.wav$', { root: PERC_ROOT }), { maxLen: 2.0, unpitched: true })
+    ]
+  },
+  {
+    id: 'suscymbal', name: 'Suspended Cymbal', section: 'Percussion', range: [48, 72], stage: { pan: 0.4, width: 0.45 },
+    description: 'Suspended cymbal (VCSL): soft-mallet hits (5 dynamics), stick hits, bell, a looped roll (3 dynamics) with its natural ending on release, and swells of 4 lengths across the keys (labelled with the time to peak). Unpitched.',
+    arts: [
+      R('mallet', 'Mallet', vcsl(`${VCSL_PERC}Suspended Cymbal 2`, '^susCymb2_hit_(?<vel>pp|mp|mf|f|fff)1\\.wav$', { root: PERC_ROOT }), { maxLen: 8.0, unpitched: true }),
+      R('stick', 'Stick', vcsl(`${VCSL_PERC}Suspended Cymbal 2`, '^susCymb2_hit_stick_(?<vel>pp|mp|mf)1\\.wav$', { root: PERC_ROOT }), { maxLen: 5.0, unpitched: true }),
+      R('bell', 'Bell', vcsl(`${VCSL_PERC}Suspended Cymbal 1`, '^susCymb1_hit_bell_(?<vel>pp|mf|fff)1\\.wav$', { root: PERC_ROOT }), { maxLen: 3.5, unpitched: true }),
+      S('roll', 'Roll', [
+        vcsl(`${VCSL_PERC}Suspended Cymbal 1`, '^susCymb1_roll_(?<vel>mp|f)\\d_nloop\\.wav$', { root: PERC_ROOT }),
+        // the ff take builds up for ~2 s: start it 1.6 s in so an ff roll is ff right away
+        vcsl(`${VCSL_PERC}Suspended Cymbal 1`, '^susCymb1_roll_(?<vel>ff)\\d_nloop\\.wav$', { root: PERC_ROOT, skip: 1.6 })
+      ], {
+        maxLen: 6.0, minLoop: 2.0, maxLoop: 3.5, unpitched: true, releaseTail: true, releaseMaxLen: 5.0,
+        release: vcsl(`${VCSL_PERC}Suspended Cymbal 1`, '^susCymb1_roll_(?<vel>mp|f|ff)\\d_rel\\.wav$', { root: PERC_ROOT })
+      }),
+      R('swell', 'Swell', [
+        vcsl(`${VCSL_PERC}Suspended Cymbal 1`, '^susCymb1_cresc_1\\.5s\\.wav$', { root: 50 }),
+        vcsl(`${VCSL_PERC}Suspended Cymbal 2`, '^susCymb2_cresc_2\\.5s2\\.wav$', { root: 56 }),
+        vcsl(`${VCSL_PERC}Suspended Cymbal 2`, '^susCymb2_cresc_4s\\.wav$', { root: 62 }),
+        vcsl(`${VCSL_PERC}Suspended Cymbal 2`, '^susCymb2_cresc_7s\\.wav$', { root: 68 })
+      ], { maxLen: 12.0, afterPeak: 5.0, unpitched: true, trimDb: -54, peakLabels: true })
+    ]
+  },
+  {
+    id: 'gong', name: 'Gong / Tam-tam', section: 'Percussion', range: [48, 72], stage: { pan: 0.5, width: 0.5 },
+    description: 'Large orchestral gong / tam-tam (VCSL): hits in 4 dynamics with a long ring, and a scrape. Unpitched.',
+    arts: [
+      R('hit', 'Hit', vcsl(`${VCSL_PERC}Gong 1`, '^gong_(?<vel>p|mf|f|fff)\\.wav$', { root: PERC_ROOT }), { maxLen: 14.0, unpitched: true }),
+      R('scrape', 'Scrape', vcsl(`${VCSL_PERC}Gong 1`, '^gong_scrape_mf\\.wav$', { root: PERC_ROOT }), { maxLen: 10.0, unpitched: true })
     ]
   },
 

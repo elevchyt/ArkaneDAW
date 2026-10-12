@@ -178,14 +178,15 @@ async function collect(src, art) {
       for (const f of files) {
         const m = f.match(re)
         if (!m) continue
-        const nominal = noteToMidi(m.groups.note)
+        // unpitched sources (cymbals, gongs) have no note name: a fixed root identifies the zone
+        const nominal = s.root ?? noteToMidi(m.groups?.note)
         if (nominal == null) continue
-        const v = m.groups.vel
+        const v = m.groups?.vel
         out.push({
           root: nominal + 12 * (s.octave ?? 0),
           nominal,
           layerKey: v == null ? 0 : /^\d+$/.test(v) ? Number(v) : DYN_RANK[v] ?? 0,
-          rr: m.groups.rr ? Number(m.groups.rr) : 1,
+          rr: m.groups?.rr ? Number(m.groups.rr) : 1,
           label: `${s.dir}/${f}`,
           group,
           spec: s,
@@ -266,12 +267,23 @@ function pickLayers(keys, sel) {
   return out
 }
 
-function attackLoudness(ch) {
-  // loudest 50 ms RMS window in the first 400 ms
+function attackLoudness(ch, within = 0.4) {
+  // loudest 50 ms RMS window in the first 400 ms (or `within` seconds)
   const w = Math.round(0.05 * SR)
   let best = 0
-  for (let s = 0; s < Math.min(ch[0].length, Math.round(0.4 * SR)); s += w >> 1) best = Math.max(best, rms(ch, s, s + w))
+  for (let s = 0; s < Math.min(ch[0].length, Math.round(within * SR)); s += w >> 1) best = Math.max(best, rms(ch, s, s + w))
   return best
+}
+
+/** Start of the loudest 50 ms RMS window (seconds) — where a crescendo / swell peaks. */
+function peakTime(ch) {
+  const w = Math.round(0.05 * SR)
+  let best = 0, at = 0
+  for (let s = 0; s < ch[0].length; s += w >> 1) {
+    const r = rms(ch, s, s + w)
+    if (r > best) { best = r; at = s }
+  }
+  return at / SR
 }
 
 async function buildArticulation(inst, art) {
@@ -297,10 +309,20 @@ async function buildArticulation(inst, art) {
   await pool(flat, JOBS, async (it) => {
     it.ch = (await it.load()).ch
     if (it.spec.mono || art.mono) it.ch = [mono(it.ch)]
+    if (it.spec.skip) {
+      // start into the recording (e.g. past a roll's slow build-up), with a short fade-in
+      const from = Math.round(it.spec.skip * SR), fade = Math.round(0.03 * SR)
+      it.ch = it.ch.map((c) => {
+        const o = c.slice(from)
+        for (let i = 0; i < fade && i < o.length; i++) o[i] *= i / fade
+        return o
+      })
+    }
   })
 
-  // root verification (pitch detection on the loudest layer, first round robin)
-  const pitchOk = !art.noPitchCheck
+  // root verification (pitch detection on the loudest layer, first round robin); unpitched sources keep their
+  // configured root
+  const pitchOk = !art.noPitchCheck && !art.unpitched
   const groups = [...new Set(flat.map((x) => x.group))]
   for (const g of groups) {
     const gp = plan.filter((p) => p.layers.some((l) => l.some((x) => x.group === g)))
@@ -348,7 +370,7 @@ async function buildArticulation(inst, art) {
   // trim / loop / measure
   const isSus = art.kind === 'sustain'
   for (const p of plan) for (const l of p.layers) for (const it of l) {
-    let ch = trimStart(it.ch, { db: isSus ? -48 : -40 })
+    let ch = trimStart(it.ch, { db: art.trimDb ?? (isSus ? -48 : -40) })
     if (isSus) {
       const r = makeLoop(ch, { maxLen: art.maxLen ?? 3.0, minLoop: art.minLoop ?? 0.45, maxLoop: art.maxLoop ?? 1.25, xfade: 0.2 })
       it.ch = r.channels
@@ -357,8 +379,11 @@ async function buildArticulation(inst, art) {
       it.corr = r.corr
       it.loud = rms(r.channels, r.loop[0], r.loop[1])
     } else {
-      it.ch = trimTail(ch, { maxLen: art.maxLen ?? 3, floorDb: -58 })
-      it.loud = attackLoudness(it.ch)
+      // swells: keep `afterPeak` seconds of ring after the crescendo's peak
+      const maxLen = art.afterPeak ? Math.min(art.maxLen ?? 12, peakTime(ch) + art.afterPeak) : art.maxLen ?? 3
+      it.ch = trimTail(ch, { maxLen, floorDb: -58 })
+      // swells peak late: measure them over the whole sample
+      it.loud = attackLoudness(it.ch, art.peakLabels ? Infinity : 0.4)
     }
     it.peak = peakOf(it.ch)
   }
@@ -375,31 +400,41 @@ async function buildArticulation(inst, art) {
     const peak = Math.max(...p.layers.flat().map((x) => x.peak)) || 1
     g = Math.min(g, 0.97 / peak)
     const layerLoud = p.layers.map((l) => l.reduce((a, x) => a + x.loud, 0) / l.length)
-    const order = layerLoud.map((v, i) => i).sort((a, b) => layerLoud[a] - layerLoud[b])
+    // velocity order: natural loudness, or the dynamic markings (pp < mp < … < fff) for sources whose takes were
+    // not recorded at consistent levels (unpitched percussion)
+    const byDyn = art.dynOrder ?? !!art.unpitched
+    const order = layerLoud.map((v, i) => i).sort((a, b) => (byDyn ? p.layers[a][0].layerKey - p.layers[b][0].layerKey : layerLoud[a] - layerLoud[b]))
     const maxL = Math.max(...layerLoud) || 1
     const layers = order.map((li, k) => {
       const amp = Math.max(0.02, layerLoud[li] / maxL)
       return { amp, items: p.layers[li], k }
     })
     for (const L of layers) for (const it of L.items) applyGain(it.ch, g)
-    // velocity centres where the layer's natural loudness falls on the velocity curve
+    // velocity centres where the layer's natural loudness falls on the velocity curve; dynamic-ordered layers
+    // (percussion recorded from pp to fff, often 30+ dB apart) are spread evenly so every dynamic gets its share
+    // of the velocity range — the level still follows the velocity curve (gain = curve / natural loudness)
     const n = layers.length
-    let vels = layers.map((L) => Math.round(127 * Math.pow(L.amp, 1 / VEL_EXP)))
+    let vels = byDyn ? layers.map((L, i) => Math.round((127 * (i + 1)) / n)) : layers.map((L) => Math.round(127 * Math.pow(L.amp, 1 / VEL_EXP)))
     vels[n - 1] = 127
     for (let i = n - 2; i >= 0; i--) vels[i] = Math.max(1 + i * 8, Math.min(vels[i], vels[i + 1] - 12))
-    zones.push({ root: p.root, tune: p.tune, layers: layers.map((L, i) => ({ vel: vels[i], amp: +L.amp.toFixed(4), items: L.items })) })
+    zones.push({ root: p.root, tune: p.tune, gain: g, layers: layers.map((L, i) => ({ vel: vels[i], amp: +L.amp.toFixed(4), items: L.items })) })
   })
   // key ranges: midpoints between roots, ends stretched to the instrument range
   zones.forEach((z, i) => {
     z.lo = i === 0 ? Math.max(MIN_KEY, Math.min(z.root, inst.range[0])) : Math.floor((zones[i - 1].root + z.root) / 2) + 1
     z.hi = i === zones.length - 1 ? Math.max(z.root, inst.range[1]) : Math.floor((z.root + zones[i + 1].root) / 2)
-    if (z.root - z.lo > 9 || z.hi - z.root > 12) warn(`${inst.id}/${art.id}: root ${z.root} stretched to ${z.lo}-${z.hi}`)
+    if (!art.unpitched && (z.root - z.lo > 9 || z.hi - z.root > 12)) warn(`${inst.id}/${art.id}: root ${z.root} stretched to ${z.lo}-${z.hi}`)
   })
   // velocity ranges
   for (const z of zones) z.layers.forEach((L, i) => {
     L.lo = i === 0 ? 1 : Math.floor((z.layers[i - 1].vel + L.vel) / 2) + 1
     L.hi = i === z.layers.length - 1 ? 127 : Math.floor((L.vel + z.layers[i + 1].vel) / 2)
   })
+  // swells: label each key range with the time from note-on to the peak (place the note that much early)
+  if (art.peakLabels) for (const z of zones) {
+    const it = z.layers[z.layers.length - 1].items[0]
+    z.label = `${art.name} ${peakTime(it.ch).toFixed(1)} s`
+  }
   // files
   const jobs = []
   const outZones = zones.map((z) => ({
@@ -407,6 +442,7 @@ async function buildArticulation(inst, art) {
     lo: z.lo,
     hi: z.hi,
     ...(z.tune ? { tune: z.tune } : {}),
+    ...(z.label ? { label: z.label } : {}),
     layers: z.layers.map((L, li) => ({
       vel: L.vel,
       lo: L.lo,
@@ -428,7 +464,41 @@ async function buildArticulation(inst, art) {
 
   // release samples (decay kinds)
   let releaseZones
-  if (art.release) {
+  if (art.release && art.releaseTail) {
+    // tail releases (e.g. the end of a cymbal roll): one per main zone and velocity layer (matched by root and
+    // dynamic), processed with the main zone's gain so the note crossfades into its own ending at the same level
+    const rel = await collect(art.release, { ...art, id: art.id + '-rel' })
+    await pool(rel, JOBS, async (it) => {
+      it.ch = (await it.load()).ch
+      if (it.spec.mono || art.mono) it.ch = [mono(it.ch)]
+    })
+    releaseZones = zones.map((z) => ({
+      root: z.root,
+      lo: z.lo,
+      hi: z.hi,
+      layers: z.layers.map((L, li) => {
+        const key = L.items[0].layerKey
+        const its = rel.filter((x) => x.root === z.root && x.layerKey === key).sort((a, b) => a.rr - b.rr).slice(0, 2)
+        if (!its.length) throw new Error(`${inst.id}/${art.id}: no release sample for root ${z.root} layer ${li + 1}`)
+        return {
+          vel: L.vel,
+          lo: L.lo,
+          hi: L.hi,
+          amp: L.amp,
+          files: its.map((it, ri) => {
+            let ch = trimStart(it.ch, { db: -40, preMs: 1 })
+            ch = trimTail(ch, { maxLen: art.releaseMaxLen ?? 1.2, floorDb: -58 })
+            const pk = peakOf(ch) * z.gain
+            applyGain(ch, pk > 0.97 ? z.gain * (0.97 / pk) : z.gain)
+            const f = `${inst.id}/${art.id}_rel_${z.root}_v${li + 1}_r${ri + 1}.flac`
+            jobs.push({ rel: f, ch })
+            return { f }
+          })
+        }
+      })
+    }))
+    console.log(`  ${(art.id + ' rel').padEnd(10)} ${releaseZones.length} tail release zones`)
+  } else if (art.release) {
     const rel = await collect(art.release, { ...art, id: art.id + '-rel' })
     await pool(rel, JOBS, async (it) => {
       it.ch = (await it.load()).ch
@@ -468,9 +538,11 @@ async function buildArticulation(inst, art) {
     id: art.id,
     name: art.name,
     kind: art.kind,
+    ...(art.unpitched ? { unpitched: true } : {}),
     ...(art.damp ? { damp: art.damp } : {}),
     zones: outZones,
-    ...(releaseZones ? { release: releaseZones } : {})
+    ...(releaseZones ? { release: releaseZones } : {}),
+    ...(releaseZones && art.releaseTail ? { releaseTail: true } : {})
   }
   // free decoded sources
   for (const it of flat) it.load = null
@@ -575,7 +647,13 @@ async function main() {
       range: i.range,
       solo: !!i.solo,
       stage: i.stage,
-      arts: j.articulations.map((a) => ({ id: a.id, name: a.name, kind: a.kind })),
+      arts: j.articulations.map((a) => ({
+        id: a.id,
+        name: a.name,
+        kind: a.kind,
+        ...(a.unpitched ? { unpitched: true } : {}),
+        ...(a.zones.some((z) => z.label) ? { keys: a.zones.filter((z) => z.label).map((z) => ({ lo: z.lo, hi: z.hi, name: z.label })) } : {})
+      })),
       files: j.articulations.reduce((n, a) => n + a.zones.reduce((m, z) => m + z.layers.reduce((k, l) => k + l.files.length, 0), 0) + (a.release ?? []).length, 0)
     }
   })

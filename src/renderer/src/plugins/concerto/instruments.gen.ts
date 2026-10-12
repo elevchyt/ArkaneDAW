@@ -682,6 +682,142 @@ export const INSTRUMENTS: InstrumentMeta[] = [
   "files": 38
  },
  {
+  "id": "cymbals",
+  "name": "Clash Cymbals",
+  "section": "Percussion",
+  "description": "Orchestral clash cymbals (VCSL), two pairs: crashes in 4 and 3 dynamics with round robins, and choked crashes. Unpitched: every key plays.",
+  "range": [
+   48,
+   72
+  ],
+  "solo": false,
+  "stage": {
+   "pan": 0.3,
+   "width": 0.5
+  },
+  "arts": [
+   {
+    "id": "crash",
+    "name": "Crash",
+    "kind": "ring",
+    "unpitched": true
+   },
+   {
+    "id": "crash2",
+    "name": "Crash II",
+    "kind": "ring",
+    "unpitched": true
+   },
+   {
+    "id": "choke",
+    "name": "Choke",
+    "kind": "ring",
+    "unpitched": true
+   }
+  ],
+  "files": 15
+ },
+ {
+  "id": "suscymbal",
+  "name": "Suspended Cymbal",
+  "section": "Percussion",
+  "description": "Suspended cymbal (VCSL): soft-mallet hits (5 dynamics), stick hits, bell, a looped roll (3 dynamics) with its natural ending on release, and swells of 4 lengths across the keys (labelled with the time to peak). Unpitched.",
+  "range": [
+   48,
+   72
+  ],
+  "solo": false,
+  "stage": {
+   "pan": 0.4,
+   "width": 0.45
+  },
+  "arts": [
+   {
+    "id": "mallet",
+    "name": "Mallet",
+    "kind": "ring",
+    "unpitched": true
+   },
+   {
+    "id": "stick",
+    "name": "Stick",
+    "kind": "ring",
+    "unpitched": true
+   },
+   {
+    "id": "bell",
+    "name": "Bell",
+    "kind": "ring",
+    "unpitched": true
+   },
+   {
+    "id": "roll",
+    "name": "Roll",
+    "kind": "sustain",
+    "unpitched": true
+   },
+   {
+    "id": "swell",
+    "name": "Swell",
+    "kind": "ring",
+    "unpitched": true,
+    "keys": [
+     {
+      "lo": 48,
+      "hi": 53,
+      "name": "Swell 1.2 s"
+     },
+     {
+      "lo": 54,
+      "hi": 59,
+      "name": "Swell 2.3 s"
+     },
+     {
+      "lo": 60,
+      "hi": 65,
+      "name": "Swell 3.3 s"
+     },
+     {
+      "lo": 66,
+      "hi": 72,
+      "name": "Swell 6.5 s"
+     }
+    ]
+   }
+  ],
+  "files": 19
+ },
+ {
+  "id": "gong",
+  "name": "Gong / Tam-tam",
+  "section": "Percussion",
+  "description": "Large orchestral gong / tam-tam (VCSL): hits in 4 dynamics with a long ring, and a scrape. Unpitched.",
+  "range": [
+   48,
+   72
+  ],
+  "solo": false,
+  "stage": {
+   "pan": 0.5,
+   "width": 0.5
+  },
+  "arts": [
+   {
+    "id": "hit",
+    "name": "Hit",
+    "kind": "ring",
+    "unpitched": true
+   },
+   {
+    "id": "scrape",
+    "name": "Scrape",
+    "kind": "ring",
+    "unpitched": true
+   }
+  ],
+  "files": 5
+ },
+ {
   "id": "harp",
   "name": "Harp",
   "section": "Plucked",

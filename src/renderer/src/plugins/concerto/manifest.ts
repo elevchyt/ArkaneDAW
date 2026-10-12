@@ -49,6 +49,8 @@ function buildPresets(): Preset[] {
     ['Fortepiano · Salon', 'fortepiano', 'Keys', { reverb: 20, size: 40, pitch: 1 }],
     ['Choir · Cathedral Aahs', 'choir', 'Choir', { reverb: 55, size: 95, attack: 180, release: 1.6 }],
     ['Timpani · Thunder Roll', 'timpani', 'Percussion', { art: 1, reverb: 40, size: 80 }],
+    ['Suspended Cymbal · Roll Swell', 'suscymbal', 'Percussion', { art: 3, attack: 2000, reverb: 40, size: 80 }],
+    ['Gong · Cathedral Tam-tam', 'gong', 'Percussion', { reverb: 50, size: 95 }],
     ['Harp · Concert', 'harp', 'Plucked', { reverb: 35, size: 70 }]
   ]
   for (const [name, inst, cat, p] of extra) if (INSTRUMENTS.some((i) => i.id === inst)) out.push({ name, category: cat, params: p, data: single(inst) })
@@ -70,8 +72,8 @@ export const manifest: PluginManifest = {
   id: 'concerto',
   name: 'Concerto',
   kind: 'instrument',
-  category: 'Orchestral',
-  description: 'Sampled Baroque & Classical orchestra: strings, winds, brass, harpsichord, organs, choir, timpani, harp — articulations with keyswitches, legato, layered ensembles, hall reverb and orchestral seating.',
+  category: 'Synths',
+  description: 'Sampled Baroque & Classical orchestra: strings, winds, brass, harpsichord, organs, choir, timpani, cymbals, gong, harp — articulations with keyswitches, legato, layered ensembles, hall reverb and orchestral seating.',
   color: '#c9a45c',
   params,
   presets,

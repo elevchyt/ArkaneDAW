@@ -112,6 +112,21 @@
    "section": "Percussion"
   },
   {
+   "id": "cymbals",
+   "name": "Clash Cymbals",
+   "section": "Percussion"
+  },
+  {
+   "id": "suscymbal",
+   "name": "Suspended Cymbal",
+   "section": "Percussion"
+  },
+  {
+   "id": "gong",
+   "name": "Gong / Tam-tam",
+   "section": "Percussion"
+  },
+  {
    "id": "harp",
    "name": "Harp",
    "section": "Plucked"

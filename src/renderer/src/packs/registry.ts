@@ -31,7 +31,7 @@ export const PACKS: PackDef[] = [
     id: 'concerto',
     name: 'Concerto',
     description:
-      'Orchestral sample library for the Concerto instrument: solo and section strings, woodwinds, brass, harpsichord, organs, fortepiano, choir, timpani, harp and lute — articulations, release samples and layered ensembles.',
+      'Orchestral sample library for the Concerto instrument: solo and section strings, woodwinds, brass, harpsichord, organs, fortepiano, choir, timpani, clash and suspended cymbals, gong, harp and lute — articulations, release samples and layered ensembles.',
     ...raw.concerto,
     sha256: raw.concerto.sha256 ?? '',
     pluginIds: ['concerto'],

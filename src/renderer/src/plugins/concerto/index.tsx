@@ -15,7 +15,9 @@ const noteName = (k: number): string => `${NOTE_NAMES[k % 12]}${Math.floor(k / 1
 
 /**
  * Piano-roll labels: the primary layer's articulation keyswitches, plus every playable key (grouped by the
- * instrument(s) sounding there) so the piano roll's named-key view shows exactly the usable range.
+ * instrument(s) sounding there) so the piano roll's named-key view shows exactly the usable range. Key ranges
+ * that play something specific in the current articulation (e.g. the suspended cymbal's swells, labelled with
+ * their time to peak) are named after it.
  */
 export function concertoKeyNames(instance: PluginInstanceView): Record<number, KeyName> | undefined {
   const d = readData(instance.data)
@@ -23,6 +25,8 @@ export function concertoKeyNames(instance: PluginInstanceView): Record<number, K
   if (!primary) return undefined
   const out: Record<number, KeyName> = {}
   if (primary.arts.length > 1) primary.arts.slice(0, 5).forEach((a, i) => (out[KS_BASE + i] = { name: `KS ${a.name}`, group: 'Keyswitch' }))
+  const art = primary.arts[Math.max(0, Math.min(primary.arts.length - 1, Math.round(instance.params.art ?? 0)))]
+  const p0 = d.layers[0]
   for (let k = KS_BASE + 5; k <= 127; k++) {
     const who: string[] = []
     for (const l of d.layers) {
@@ -31,7 +35,10 @@ export function concertoKeyNames(instance: PluginInstanceView): Record<number, K
       const t = k + l.transpose
       if (t >= inst.range[0] && t <= inst.range[1]) who.push(inst.name)
     }
-    if (who.length) out[k] = { name: noteName(k), group: who.join(' + ') }
+    if (!who.length) continue
+    const t = k + p0.transpose
+    const label = art?.keys && k >= p0.lo && k <= p0.hi ? art.keys.find((r) => t >= r.lo && t <= r.hi)?.name : undefined
+    out[k] = { name: label ? `${noteName(k)} ${label}` : noteName(k), group: who.join(' + ') }
   }
   return out
 }

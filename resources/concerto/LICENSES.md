@@ -25,7 +25,7 @@ Versilian Studios — <https://github.com/sgossner/VCSL> (commit `c1ea7bcc3c7309
 Public domain dedication (CC0 1.0): "you can do whatever you want with these sounds (even make commercial
 software), no royalties, no credit, no special terms".
 
-Used for: Recorder — Sustain; Recorder — Staccato; Harpsichord — 8′ Stop; Harpsichord — 8′ Stop (release samples); Harpsichord — Lute Stop; Harpsichord — Lute Stop (release samples); Pipe Organ — Full; Pipe Organ — Soft; Chamber Organ — 8′ Flute; Chamber Organ — Full; Fortepiano — Normal; Fortepiano — Normal (release samples); Celesta & Glockenspiel — Glockenspiel; Harp — Normal.
+Used for: Recorder — Sustain; Recorder — Staccato; Harpsichord — 8′ Stop; Harpsichord — 8′ Stop (release samples); Harpsichord — Lute Stop; Harpsichord — Lute Stop (release samples); Pipe Organ — Full; Pipe Organ — Soft; Chamber Organ — 8′ Flute; Chamber Organ — Full; Fortepiano — Normal; Fortepiano — Normal (release samples); Celesta & Glockenspiel — Glockenspiel; Clash Cymbals — Crash; Clash Cymbals — Crash II; Clash Cymbals — Choke; Suspended Cymbal — Mallet; Suspended Cymbal — Stick; Suspended Cymbal — Bell; Suspended Cymbal — Roll; Suspended Cymbal — Roll (release samples); Suspended Cymbal — Swell; Gong / Tam-tam — Hit; Gong / Tam-tam — Scrape; Harp — Normal.
 
 ## FluidR3_GM SoundFont — MIT
 
