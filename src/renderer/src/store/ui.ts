@@ -106,9 +106,25 @@ const DEFAULT_WINDOWS: Record<string, WindowState> = {
   mixer: { id: 'mixer', kind: 'mixer', title: 'Mixer', x: 80, y: 220, w: 1180, h: 470, z: 2, open: false, maximized: false, minimized: false }
 }
 
+/**
+ * Stacking order lives in `z`. Raising a window re-ranks every window 1..n (the raised one on top), so
+ * z-indexes stay small: an ever-growing counter would eventually climb over menus, popovers and dialogs
+ * (portaled at z-50 and up) and they'd open behind the windows.
+ */
+function raise(windows: Record<string, WindowState>, id: string, patch: Partial<WindowState>): { windows: Record<string, WindowState>; topZ: number } {
+  const order = Object.values(windows)
+    .filter((w) => w.id !== id)
+    .sort((a, b) => a.z - b.z)
+  const out: Record<string, WindowState> = {}
+  order.forEach((w, i) => (out[w.id] = w.z === i + 1 ? w : { ...w, z: i + 1 }))
+  const topZ = order.length + 1
+  out[id] = { ...windows[id], ...patch, z: topZ } as WindowState
+  return { windows: out, topZ }
+}
+
 export const useUI = create<UIState>((set, get) => ({
   windows: DEFAULT_WINDOWS,
-  topZ: 10,
+  topZ: 3,
   focused: 'channelRack',
   browserVisible: true,
   browserWidth: 220,
@@ -127,11 +143,11 @@ export const useUI = create<UIState>((set, get) => ({
   lastTweaked: null,
 
   openWindow(id, init) {
-    const { windows, topZ } = get()
+    const { windows } = get()
     const existing = windows[id]
-    const z = topZ + 1
+    const z = 0
     if (existing) {
-      set({ windows: { ...windows, [id]: { ...existing, ...(init ?? {}), open: true, minimized: false, z } }, topZ: z, focused: id })
+      set({ ...raise(windows, id, { ...(init ?? {}), open: true, minimized: false }), focused: id })
     } else if (init) {
       const n = Object.keys(windows).length
       const w: WindowState = {
@@ -146,7 +162,7 @@ export const useUI = create<UIState>((set, get) => ({
         ...init,
         z
       } as WindowState
-      set({ windows: { ...windows, [id]: w }, topZ: z, focused: id })
+      set({ ...raise({ ...windows, [id]: w }, id, {}), focused: id })
     }
   },
   closeWindow(id) {
@@ -171,8 +187,7 @@ export const useUI = create<UIState>((set, get) => ({
   focusWindow(id) {
     const { windows, topZ, focused } = get()
     if (!windows[id] || (focused === id && windows[id].z === topZ)) return
-    const z = topZ + 1
-    set({ windows: { ...windows, [id]: { ...windows[id], z } }, topZ: z, focused: id })
+    set({ ...raise(windows, id, {}), focused: id })
   },
   updateWindow(id, patch) {
     const { windows } = get()

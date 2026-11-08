@@ -92,12 +92,6 @@ export function useGlobalShortcuts(): void {
       let handled = true
       const sel = ui.selectedChannels
       switch (true) {
-        case e.code === 'Space' && ctrl:
-          commands.togglePause()
-          break
-        case e.code === 'Space':
-          commands.togglePlay()
-          break
         case ctrl && e.shiftKey && e.code === 'KeyZ':
           commands.redo()
           break
@@ -212,9 +206,25 @@ export function useGlobalShortcuts(): void {
       if (isTextInput(e.target)) return
       typingNote(e, false)
     }
+    // Space is always the transport, never "press the focused control": caught before it reaches a focused
+    // button / select trigger / preset picker (which would open or click it), except while typing text.
+    const space = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || isTextInput(e.target)) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.type !== 'keydown' || e.repeat) return
+      if (e.ctrlKey || e.metaKey) commands.togglePause()
+      else commands.togglePlay()
+    }
+    window.addEventListener('keydown', space, true)
+    window.addEventListener('keyup', space, true)
+    window.addEventListener('keypress', space, true)
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     return () => {
+      window.removeEventListener('keydown', space, true)
+      window.removeEventListener('keyup', space, true)
+      window.removeEventListener('keypress', space, true)
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
     }

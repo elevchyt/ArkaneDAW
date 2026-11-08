@@ -1,6 +1,7 @@
 // Shared, undoable project operations. Window-specific editing logic lives next to each window;
 // anything used from more than one place belongs here.
 import { editProject, getProject } from './project'
+import { patternLength } from '../audio/sequence'
 import { useUI } from './ui'
 import { defaultNote, makeChannel, makePattern, uid, CHANNEL_COLORS } from './factory'
 import { DEFAULT_NOTE_KEY, TICKS_PER_STEP, type Channel, type Clip, type FxSlot, type Note, type Pattern, type PluginInstanceState, type Project } from './types'
@@ -255,6 +256,54 @@ export function deletePattern(id: string): void {
   })
   const p = getProject()
   if (!findPattern(p, useUI.getState().currentPattern)) selectPattern(p.patterns[0].id)
+}
+
+/** Channels (rack order) that have notes in a pattern. */
+export function patternChannels(p: Project, patternId: string): Channel[] {
+  const pat = findPattern(p, patternId)
+  if (!pat) return []
+  return p.channels.filter((c) => (pat.notes[c.id]?.length ?? 0) > 0)
+}
+
+/**
+ * FL "Split by channel": one new pattern per channel with notes ("<pattern> - <channel>"), replacing the
+ * original. Every playlist clip of the original becomes one clip per new pattern on consecutive tracks
+ * (same start, length and offset), starting at the original clip's track. Returns the new pattern ids.
+ */
+export function splitPatternByChannel(patternId: string): string[] {
+  const p = getProject()
+  const src = findPattern(p, patternId)
+  const chans = patternChannels(p, patternId)
+  if (!src || chans.length < 2) return []
+  const fullLen = patternLength(src, p)
+  const parts: Pattern[] = chans.map((ch) => {
+    const part: Pattern = {
+      ...structuredClone(src),
+      id: uid(),
+      name: `${src.name} - ${ch.name}`,
+      color: ch.color || src.color,
+      notes: { [ch.id]: structuredClone(src.notes[ch.id]) }
+    }
+    // keep the original's length so the split clips loop exactly like the original did
+    if (patternLength({ ...part, length: 0 }, p) !== fullLen) part.length = fullLen
+    return part
+  })
+  editProject('Split by channel', (d) => {
+    const i = d.patterns.findIndex((x) => x.id === patternId)
+    d.patterns.splice(i, 1, ...parts)
+    const lastTrack = d.playlist.tracks.length - 1
+    const out: Clip[] = []
+    for (const c of d.playlist.clips) {
+      if (c.kind !== 'pattern' || c.ref !== patternId) {
+        out.push(c)
+        continue
+      }
+      parts.forEach((part, k) => out.push({ ...c, id: uid(), ref: part.id, track: Math.min(lastTrack, c.track + k), group: undefined }))
+    }
+    d.playlist.clips = out
+  })
+  if (useUI.getState().currentPattern === patternId || !findPattern(getProject(), useUI.getState().currentPattern)) selectPattern(parts[0].id)
+  return parts.map((x) => x.id)
 }
 
 /** Remove a pool sample with its audio clips and the channels that play it. */

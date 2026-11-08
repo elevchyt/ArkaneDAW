@@ -96,7 +96,6 @@ export function PopupMenuHost() {
           if (level > 0) setNav({ path: nav.path.slice(0, level), open: level })
           break
         case 'Enter':
-        case ' ':
           if (!it || !selectable(it)) break
           if (it.items) openSub()
           else {

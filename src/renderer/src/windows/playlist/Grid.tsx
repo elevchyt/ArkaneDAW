@@ -25,7 +25,7 @@ import {
   type View,
   type Zone
 } from './geometry'
-import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceAt, sliceTracks, sliceTrim, slipClip, stretchClip, trimLeft, withGroups } from './ops'
+import { clampMove, cloneShifted, moveClips, paintRepeat, resizeRight, sliceTracks, sliceTrim, slipClip, stretchClip, trimLeft, withGroups } from './ops'
 import { zeroCrossTick } from '@/audio/clips'
 import { getBuffer } from '@/audio/samples'
 import { addPoint, hitHandle, hitPoint, movePoint, removePoint, segmentAt, setTension, tensionFromDrag } from './automation'
@@ -47,6 +47,7 @@ import { openClipMenu } from './menus'
 import { openPatternEditor } from './open'
 import { handleGridDrop } from './drop'
 import { setTimeSelection } from './Ruler'
+import { rightShiftHeld } from '@/shell/rightShift'
 
 type Drag =
   | { kind: 'move'; before: Clip[]; moving: Clip[]; add: boolean; anchor: Clip; downTick: number; downTrack: number; label: string; preview: Clip[] }
@@ -59,7 +60,8 @@ type Drag =
   /** time: Ctrl+drag, which also sets the time selection (Ctrl+click without dragging clears it) */
   | { kind: 'rubber'; x0: number; y0: number; x1: number; y1: number; base: Set<string>; time?: boolean }
   /** t: ticks, cy: content y (scroll included). vertical: Shift held. temp: from a right-press hold */
-  | { kind: 'slice'; t0: number; cy0: number; t1: number; cy1: number; vertical: boolean; temp?: boolean }
+  /** follow: Right-Shift knife, a straight line that moves with the pointer */
+  | { kind: 'slice'; t0: number; cy0: number; t1: number; cy1: number; vertical: boolean; temp?: boolean; follow?: boolean }
   | { kind: 'zoomRect'; x0: number; x1: number; moved: boolean }
   | { kind: 'pan'; sx: number; sy: number; scrollTick: number; scrollY: number }
   | { kind: 'auto'; clip: Clip; autoId: string; before: AutomationPoint[]; points: AutomationPoint[]; index: number; mode: 'point' | 'tension'; orig: number; downY: number; bh: number; by: number }
@@ -95,14 +97,6 @@ function sliceLineOf(d: { t0: number; cy0: number; t1: number; cy1: number }, v:
   const b = trackAtY(off, Math.max(d.cy0, d.cy1))
   const x = tickToX(v, d.t0)
   return { x0: x, y0: off[a] - v.scrollY, x1: x, y1: off[b + 1] - v.scrollY }
-}
-
-/** Right-Shift held (FL: Right-Shift + click slices a clip, Right-Shift + right-click trims it). */
-const keyState = { rightShift: false }
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', (e) => e.code === 'ShiftRight' && (keyState.rightShift = true), true)
-  window.addEventListener('keyup', (e) => e.code === 'ShiftRight' && (keyState.rightShift = false), true)
-  window.addEventListener('blur', () => (keyState.rightShift = false))
 }
 
 export function Grid({ offsets }: { offsets: Float64Array }) {
@@ -319,6 +313,13 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       e.preventDefault()
       return start({ kind: 'pan', sx: e.clientX, sy: e.clientY, scrollTick: v.scrollTick, scrollY: v.scrollY })
     }
+    // Right-Shift + left press (any tool): a straight knife line that follows the pointer (snapped to the grid,
+    // Alt = 1 tick); dragging up/down spans more tracks, release slices every clip it crosses
+    if (e.button === 0 && rightShiftHeld(e)) {
+      const t0 = snapRound(tick, grid)
+      useUI.getState().setHint('Slice: release to cut (drag up/down for more tracks, Alt: no snap)')
+      return start({ kind: 'slice', t0, cy0: y + v.scrollY, t1: t0, cy1: y + v.scrollY, vertical: true, follow: true })
+    }
     // clip menu: top-left arrow of the header
     if (e.button === 0 && hit && hit.zone === 'header' && x - Math.max(hit.x, 0) < 12 && hit.w > 14) {
       openClipMenu(e, hit.clip)
@@ -333,14 +334,9 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
 
     const zcAdjust = pl.zeroCross ? (c: Clip, t: number) => zeroCrossTick(p, c, t, getBuffer(c.ref)) : undefined
     // Right-Shift + right-click (or Shift + right-click with the Slice tool): slice and delete the smaller part
-    if (e.button === 2 && hit && (keyState.rightShift || (tool === 'slice' && e.shiftKey))) {
+    if (e.button === 2 && hit && (rightShiftHeld(e) || (tool === 'slice' && e.shiftKey))) {
       const t = snapRound(tick, grid)
       commitClips('Trim clip', clips, sliceTrim(clips, hit.clip.id, zcAdjust ? zcAdjust(hit.clip, t) : t, uid))
-      return
-    }
-    // Right-Shift + left-click: slice the clip under the cursor (any tool)
-    if (e.button === 0 && hit && keyState.rightShift) {
-      commitClips('Slice clip', clips, sliceAt(clips, snapRound(tick, grid), hit.clip.track, hit.clip.track, uid, zcAdjust))
       return
     }
 
@@ -608,6 +604,10 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
       case 'slice':
         // follows the pointer (angled cuts across tracks); Shift keeps the line straight
         d.cy1 = y + v.scrollY
+        if (d.follow) {
+          d.t0 = d.t1 = snapRound(tick, grid)
+          break
+        }
         d.vertical = e.shiftKey
         d.t1 = d.vertical ? d.t0 : snapRound(tick, grid)
         break

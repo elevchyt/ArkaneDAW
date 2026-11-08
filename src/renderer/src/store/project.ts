@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { enablePatches, produceWithPatches, applyPatches, type Patch } from 'immer'
 import type { Project } from './types'
 import { makeEmptyProject } from './factory'
+import { growPatternClips } from './patternClips'
 
 enablePatches()
 
@@ -41,8 +42,16 @@ export const useProject = create<ProjectState>((set, get) => ({
 
   edit(label, recipe, opts) {
     const { project, past } = get()
-    const [next, patches, inverse] = produceWithPatches(project, recipe)
+    let [next, patches, inverse] = produceWithPatches(project, recipe)
     if (patches.length === 0) return
+    // a pattern that got longer drags its full-length playlist clips along (same history step)
+    const grow = growPatternClips(project, next)
+    if (grow) {
+      const [n2, p2, i2] = produceWithPatches(next, grow)
+      next = n2
+      patches = [...patches, ...p2]
+      inverse = [...i2, ...inverse]
+    }
     if (opts?.undoable === false) {
       set({ project: next, dirty: true })
       return

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { ChevronDown, Maximize2, Minimize2, Minus, X } from 'lucide-react'
+import { Maximize2, Minimize2, Minus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUI, type WindowState } from '@/store/ui'
 
@@ -109,7 +109,7 @@ export function MdiWindow({ win, bounds, children, titleExtra, menu, resizable =
       onPointerDownCapture={() => focusWindow(win.id)}
     >
       <div
-        className={cn('relative flex h-[22px] shrink-0 items-center gap-1 pl-1 pr-0.5 text-[11px]', focused ? 'bg-fl-title-active text-[#eef2f4]' : 'bg-fl-title text-[#b6c0c5]')}
+        className={cn('relative flex h-[22px] shrink-0 items-center gap-1 pr-0.5 text-[11px]', menu ? 'pl-1' : 'pl-2', focused ? 'bg-fl-title-active text-[#eef2f4]' : 'bg-fl-title text-[#b6c0c5]')}
         style={accent ? { boxShadow: `inset 0 2px 0 ${accent}` } : undefined}
         onPointerDown={startMove}
         onDoubleClick={(e) => {
@@ -117,7 +117,7 @@ export function MdiWindow({ win, bounds, children, titleExtra, menu, resizable =
           updateWindow(win.id, { maximized: !win.maximized })
         }}
       >
-        {menu ?? <ChevronDown size={12} className="opacity-70" />}
+        {menu}
         <span className="truncate font-medium">{win.title}</span>
         <div className="flex min-w-0 flex-1 items-center gap-1">{titleExtra}</div>
         <button className="grid h-[18px] w-[18px] place-items-center rounded-sm hover:bg-white/10" onClick={() => updateWindow(win.id, { minimized: true })} title="Minimize">

@@ -14,6 +14,7 @@ import { CHORDS, KEY_COUNT, MAX_KEY, formatTime, inScale, isBlack, noteColor, no
 import { barOf, beatOf, gridLineTicks, snapCeil, snapFloor, snapRound, snapTicks } from './snap'
 import * as ops from './noteOps'
 import { LANES, LANE_ORDER, usePR } from './state'
+import { rightShiftHeld } from '@/shell/rightShift'
 
 export const KEYS_W = 74 // piano keyboard width (wider when keys are named)
 export const RULER_H = 26
@@ -51,7 +52,8 @@ type Drag =
   | { kind: 'mute'; value: boolean; lx: number; ly: number }
   | { kind: 'paint'; origin: number; len: number; slots: Set<number>; mono: boolean; lastSlot: number }
   | { kind: 'rubber'; t0: number; y0: number; t1: number; y1: number; base: Set<string>; moved: boolean; clickHit: Note | null; toggle: boolean }
-  | { kind: 'slice'; t0: number; y0: number; t1: number; y1: number; alt: boolean }
+  /** straight: Right-Shift knife, a vertical line that follows the pointer (snapped; Alt = 1 tick) */
+  | { kind: 'slice'; t0: number; y0: number; t1: number; y1: number; alt: boolean; straight?: boolean }
   | { kind: 'zoom'; x0: number; x1: number }
   | { kind: 'scrub'; sounding: Map<string, Promise<number | null>> }
   | { kind: 'pan'; sx: number; sy: number; v0: View }
@@ -589,6 +591,15 @@ export class PianoRollController {
       this.canvas.style.cursor = 'grabbing'
       return
     }
+    // Right-Shift + left press (any tool): knife line, release slices the notes it crosses
+    if (e.button === 0 && region === 'grid' && rightShiftHeld(e)) {
+      const t = this.tickAt(x)
+      const cy = this.contentY(y)
+      this.drag = { kind: 'slice', t0: t, y0: cy, t1: t, y1: cy, alt: e.altKey, straight: true }
+      this.hint('Slice: release to cut (drag up/down for more keys, Alt: no snap)')
+      this.invalidate()
+      return
+    }
     switch (region) {
       case 'grid':
         return this.gridDown(e, x, y, dbl)
@@ -1046,6 +1057,10 @@ export class PianoRollController {
       }
       case 'slice':
         d.t1 = this.tickAt(x)
+        if (d.straight) {
+          d.t0 = d.t1
+          d.alt = e.altKey
+        }
         d.y1 = this.contentY(y)
         this.invalidate()
         return
@@ -1268,10 +1283,12 @@ export class PianoRollController {
     const single = Math.abs(d.y1 - d.y0) < rowH / 2
     const out: Note[] = []
     let changed = false
+    const r0 = Math.floor(y0 / rowH)
+    const r1 = Math.floor(y1 / rowH)
     for (const n of notes) {
       const ri = this.rowIdx[n.key]
       const cy = ri * rowH + rowH / 2
-      const inRow = ri >= 0 && (single ? Math.floor(d.y0 / rowH) === ri : cy >= y0 && cy <= y1)
+      const inRow = ri >= 0 && (d.straight ? ri >= r0 && ri <= r1 : single ? Math.floor(d.y0 / rowH) === ri : cy >= y0 && cy <= y1)
       if (!inRow) {
         out.push(n)
         continue
@@ -1851,8 +1868,18 @@ export class PianoRollController {
       g.strokeStyle = '#ff6b5e'
       g.lineWidth = 1.5
       g.beginPath()
-      g.moveTo(this.xOf(snapRound(d.t0, grid)), d.y0 - v.y + RULER_H)
-      g.lineTo(this.xOf(snapRound(d.t1, grid)), d.y1 - v.y + RULER_H)
+      if (d.straight) {
+        // spans the full rows it will cut
+        const rowH = v.rowH
+        const top = Math.floor(Math.min(d.y0, d.y1) / rowH) * rowH
+        const bot = (Math.floor(Math.max(d.y0, d.y1) / rowH) + 1) * rowH
+        const sx = Math.round(this.xOf(snapRound(d.t0, grid))) + 0.5
+        g.moveTo(sx, top - v.y + RULER_H)
+        g.lineTo(sx, bot - v.y + RULER_H)
+      } else {
+        g.moveTo(this.xOf(snapRound(d.t0, grid)), d.y0 - v.y + RULER_H)
+        g.lineTo(this.xOf(snapRound(d.t1, grid)), d.y1 - v.y + RULER_H)
+      }
       g.stroke()
     } else if (d?.kind === 'zoom') {
       g.fillStyle = 'rgba(255,255,255,0.10)'
