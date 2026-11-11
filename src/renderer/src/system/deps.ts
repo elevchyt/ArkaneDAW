@@ -1,7 +1,8 @@
 // System dependency registry + checker.
 //
 //   runStartupDependencyCheck()            every app start: opens the "Missing dependencies" dialog when a
-//                                          required/recommended dependency is missing (optional ones are only listed)
+//                                          required/recommended dependency is missing (optional and on-demand
+//                                          ones are only listed; on-demand ones are asked for when a feature needs them)
 //   requireDependency(id, feature?)        before an action that needs a dependency: resolves true when available
 //                                          (or after a successful "Re-check"), false when the user pressed "Continue"
 //   useDeps(selector)                      React hook on the dialog/check state (DepsDialog.tsx)
@@ -72,6 +73,8 @@ export interface Dependency {
   /** features affected when missing */
   affects: string
   homepage?: { label: string; url: string }
+  /** Never opens the startup dialog: asked for by requireDependency() when a feature needs it (ffmpeg: export). */
+  onDemand?: boolean
   detect(ctx: DepContext): Promise<DepStatus>
   install(env: InstallEnv, status?: DepStatus): InstallHelp
   /** `feature` narrows the check (ffmpeg: an encoder name). Default: status.ok */
@@ -103,13 +106,14 @@ export const DEPENDENCIES: Dependency[] = [
     id: 'ffmpeg',
     name: 'ffmpeg',
     severity: 'recommended',
+    onDemand: true,
     why: 'Encodes rendered audio to compressed formats.',
     affects: 'MP3, OGG (Vorbis/Opus) and FLAC export',
     homepage: { label: 'ffmpeg.org', url: 'https://ffmpeg.org/download.html' },
     async detect(ctx) {
       ffProbe = detectFfmpeg(ctx.cp).catch(() => null)
       const info = await ffProbe
-      if (!info) return { ok: false, found: false, detail: 'ffmpeg was not found on your PATH.', missing: FFMPEG_ENCODERS }
+      if (!info) return { ok: false, found: false, detail: 'ffmpeg is not on your PATH.', missing: FFMPEG_ENCODERS }
       const missing = FFMPEG_ENCODERS.filter((e) => !info.encoders.has(e))
       return missing.length
         ? { ok: false, found: true, missing, detail: `ffmpeg ${info.version} was found, but it lacks the ${missing.join(', ')} encoder${missing.length > 1 ? 's' : ''}.` }
@@ -134,12 +138,25 @@ export const DEPENDENCIES: Dependency[] = [
     severity: 'recommended',
     why: 'Runs third-party plugins in a separate, crash-isolated process (arkane-vsthost + arkane_bridge.node).',
     affects: 'Loading VST2, VST3 and CLAP plugins',
-    async detect() {
+    async detect(ctx) {
       resetNativeProbe()
       const ns = await nativeStatus()
-      return ns.available ? { ok: true, detail: ns.sidecar } : { ok: false, detail: ns.reason }
+      if (!ns.available || !ns.sidecar) return { ok: false, detail: ns.reason }
+      // The sidecar must actually run here (a binary linked against a newer glibc exits at load time).
+      try {
+        const r = await ctx.run(ns.sidecar, ['--version'])
+        if (r.code !== 0) {
+          const why = r.stderr.trim().split('\n')[0] || `exit code ${r.code}`
+          return { ok: false, reason: 'broken', detail: `arkane-vsthost does not run on this system: ${why}` }
+        }
+      } catch (e) {
+        return { ok: false, reason: 'broken', detail: `arkane-vsthost does not run on this system: ${e instanceof Error ? e.message : String(e)}` }
+      }
+      return { ok: true, detail: ns.sidecar }
     },
-    install({ family, isPackaged }) {
+    install({ family, isPackaged }, st) {
+      if (isPackaged && st?.reason === 'broken')
+        return { steps: [], note: 'The bundled plugin host is not compatible with this system. Please report it on GitHub with your distribution and version.' }
       if (isPackaged) return { steps: [], note: 'The plugin host ships with ArkaneDAW. Reinstall ArkaneDAW (latest release) to restore it.' }
       return {
         steps: [...pm(family, { apt: ['g++', 'make'], dnf: ['gcc-c++', 'make'], pacman: ['base-devel'], zypper: ['gcc-c++', 'make'] }).map((s) => ({ ...s, label: 'Toolchain (if missing)' })), { cmd: 'npm run build:native', label: 'In the ArkaneDAW source folder' }],
@@ -185,7 +202,7 @@ export const DEPENDENCIES: Dependency[] = [
       for (const p of [`${ctx.home}/.local/share/yabridge/yabridge-host.exe`, '/usr/bin/yabridge-host.exe', '/usr/lib/yabridge/yabridge-host.exe']) {
         if (ctx.exists(p)) return { ok: true, detail: p }
       }
-      return { ok: false, detail: 'yabridge is not installed.' }
+      return { ok: false, detail: 'yabridge was not detected.' }
     },
     install({ family }) {
       if (family === 'pacman') return { steps: [{ cmd: 'sudo pacman -S yabridge yabridgectl' }], note: 'Then run "yabridgectl add <plugin folder>" and "yabridgectl sync".' }
@@ -294,7 +311,7 @@ export function createDependencyManager(registry: Dependency[], getContext: () =
       return { ok: false, detail: e instanceof Error ? e.message : String(e) }
     }
   }
-  const blocking = (r: Partial<Record<DepId, DepStatus>>) => registry.filter((d) => d.severity !== 'optional' && r[d.id] && !r[d.id]!.ok)
+  const blocking = (r: Partial<Record<DepId, DepStatus>>) => registry.filter((d) => d.severity !== 'optional' && !d.onDemand && r[d.id] && !r[d.id]!.ok)
 
   async function checkAll() {
     if (checkP) return checkP

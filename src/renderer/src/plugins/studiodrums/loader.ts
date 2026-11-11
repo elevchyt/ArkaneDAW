@@ -37,7 +37,7 @@ function setStatus(kit: string, s: KitLoadState): void {
 }
 
 export const PACK_ID = 'studiodrums'
-export const NOT_INSTALLED = 'Studio Drums sound library not installed — open the instrument to download it.'
+export const NOT_INSTALLED = 'Studio Drums sound library not downloaded yet — open the instrument to download it.'
 
 export class NotInstalledError extends Error {
   constructor() {

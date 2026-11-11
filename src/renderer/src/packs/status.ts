@@ -69,7 +69,7 @@ export function packBadge(s: PackStatus | undefined, sizeBytes: number): Badge |
     case 'installed':
       return null
     case 'not-installed':
-      return { kind: 'download', label: `⬇ ${size}`.trim(), title: `Sound library not installed — click to download${size ? ` (${size})` : ''}` }
+      return { kind: 'download', label: `⬇ ${size}`.trim(), title: `Sound library not downloaded yet — click to download${size ? ` (${size})` : ''}` }
     case 'downloading': {
       const pct = percent(s.received, s.total)
       return { kind: 'progress', pct, label: `${pct}%`, title: `Downloading… ${pct}%` }

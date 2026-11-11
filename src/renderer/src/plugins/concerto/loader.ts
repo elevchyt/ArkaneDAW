@@ -34,7 +34,7 @@ function setStatus(id: string, s: LoadState): void {
 }
 
 export const PACK_ID = 'concerto'
-export const NOT_INSTALLED = 'Concerto sound library not installed — open the instrument to download it.'
+export const NOT_INSTALLED = 'Concerto sound library not downloaded yet — open the instrument to download it.'
 
 export class NotInstalledError extends Error {
   constructor() {

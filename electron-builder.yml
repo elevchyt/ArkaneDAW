@@ -17,18 +17,29 @@ extraResources:
     filter: ['**/*']
 asar: true
 afterPack: scripts/release/after-pack.cjs
+toolsets:
+  # Static AppImage runtime: runs without libfuse2 on the host (the legacy "0.0.0" runtime needs it).
+  # Its AppRun probes the Chromium sandbox and adds --no-sandbox only where it cannot work.
+  appimage: '1.0.3'
 linux:
+  # AppStream metainfo (AppImage catalog, software centers). appstreamcli validate-tree needs the desktop file it
+  # launches under usr/share/applications too; keep resources/linux/arkane-daw.desktop in sync with the generated
+  # one at the AppImage root (Name, Comment = description, Categories = category).
+  extraFiles:
+    - from: resources/linux/com.elevchyt.arkanedaw.appdata.xml
+      to: usr/share/metainfo/com.elevchyt.arkanedaw.appdata.xml
+    - from: resources/linux/arkane-daw.desktop
+      to: usr/share/applications/arkane-daw.desktop
   target:
     - target: AppImage
       arch: [x64]
-  category: AudioVideo
+  category: AudioVideo;Audio;Midi;
+  description: Pattern-based digital audio workstation
   icon: build/icons
   synopsis: Pattern-based DAW with an FL Studio-style workflow
   desktop:
     entry:
       Name: ArkaneDAW
-      Comment: Digital audio workstation
-      Categories: AudioVideo;Audio;Midi;
       StartupWMClass: ArkaneDAW
 win:
   target:

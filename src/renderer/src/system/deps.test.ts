@@ -229,7 +229,24 @@ describe('built-in detectors', () => {
     expect(packaged.note).toMatch(/Reinstall/)
   })
 
-  it('severities: nothing optional blocks startup except ffmpeg/vsthost/x11', () => {
+  it('severities: only vsthost/x11 open the startup dialog (ffmpeg is asked for on export)', () => {
     expect(DEPENDENCIES.filter((d) => d.severity !== 'optional').map((d) => d.id)).toEqual(['ffmpeg', 'vsthost', 'x11'])
+    expect(DEPENDENCIES.filter((d) => d.severity !== 'optional' && !d.onDemand).map((d) => d.id)).toEqual(['vsthost', 'x11'])
+  })
+
+  it('an on-demand dependency never opens the startup dialog, but is listed when it opens', async () => {
+    const ff = { ...fakeDep('ffmpeg', 'recommended', { ok: false }), onDemand: true }
+    const x11 = { ok: true }
+    const m = createDependencyManager([ff, fakeDep('x11', 'recommended', x11)], async () => fakeCtx())
+    await m.runStartupCheck()
+    expect(m.store.getState().open).toBe(false)
+    x11.ok = false
+    const m2 = createDependencyManager([ff, fakeDep('x11', 'recommended', x11)], async () => fakeCtx())
+    await m2.runStartupCheck()
+    expect(m2.store.getState()).toMatchObject({ open: true, mode: 'startup' })
+    expect(m2.visible(m2.store.getState()).map((r) => r.dep.id)).toEqual(['ffmpeg', 'x11'])
+    x11.ok = true
+    await m2.recheck() // ffmpeg still missing, but it does not keep the startup dialog open
+    expect(m2.store.getState().open).toBe(false)
   })
 })

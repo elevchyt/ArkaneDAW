@@ -41,7 +41,7 @@ describe('Concerto loader sample root', () => {
     const r = await loader.resolveConcerto(lute, ctx)
     expect(r.error).toBe('not-installed')
     expect(r.defs).toBeUndefined()
-    expect(loader.instStatus('lute')).toMatchObject({ state: 'unavailable', message: expect.stringMatching(/not installed/) })
+    expect(loader.instStatus('lute')).toMatchObject({ state: 'unavailable', message: expect.stringMatching(/not downloaded/) })
   })
 
   it('dev checkout fallback when unpackaged; installed pack wins once present', async () => {

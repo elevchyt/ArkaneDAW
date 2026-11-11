@@ -62,3 +62,8 @@ npm test
 
 Architecture and conventions: [docs/SPEC.md](docs/SPEC.md). Releasing: [docs/RELEASING.md](docs/RELEASING.md).
 Sample library credits: `resources/drumkits/LICENSES.md`, `resources/concerto/LICENSES.md`.
+
+## License
+
+ArkaneDAW is released under the [MIT License](LICENSE). Vendored third-party code keeps its own license
+(`native/vsthost/third_party/*/LICENSE`, `native/bridge/third_party/node-api/LICENSE`).

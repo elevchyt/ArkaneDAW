@@ -14,6 +14,22 @@ JOBS="$(nproc 2>/dev/null || echo 4)"
 make -C "$ROOT/native/vsthost" -j"$JOBS" all
 make -C "$ROOT/native/bridge" -j"$JOBS" all
 
+# Portability guard: the AppImage must run on glibc 2.34+ (Ubuntu 22.04, Debian 12, Fedora 35, RHEL 9)
+# without needing a particular libstdc++ (see native/compat/glibc-compat.h).
+GLIBC_MAX="2.34"
+for bin in "$ROOT/native/vsthost/build/arkane-vsthost" "$ROOT/native/bridge/build/arkane_bridge.node"; do
+  need="$(objdump -T "$bin" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)"
+  if [ "$(printf '%s\n%s\n' "$need" "$GLIBC_MAX" | sort -V | tail -n 1)" != "$GLIBC_MAX" ]; then
+    echo "native: $(basename "$bin") needs glibc $need (> $GLIBC_MAX):" >&2
+    objdump -T "$bin" | grep -E "GLIBC_($need)\b" >&2
+    exit 1
+  fi
+  if objdump -p "$bin" | grep -qE 'NEEDED +libstdc\+\+'; then
+    echo "native: $(basename "$bin") links libstdc++ dynamically" >&2
+    exit 1
+  fi
+done
+
 mkdir -p "$ROOT/resources/native"
 install -m 755 "$ROOT/native/vsthost/build/arkane-vsthost" "$ROOT/resources/native/arkane-vsthost"
 install -m 755 "$ROOT/native/bridge/build/arkane_bridge.node" "$ROOT/resources/native/arkane_bridge.node"

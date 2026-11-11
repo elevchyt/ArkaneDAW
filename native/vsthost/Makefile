@@ -4,21 +4,28 @@ CC ?= gcc
 BUILD := build
 CXXFLAGS ?= -O2 -g
 CXXFLAGS += -std=c++17 -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -pthread \
-            -Ithird_party/clap/include -Ithird_party/vst3 -DRELEASE=1
+            -Ithird_party/clap/include -Ithird_party/vst3 -DRELEASE=1 -include ../compat/glibc-compat.h
 LDLIBS := -ldl -lrt -pthread
+# Portable binary: no libstdc++ version requirement on the user's system (libgcc_s stays shared: its static
+# unwinder would need glibc 2.35 for _dl_find_object).
+PORTABLE_LDFLAGS := -static-libstdc++
 
 SRCS := src/main.cpp src/clap_host.cpp src/vst3_host.cpp src/vst2_host.cpp src/vst3_iids.cpp \
         third_party/vst3/pluginterfaces/base/funknown.cpp
-OBJS := $(patsubst %.cpp,$(BUILD)/obj/%.o,$(SRCS))
+OBJS := $(patsubst %.cpp,$(BUILD)/obj/%.o,$(SRCS)) $(BUILD)/obj/compat/glibc-compat.o
 
 all: $(BUILD)/arkane-vsthost tests
 
-$(BUILD)/obj/%.o: %.cpp src/*.h
+$(BUILD)/obj/%.o: %.cpp src/*.h ../compat/glibc-compat.h
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD)/obj/compat/glibc-compat.o: ../compat/glibc-compat.cpp ../compat/glibc-compat.h
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/arkane-vsthost: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDLIBS)
+	$(CXX) $(CXXFLAGS) $(PORTABLE_LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 tests: $(BUILD)/arkane-test-synth.clap $(BUILD)/vsthost-test

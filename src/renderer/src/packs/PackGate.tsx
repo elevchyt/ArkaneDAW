@@ -21,7 +21,7 @@ export function PackMissingPanel({ packId, accent = '#f79a2e' }: { packId: strin
       <div className="flex w-[380px] flex-col gap-3 rounded-[4px] border border-[#14191b] bg-fl-panel p-4 shadow-[0_6px_24px_rgba(0,0,0,.45)]">
         <div className="flex items-center gap-2">
           <Download size={18} style={{ color: accent }} />
-          <div className="text-[13px] font-semibold text-white">{st.state === 'unknown' ? `Checking the ${def.name} sound library…` : `${def.name} sound library not installed`}</div>
+          <div className="text-[13px] font-semibold text-white">{st.state === 'unknown' ? `Checking the ${def.name} sound library…` : `${def.name} sound library not downloaded yet`}</div>
         </div>
         <div className="leading-[1.45] text-fl-dim">{def.description}</div>
         {busy && <PackProgressBar status={st} />}

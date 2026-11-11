@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=ArkaneDAW
+Exec=AppRun %U
+Terminal=false
+Type=Application
+Icon=arkane-daw
+StartupWMClass=ArkaneDAW
+Comment=Pattern-based digital audio workstation
+Categories=AudioVideo;Audio;Midi;
