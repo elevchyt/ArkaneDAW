@@ -244,6 +244,23 @@ describe.skipIf(!ok)('Concerto DSP', () => {
     expect(stats(s.L).peak).toBe(0)
   })
 
+  it('an instance whose samples arrive in the shared store after its data (another instance shipped them) still plays', () => {
+    mkDsp(data.harp) // files the harp's samples in the shared store
+    const store = pcmStore()
+    const saved = Object.keys(data.harp.pcm ?? {}).map((f) => [f, store.get(f)!] as const)
+    expect(saved.length).toBeGreaterThan(0)
+    for (const [f] of saved) store.delete(f)
+    try {
+      // created while the first instance is still decoding: definitions only, nothing in the store yet
+      const dsp = mkDsp({ layers: data.harp.layers, defs: data.harp.defs })
+      for (const [f, pcm] of saved) store.set(f, pcm) // the first instance's payload lands
+      const r = renderEvents(dsp, [[0, 'on', note(60)], [0.3, 'off', note(60)]], 0.4)
+      expect(rms(r.L)).toBeGreaterThan(1e-3)
+    } finally {
+      for (const [f, pcm] of saved) store.set(f, pcm)
+    }
+  })
+
   it('allNotesOff(hard) silences immediately, including the hall', () => {
     const dsp = mkDsp(data.strings, { ...DRY, reverb: 60 })
     const L = new Float32Array(SR), R = new Float32Array(SR)

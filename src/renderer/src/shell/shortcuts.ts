@@ -8,7 +8,9 @@ import { cloneChannels, deleteChannels, moveChannels, routeToFreeInserts, select
 import { commands } from './commands'
 import { dispatchWindowKey } from './keys'
 import { recordLiveNote } from '@/audio/recording'
+import { host } from '@/platform'
 import { TOOL_KEYS as PLAYLIST_TOOL_KEYS } from '@/windows/playlist/keys'
+import { stepZoom, zoomKey } from './zoom'
 
 // FL's typing keyboard layout: Q-row = the typing octave, Z-row = one octave below. Q and ',' play the channel's
 // root note (the note its steps play: the sample's own pitch, or a Drum Machine channel's pad).
@@ -69,6 +71,14 @@ function typingNote(e: KeyboardEvent, down: boolean): boolean {
 export function useGlobalShortcuts(): void {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // UI zoom works everywhere, text fields and menus included (like a browser's).
+      const z = zoomKey(e)
+      if (z !== null && host) {
+        e.preventDefault()
+        const f = stepZoom(z)
+        useUI.getState().setHint(`Zoom ${Math.round(f * 100)}%`)
+        return
+      }
       if (isTextInput(e.target) || inOverlay(e.target)) return
       const ui = useUI.getState()
       const ctrl = e.ctrlKey || e.metaKey
@@ -185,7 +195,7 @@ export function useGlobalShortcuts(): void {
         case e.code === 'KeyR' && !ctrl:
           useTransport.getState().set({ recording: !useTransport.getState().recording })
           break
-        case e.code === 'NumpadAdd' || e.code === 'NumpadSubtract': {
+        case !ctrl && (e.code === 'NumpadAdd' || e.code === 'NumpadSubtract'): {
           const p = getProject()
           const i = p.patterns.findIndex((x) => x.id === ui.currentPattern)
           const n = p.patterns[Math.max(0, Math.min(p.patterns.length - 1, i + (e.code === 'NumpadAdd' ? 1 : -1)))]

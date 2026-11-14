@@ -19,7 +19,9 @@ export function Workspace() {
     .filter((w) => w.open)
     .sort((a, b) => a.z - b.z)
   return (
-    <div ref={ref} className="relative min-w-0 flex-1 overflow-hidden bg-fl-app" style={{ backgroundImage: 'radial-gradient(circle at 50% 40%, #2e373c 0%, #22292c 80%)' }}>
+    // `isolate`: the workspace is its own stacking context, so however high window z-indexes go they stay
+    // below portaled menus, popovers and dialogs.
+    <div ref={ref} className="relative isolate min-w-0 flex-1 overflow-hidden bg-fl-app" style={{ backgroundImage: 'radial-gradient(circle at 50% 40%, #2e373c 0%, #22292c 80%)' }}>
       {list.map((w) => {
         const C = windowComponents[w.kind]
         return C ? <C key={w.id} win={w} bounds={bounds} /> : null

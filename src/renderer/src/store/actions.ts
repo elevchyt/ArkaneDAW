@@ -74,15 +74,22 @@ export function addSamplerChannel(sampleId: string, name: string): string {
   return ch.id
 }
 
+/** Plugins whose channels play one drum pad from the typing keyboard / steps, so a custom root note means a pad. */
+const DRUM_PLUGINS = new Set(['drummachine', 'studiodrums'])
+
 export function replaceChannelPlugin(channelId: string, pluginId: string): void {
-  const mod = getPlugin(pluginId)
   editProject('Replace channel plugin', (d) => {
     const c = findChannel(d, channelId)
     if (!c) return
     c.plugin = newPluginState(pluginId)
     c.kind = pluginId === 'sampler' ? 'sampler' : 'instrument'
     c.name = pluginName(pluginId)
+    // A drum channel's root (e.g. 36 from MIDI import) would put the typing keyboard two octaves down on a melodic
+    // instrument, below the range of most sampled instruments (silent).
+    if (!DRUM_PLUGINS.has(pluginId)) delete c.rootNote
   })
+  // Live notes (typing keyboard, MIDI omni) go to the selected channel: make it the one just replaced.
+  useUI.getState().set({ selectedChannels: [channelId] })
 }
 
 export function updateChannel(channelId: string, patch: Partial<Channel>, label = 'Change channel', coalesceKey?: string): void {

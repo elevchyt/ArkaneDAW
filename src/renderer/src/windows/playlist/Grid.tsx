@@ -199,6 +199,8 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     }
     const ro = new ResizeObserver(fit)
     ro.observe(wrap)
+    // UI zoom changes devicePixelRatio without resizing the box in CSS px; the window 'resize' event does fire.
+    window.addEventListener('resize', fit)
     fit()
     const un1 = useProject.subscribe(requestPaint)
     const un2 = usePlaylist.subscribe(() => {
@@ -213,6 +215,7 @@ export function Grid({ offsets }: { offsets: Float64Array }) {
     const un6 = onLiveTakesChange(() => paintOverlay(playhead.tick))
     return () => {
       ro.disconnect()
+      window.removeEventListener('resize', fit)
       un1()
       un2()
       un3()

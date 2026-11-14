@@ -73,7 +73,7 @@ class BuiltinPluginNode implements PluginHostNode {
     const wasm = await getWasm(state.pluginId)
     const base = await resolvePluginData(state.data ?? mod?.manifest.defaultData)
     const data = mod?.resolveData ? await mod.resolveData(base, this.ctx) : base
-    if (this.disposed) return
+    if (this.disposed) return this.deliverOrphan(data, wasm)
     const params = { ...(mod ? defaultParams(mod.manifest) : {}), ...state.params }
     const node = new AudioWorkletNode(this.ctx, 'arkane-plugin', {
       numberOfInputs: this.kind === 'effect' ? 2 : 0,
@@ -99,6 +99,27 @@ class BuiltinPluginNode implements PluginHostNode {
     this.pending = []
   }
 
+  /**
+   * Resolved data this node can no longer deliver because it was disposed while loading (Replace, undo, deleting
+   * the channel...). Sample-based plugins (Concerto, Studio Drums) ship each decoded file to the worklet only once
+   * per context and mark it as sent, so dropping the payload would leave those samples missing for every later
+   * instance until restart. A throwaway processor files them in the worklet's shared store from its constructor.
+   */
+  private deliverOrphan(data: unknown, wasm?: WebAssembly.Module): void {
+    if (!data || typeof data !== 'object' || !(data as { pcm?: unknown }).pcm) return
+    try {
+      const node = new AudioWorkletNode(this.ctx, 'arkane-plugin', {
+        numberOfInputs: this.kind === 'effect' ? 2 : 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+        processorOptions: { pluginId: this.pluginId, kind: this.kind, params: {}, data, wasm }
+      })
+      node.port.postMessage({ type: 'dispose' })
+    } catch (e) {
+      console.warn(`[plugin ${this.pluginId}] could not hand over orphaned samples`, e)
+    }
+  }
+
   private send(m: ToWorklet): void {
     if (this.node) this.node.port.postMessage(m)
     else this.pending.push(m)
@@ -119,7 +140,7 @@ class BuiltinPluginNode implements PluginHostNode {
     const mod = getPlugin(this.pluginId)
     void resolvePluginData(data)
       .then((d) => (mod?.resolveData ? mod.resolveData(d, this.ctx) : d))
-      .then((d) => this.send({ type: 'data', data: d }))
+      .then((d) => (this.disposed ? this.deliverOrphan(d) : this.send({ type: 'data', data: d })))
   }
   schedule(events: ScheduledEvent[]): void {
     if (events.length) this.send({ type: 'events', events })

@@ -64,6 +64,7 @@ export function Ruler() {
     }
     const ro = new ResizeObserver(fit)
     ro.observe(cv.parentElement!)
+    window.addEventListener('resize', fit) // UI zoom changes devicePixelRatio
     fit()
     const uns = [useProject.subscribe(request), usePlaylist.subscribe(request), useTransport.subscribe(request), playhead.subscribe(request)]
     const onWheel = (e: WheelEvent) => {
@@ -77,6 +78,7 @@ export function Ruler() {
     cv.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       ro.disconnect()
+      window.removeEventListener('resize', fit)
       uns.forEach((u) => u())
       cv.removeEventListener('wheel', onWheel)
       cancelAnimationFrame(raf.current)

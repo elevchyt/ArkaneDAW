@@ -4,6 +4,7 @@ import { Toolbar } from '@/shell/Toolbar'
 import { Browser } from '@/shell/Browser'
 import { Workspace } from '@/shell/Workspace'
 import { useGlobalShortcuts } from '@/shell/shortcuts'
+import { restoreZoom } from '@/shell/zoom'
 import { installMiddleClickReset } from '@/shell/middleClickReset'
 import { useUI, installHintTracking } from '@/store/ui'
 import { useProject } from '@/store/project'
@@ -21,6 +22,7 @@ export default function App() {
   const browser = useUI((s) => s.browserVisible)
   useGlobalShortcuts()
   useEffect(() => installHintTracking(), [])
+  useEffect(() => restoreZoom(), [])
   useEffect(() => installMiddleClickReset(), [])
   useEffect(() => startAutosave(), [])
   useEffect(() => startFileWatch(), [])

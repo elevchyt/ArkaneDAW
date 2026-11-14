@@ -1,5 +1,5 @@
 // contextIsolation is off: this runs in the page's world and exposes a small host API.
-import { ipcRenderer, webUtils } from 'electron'
+import { ipcRenderer, webFrame, webUtils } from 'electron'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
@@ -34,6 +34,11 @@ const host = {
         ipcRenderer.off('win:state', h)
       }
     }
+  },
+  /** Page zoom of the whole UI (Ctrl + / Ctrl - / Ctrl 0); the window is frameless with no app menu. */
+  zoom: {
+    get: () => webFrame.getZoomFactor(),
+    set: (factor: number) => webFrame.setZoomFactor(factor)
   },
   dialog: {
     open: (opts: Electron.OpenDialogOptions) => ipcRenderer.invoke('dialog:open', opts) as Promise<Electron.OpenDialogReturnValue>,

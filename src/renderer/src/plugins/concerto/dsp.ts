@@ -259,6 +259,8 @@ class Concerto implements InstrumentDSP {
   private statusCount = 0
   private lastStatus = ''
   private missing = 0
+  /** PCM store size at the last attach: new samples only matter once it grew. */
+  private pcmSeen = 0
   private ready = false
 
   constructor(sr: number, post: (m: unknown) => void) {
@@ -326,7 +328,14 @@ class Concerto implements InstrumentDSP {
       transpose: l.transpose ?? 0,
       artPref: l.art
     }))
-    // attach PCM, count what's missing
+    this.attachPcm()
+    this.ready = this.slots.length > 0 && this.slots.every((s) => !!s.inst)
+    if (changed) this.held.length = 0
+    this.sendStatus(true)
+  }
+
+  /** Attach PCM from the shared store to every file of the current layers and count what's still missing. */
+  private attachPcm(): void {
     let missing = 0
     for (const s of this.slots) {
       if (!s.inst) continue
@@ -336,9 +345,7 @@ class Concerto implements InstrumentDSP {
       }
     }
     this.missing = missing
-    this.ready = this.slots.length > 0 && this.slots.every((s) => !!s.inst)
-    if (changed) this.held.length = 0
-    this.sendStatus(true)
+    this.pcmSeen = PCM.size
   }
 
   private sendStatus(force: boolean): void {
@@ -385,6 +392,9 @@ class Concerto implements InstrumentDSP {
   }
 
   noteOn(note: NoteOn): void {
+    // Another instance of the same instrument may have been the one shipping its samples (the loader sends each
+    // file to the worklet once): they land in the shared store after our data did, so pick them up now.
+    if (this.missing && PCM.size !== this.pcmSeen) this.attachPcm()
     if (this.isKeyswitch(note.key)) {
       const p = this.slots[0].inst!
       this.artIdx = note.key - p.ksBase

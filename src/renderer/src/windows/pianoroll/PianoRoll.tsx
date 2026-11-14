@@ -58,15 +58,18 @@ export default function PianoRoll({ win, bounds }: WindowProps) {
     const box = boxRef.current
     if (!c || !box) return
     ctl.attach(c)
-    const ro = new ResizeObserver(() => {
+    const fit = () => {
       ctl.resize(box.clientWidth, box.clientHeight)
       setBoxH(box.clientHeight)
-    })
+    }
+    const ro = new ResizeObserver(fit)
     ro.observe(box)
+    window.addEventListener('resize', fit) // UI zoom changes devicePixelRatio without resizing the box
     ctl.resize(box.clientWidth, box.clientHeight)
     setBoxH(box.clientHeight)
     return () => {
       ro.disconnect()
+      window.removeEventListener('resize', fit)
       ctl.detach()
     }
   }, [ctl, visible])
