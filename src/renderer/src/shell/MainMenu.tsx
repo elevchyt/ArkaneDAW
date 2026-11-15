@@ -23,6 +23,7 @@ import {
   MenubarLabel
 } from '@/components/ui/menubar'
 import { commands } from './commands'
+import { basename } from '@/platform'
 import { checkForUpdatesNow } from '@/system/update'
 import { version } from '../../../../package.json'
 
@@ -59,7 +60,7 @@ export function MainMenu() {
             <MenubarSubContent>
               {recent.length === 0 && <MenubarLabel>No recent files</MenubarLabel>}
               {recent.map((r, i) => (
-                <Item key={r} label={r.split('/').pop() ?? r} shortcut={`Alt+${i}`} onSelect={() => commands.openRecent(r)} />
+                <Item key={r} label={basename(r)} shortcut={`Alt+${i}`} onSelect={() => commands.openRecent(r)} />
               ))}
             </MenubarSubContent>
           </MenubarSub>
